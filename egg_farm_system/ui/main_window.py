@@ -6,26 +6,29 @@ import logging
 from datetime import datetime
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame,
-    QPushButton, QLabel, QComboBox, QMessageBox, QTabWidget, QStyle, QGraphicsOpacityEffect
+    QPushButton, QLabel, QComboBox, QMessageBox, QTabWidget, QStyle, 
+    QGraphicsOpacityEffect, QDialog
 )
 import traceback
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Slot
 from PySide6.QtGui import QIcon, QFont
 
-from database.db import DatabaseManager
-from modules.farms import FarmManager
-from config import WINDOW_WIDTH, WINDOW_HEIGHT, SIDEBAR_WIDTH
-from ui.dashboard import DashboardWidget
-from ui.forms.farm_forms import FarmFormWidget
-from ui.forms.production_forms import ProductionFormWidget
-from ui.forms.inventory_forms import InventoryFormWidget
-from ui.forms.party_forms import PartyFormWidget
-from ui.forms.transaction_forms import TransactionFormWidget
-from ui.reports.report_viewer import ReportViewerWidget
+from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.modules.farms import FarmManager
+from egg_farm_system.config import WINDOW_WIDTH, WINDOW_HEIGHT, SIDEBAR_WIDTH
+from egg_farm_system.ui.dashboard import DashboardWidget
+from egg_farm_system.ui.forms.farm_forms import FarmFormWidget
+from egg_farm_system.ui.forms.production_forms import ProductionFormWidget
+from egg_farm_system.ui.forms.inventory_forms import InventoryFormWidget
+from egg_farm_system.ui.forms.party_forms import PartyFormWidget
+from egg_farm_system.ui.forms.transaction_forms import TransactionFormWidget
+from egg_farm_system.ui.reports.report_viewer import ReportViewerWidget
 from pathlib import Path
 from PySide6.QtGui import QIcon
-from ui.forms.settings_form import SettingsForm
-from ui.forms.user_forms import UserManagementForm
+from egg_farm_system.ui.forms.settings_form import SettingsForm
+from egg_farm_system.ui.forms.user_forms import UserManagementForm
+from egg_farm_system.ui.forms.employee_forms import EmployeeManagementWidget
+from egg_farm_system.ui.forms.equipment_forms import EquipmentFormWidget
 
 logger = logging.getLogger(__name__)
 
@@ -66,60 +69,26 @@ class MainWindow(QMainWindow):
         """Create left sidebar navigation"""
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setProperty('collapsed', False)
         sidebar.setMaximumWidth(SIDEBAR_WIDTH)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
 
-        # Header with logo and collapse button
+        # Header
         header = QFrame()
         header.setObjectName("sidebar_header")
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
         header.setLayout(header_layout)
 
-        logo = QLabel()
-        logo.setObjectName("logo")
-        logo.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        logo_path = Path(__file__).parent.parent / 'assets' / 'logo.svg'
-        if logo_path.exists():
-            logo.setPixmap(QIcon(str(logo_path)).pixmap(28, 28))
-        # keep references for toggle
-        self.logo_widget = logo
-
         title = QLabel(f"Egg Farm v{self.app_version}")
         title.setObjectName("app_title")
         title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.title_widget = title
 
-        self.collapse_btn = QPushButton()
-        self.collapse_btn.setObjectName("collapse_btn")
-        self.collapse_btn.setFixedSize(24, 24)
-        chev_left = Path(__file__).parent.parent / 'assets' / 'icon_chevron_left.svg'
-        chev_right = Path(__file__).parent.parent / 'assets' / 'icon_chevron_right.svg'
-        if chev_left.exists():
-            self.collapse_btn.setIcon(QIcon(str(chev_left)))
-        self._chev_left = chev_left
-        self._chev_right = chev_right
-        self.collapse_btn.clicked.connect(self.toggle_sidebar)
-
-        header_layout.addWidget(logo)
         header_layout.addWidget(title)
         header_layout.addStretch()
-        # Account actions
-        self.change_pass_btn = QPushButton('Change Password')
-        self.change_pass_btn.setObjectName('change_pass_btn')
-        self.change_pass_btn.setMinimumHeight(24)
-        self.change_pass_btn.clicked.connect(self._on_change_password)
-        header_layout.addWidget(self.change_pass_btn)
-
-        self.logout_btn = QPushButton('Logout')
-        self.logout_btn.setObjectName('logout_btn')
-        self.logout_btn.setMinimumHeight(24)
-        self.logout_btn.clicked.connect(self._on_logout)
-        header_layout.addWidget(self.logout_btn)
 
         # Current user label
         self.user_label = QLabel()
@@ -134,8 +103,6 @@ class MainWindow(QMainWindow):
         except Exception:
             self.user_label.setText("Not logged in")
         header_layout.addWidget(self.user_label)
-
-        header_layout.addWidget(self.collapse_btn)
 
         layout.addWidget(header)
 
@@ -155,10 +122,12 @@ class MainWindow(QMainWindow):
             ("Egg Production", self.load_production, 'icon_egg.svg'),
             ("Feed Management", self.load_feed_management, 'icon_feed.svg'),
             ("Inventory", self.load_inventory, 'icon_inventory.svg'),
+            ("Equipment", self.load_equipment_management, 'icon_inventory.svg'),
             ("Parties", self.load_parties, 'icon_parties.svg'),
             ("Sales", self.load_sales, 'icon_sales.svg'),
             ("Purchases", self.load_purchases, 'icon_purchases.svg'),
             ("Expenses", self.load_expenses, 'icon_expenses.svg'),
+            ("Employees", self.load_employees_management, 'icon_parties.svg'),
             ("Users", self.load_users_management, 'icon_parties.svg'),
             ("Settings", self.load_settings, 'icon_reports.svg'),
             ("Reports", self.load_reports, 'icon_reports.svg'),
@@ -180,7 +149,7 @@ class MainWindow(QMainWindow):
             btn.clicked.connect(lambda checked=False, cb=callback: self._safe_load(cb))
             # role-based availability: disable Settings (and Users) for non-admins
             try:
-                if button_text in ('Settings', 'Users'):
+                if button_text in ('Settings', 'Users', 'Employees', 'Equipment'):
                     if not (hasattr(self, 'current_user') and self.current_user and getattr(self.current_user, 'role', '') == 'admin'):
                         btn.setEnabled(False)
                         btn.setToolTip('Admin only')
@@ -190,18 +159,17 @@ class MainWindow(QMainWindow):
 
         layout.addStretch()
 
-        # Exit button (will show icon when collapsed)
-        exit_btn = QPushButton("Exit")
-        exit_btn.setObjectName('exit_btn')
+        # Logout button
+        logout_btn = QPushButton("Logout")
+        logout_btn.setObjectName('logout_btn')
         exit_icon = asset_dir / 'icon_exit.svg'
         if exit_icon.exists():
-            exit_btn.setIcon(QIcon(str(exit_icon)))
-            exit_btn.setIconSize(QSize(18, 18))
-        exit_btn.clicked.connect(self.close_application)
-        exit_btn.setStyleSheet("QPushButton { background-color: #ff6b6b; color: white; }")
-        exit_btn.setProperty('full_text', 'Exit')
-        layout.addWidget(exit_btn)
-        self.exit_button = exit_btn
+            logout_btn.setIcon(QIcon(str(exit_icon)))
+            logout_btn.setIconSize(QSize(18, 18))
+        logout_btn.clicked.connect(self._on_logout)
+        logout_btn.setProperty('full_text', 'Logout')
+        layout.addWidget(logout_btn)
+        self.logout_button = logout_btn
 
         sidebar.setLayout(layout)
         return sidebar
@@ -299,6 +267,12 @@ class MainWindow(QMainWindow):
         self.clear_content()
         inventory_widget = InventoryFormWidget()
         self.content_layout.addWidget(inventory_widget)
+
+    def load_equipment_management(self):
+        """Load equipment management widget"""
+        self.clear_content()
+        equipment_widget = EquipmentFormWidget(self.get_current_farm_id())
+        self.content_layout.addWidget(equipment_widget)
     
     def load_parties(self):
         """Load parties widget"""
@@ -324,6 +298,12 @@ class MainWindow(QMainWindow):
         expenses_widget = TransactionFormWidget("expenses", self.get_current_farm_id())
         self.content_layout.addWidget(expenses_widget)
     
+    def load_employees_management(self):
+        """Load employees management widget"""
+        self.clear_content()
+        employees_widget = EmployeeManagementWidget()
+        self.content_layout.addWidget(employees_widget)
+        
     def load_reports(self):
         """Load reports widget"""
         self.clear_content()

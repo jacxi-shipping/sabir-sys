@@ -6,9 +6,13 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 
-from database.db import Base
+from egg_farm_system.database.db import Base
 
 # Enums
+class SalaryPeriod(enum.Enum):
+    MONTHLY = "Monthly"
+    DAILY = "Daily"
+
 class FeedType(enum.Enum):
     STARTER = "Starter"
     GROWER = "Grower"
@@ -39,6 +43,7 @@ class Farm(Base):
     # Relationships
     sheds = relationship("Shed", back_populates="farm", cascade="all, delete-orphan")
     expenses = relationship("Expense", back_populates="farm", cascade="all, delete-orphan")
+    equipments = relationship("Equipment", back_populates="farm", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Farm {self.name}>"
@@ -465,6 +470,73 @@ class User(Base):
 
     def __repr__(self):
         return f"<User {self.username}>"
+
+class Employee(Base):
+    """Employee entity"""
+    __tablename__ = "employees"
+    
+    id = Column(Integer, primary_key=True)
+    full_name = Column(String(255), nullable=False)
+    job_title = Column(String(100))
+    hire_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    salary_amount = Column(Float, nullable=False, default=0)
+    salary_period = Column(Enum(SalaryPeriod), nullable=False, default=SalaryPeriod.MONTHLY)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    salary_payments = relationship("SalaryPayment", back_populates="employee", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Employee {self.full_name}>"
+
+
+class SalaryPayment(Base):
+    """Record of a salary payment made to an employee"""
+    __tablename__ = "salary_payments"
+
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    payment_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    amount_paid = Column(Float, nullable=False)
+    period_start = Column(DateTime, nullable=False)
+    period_end = Column(DateTime, nullable=False)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    employee = relationship("Employee", back_populates="salary_payments")
+
+    def __repr__(self):
+        return f"<SalaryPayment {self.employee.full_name} - {self.payment_date}>"
+
+
+class EquipmentStatus(enum.Enum):
+    OPERATIONAL = "Operational"
+    UNDER_MAINTENANCE = "Under Maintenance"
+    DECOMMISSIONED = "Decommissioned"
+
+
+class Equipment(Base):
+    """Farm equipment entity"""
+    __tablename__ = "equipments"
+
+    id = Column(Integer, primary_key=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    purchase_date = Column(DateTime)
+    purchase_price = Column(Float)
+    status = Column(Enum(EquipmentStatus), nullable=False, default=EquipmentStatus.OPERATIONAL)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    farm = relationship("Farm", back_populates="equipments")
+
+    def __repr__(self):
+        return f"<Equipment {self.name}>"
 
 
 class Setting(Base):
