@@ -4,7 +4,7 @@ Reusable charting components using pyqtgraph.
 import pyqtgraph as pg
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import QDateTime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 class TimeAxisItem(pg.AxisItem):
     """A custom axis item for displaying time-series data."""
@@ -44,7 +44,7 @@ class TimeSeriesChart(QWidget):
         y_data: List of numerical values.
         """
         # Convert datetime objects to timestamps for plotting
-        timestamps = [dt.timestamp() for dt in x_data]
+        timestamps = [(datetime(dt.year, dt.month, dt.day).timestamp() if isinstance(dt, date) else dt.timestamp()) for dt in x_data]
         
         # Clear previous plots
         self.plot_item.clear()

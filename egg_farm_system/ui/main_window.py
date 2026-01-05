@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame,
-    QPushButton, QLabel, QComboBox, QMessageBox, QTabWidget, QStyle, 
+    QPushButton, QLabel, QComboBox, QMessageBox, QTabWidget, QStyle, QSizePolicy,
     QGraphicsOpacityEffect, QDialog
 )
 import traceback
@@ -51,14 +51,20 @@ class MainWindow(QMainWindow):
         
         # Create sidebar
         self.sidebar = self.create_sidebar()
-        main_layout.addWidget(self.sidebar, 0)
-        
+        main_layout.addWidget(self.sidebar) # Remove stretch factor for sidebar
+
         # Create content area
         self.content_area = QFrame()
+        self.content_area.setFrameShape(QFrame.NoFrame) # No border for content area
+        self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout = QVBoxLayout()
+        self.content_layout.setContentsMargins(0, 0, 0, 0) # Remove margins
         self.content_area.setLayout(self.content_layout)
-        main_layout.addWidget(self.content_area, 1)
+        main_layout.addWidget(self.content_area, 1) # Content area takes remaining space
         
+        main_layout.setStretch(0, 0) # Sidebar does not stretch
+        main_layout.setStretch(1, 1) # Content area stretches
+
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
         
