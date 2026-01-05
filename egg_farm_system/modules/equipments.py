@@ -83,3 +83,8 @@ class EquipmentManager:
             logger.error(f"Error deleting equipment: {e}")
             raise
 
+    def close_session(self):
+        """Close database session"""
+        if self.session:
+            self.session.close()
+

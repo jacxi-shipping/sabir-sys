@@ -2,7 +2,7 @@
 Reusable charting components using pyqtgraph.
 """
 import pyqtgraph as pg
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 from PySide6.QtCore import QDateTime
 from datetime import datetime, timedelta, date
 
@@ -25,6 +25,7 @@ class TimeSeriesChart(QWidget):
             title=title,
             axisItems={'bottom': TimeAxisItem(orientation='bottom')}
         )
+        self.plot_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.layout.addWidget(self.plot_widget)
 
         # Set chart properties

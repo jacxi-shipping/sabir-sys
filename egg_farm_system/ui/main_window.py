@@ -5,7 +5,7 @@ import sys
 import logging
 from datetime import datetime
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame,
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLayout,
     QPushButton, QLabel, QComboBox, QMessageBox, QTabWidget, QStyle, QSizePolicy,
     QGraphicsOpacityEffect, QDialog
 )
@@ -29,6 +29,7 @@ from egg_farm_system.ui.forms.settings_form import SettingsForm
 from egg_farm_system.ui.forms.user_forms import UserManagementForm
 from egg_farm_system.ui.forms.employee_forms import EmployeeManagementWidget
 from egg_farm_system.ui.forms.equipment_forms import EquipmentFormWidget
+from egg_farm_system.database.models import User # Added import
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,18 @@ class MainWindow(QMainWindow):
         self.current_user = current_user
         self.setWindowTitle("Egg Farm Management System")
         self.setGeometry(100, 100, WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.app_version = app_version
         
         DatabaseManager.initialize()
+        # Re-fetch the user to bind it to a new session for MainWindow's lifetime
+        if current_user:
+            session = DatabaseManager.get_session()
+            try:
+                self.current_user = session.query(User).filter_by(id=current_user.id).first()
+            finally:
+                session.close()
+
         self.farm_manager = FarmManager()
         
         # Create main layout
@@ -64,6 +74,7 @@ class MainWindow(QMainWindow):
         
         main_layout.setStretch(0, 0) # Sidebar does not stretch
         main_layout.setStretch(1, 1) # Content area stretches
+        main_layout.setSizeConstraint(QLayout.SetNoConstraint) # Ignore size hints of children
 
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
@@ -246,12 +257,14 @@ class MainWindow(QMainWindow):
         """Load dashboard widget"""
         self.clear_content()
         dashboard = DashboardWidget(self.get_current_farm_id())
+        dashboard.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(dashboard)
     
     def load_farm_management(self):
         """Load farm management widget"""
         self.clear_content()
         farm_widget = FarmFormWidget()
+        farm_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         farm_widget.farm_changed.connect(self.refresh_farm_list)
         self.content_layout.addWidget(farm_widget)
     
@@ -259,6 +272,7 @@ class MainWindow(QMainWindow):
         """Load egg production widget"""
         self.clear_content()
         prod_widget = ProductionFormWidget(self.get_current_farm_id())
+        prod_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(prod_widget)
     
     def load_feed_management(self):
@@ -266,66 +280,77 @@ class MainWindow(QMainWindow):
         self.clear_content()
         from ui.forms.feed_forms import FeedFormWidget
         feed_widget = FeedFormWidget()
+        feed_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(feed_widget)
     
     def load_inventory(self):
         """Load inventory widget"""
         self.clear_content()
         inventory_widget = InventoryFormWidget()
+        inventory_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(inventory_widget)
 
     def load_equipment_management(self):
         """Load equipment management widget"""
         self.clear_content()
         equipment_widget = EquipmentFormWidget(self.get_current_farm_id())
+        equipment_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(equipment_widget)
     
     def load_parties(self):
         """Load parties widget"""
         self.clear_content()
         party_widget = PartyFormWidget()
+        party_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(party_widget)
     
     def load_sales(self):
         """Load sales widget"""
         self.clear_content()
         sales_widget = TransactionFormWidget("sales", self.get_current_farm_id())
+        sales_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(sales_widget)
     
     def load_purchases(self):
         """Load purchases widget"""
         self.clear_content()
         purchases_widget = TransactionFormWidget("purchases", self.get_current_farm_id())
+        purchases_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(purchases_widget)
     
     def load_expenses(self):
         """Load expenses widget"""
         self.clear_content()
         expenses_widget = TransactionFormWidget("expenses", self.get_current_farm_id())
+        expenses_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(expenses_widget)
     
     def load_employees_management(self):
         """Load employees management widget"""
         self.clear_content()
         employees_widget = EmployeeManagementWidget()
+        employees_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(employees_widget)
         
     def load_reports(self):
         """Load reports widget"""
         self.clear_content()
         reports_widget = ReportViewerWidget(self.get_current_farm_id())
+        reports_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(reports_widget)
 
     def load_users_management(self):
         """Load user management UI"""
         self.clear_content()
         users_widget = UserManagementForm()
+        users_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(users_widget)
 
     def load_settings(self):
         """Load settings UI"""
         self.clear_content()
         settings_widget = SettingsForm()
+        settings_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(settings_widget)
     
     def close_application(self):

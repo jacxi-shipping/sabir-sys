@@ -9,6 +9,7 @@ from PySide6.QtGui import QFont
 from modules.reports import ReportGenerator
 from ui.widgets.charts import TimeSeriesChart
 import logging
+from PySide6.QtWidgets import QSizePolicy
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class DashboardWidget(QWidget):
         self.farm_id = farm_id
         self.report_generator = ReportGenerator()
         
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.init_ui()
         self.refresh_data()
     

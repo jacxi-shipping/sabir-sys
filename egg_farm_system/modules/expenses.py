@@ -46,7 +46,8 @@ class ExpenseManager:
                     credit_usd=amount_usd,
                     exchange_rate_used=exchange_rate_used,
                     reference_type="Expense",
-                    reference_id=expense.id
+                    reference_id=expense.id,
+                    session=self.session # Pass the current session
                 )
             
             self.session.commit()
@@ -150,7 +151,8 @@ class PaymentManager:
                     credit_usd=amount_usd,
                     exchange_rate_used=exchange_rate_used,
                     reference_type="Payment",
-                    reference_id=payment.id
+                    reference_id=payment.id,
+                    session=self.session # Pass the current session
                 )
             else:  # Paid
                 # Debit party, Credit cash
@@ -162,7 +164,8 @@ class PaymentManager:
                     debit_usd=amount_usd,
                     exchange_rate_used=exchange_rate_used,
                     reference_type="Payment",
-                    reference_id=payment.id
+                    reference_id=payment.id,
+                    session=self.session # Pass the current session
                 )
             
             self.session.commit()

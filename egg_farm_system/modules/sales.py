@@ -51,7 +51,8 @@ class SalesManager:
                 debit_usd=total_usd,
                 exchange_rate_used=exchange_rate_used,
                 reference_type="Sale",
-                reference_id=sale.id
+                reference_id=sale.id,
+                session=self.session # Pass the current session
             )
             
             self.session.commit()

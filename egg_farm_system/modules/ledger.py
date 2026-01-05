@@ -12,14 +12,15 @@ class LedgerManager:
     """Manage party ledger entries"""
     
     def __init__(self):
-        self.session = DatabaseManager.get_session()
+        pass # Session will be managed per-method or passed in
     
     def post_entry(self, party_id, date, description, debit_afg=0, credit_afg=0, 
                    debit_usd=0, credit_usd=0, exchange_rate_used=78.0, 
-                   reference_type=None, reference_id=None):
+                   reference_type=None, reference_id=None, session=None): # Added session parameter
         """Post a ledger entry"""
+        _session = session if session else DatabaseManager.get_session()
         try:
-            party = self.session.query(Party).filter(Party.id == party_id).first()
+            party = _session.query(Party).filter(Party.id == party_id).first()
             if not party:
                 raise ValueError(f"Party {party_id} not found")
             
@@ -35,14 +36,19 @@ class LedgerManager:
                 reference_type=reference_type,
                 reference_id=reference_id
             )
-            self.session.add(entry)
-            self.session.commit()
+            _session.add(entry)
+            if not session: # Only commit if session was created in this method
+                _session.commit()
             logger.info(f"Ledger entry posted for party {party_id}")
             return entry
         except Exception as e:
-            self.session.rollback()
+            if not session: # Only rollback if session was created in this method
+                _session.rollback()
             logger.error(f"Error posting ledger entry: {e}")
             raise
+        finally:
+            if not session: # Only close if session was created in this method
+                _session.close()
     
     def get_party_ledger(self, party_id):
         """Get all ledger entries for a party"""
@@ -86,7 +92,7 @@ class LedgerManager:
                 else:
                     change = entry.debit_usd - entry.credit_usd
                     debit = entry.debit_usd
-                    credit = entry.credit_usd
+                    credit = entry.edit_usd
                 
                 running_balance += change
                 

@@ -2,7 +2,9 @@
 Module for generating financial reports.
 """
 from sqlalchemy import func
-from egg_farm_system.database.models import Sale, Expense, FeedIssue, Payment, Purchase, Shed
+from egg_farm_system.database.models import (
+    Sale, Expense, FeedIssue, Payment, Purchase, Shed, RawMaterial, FinishedFeed, FeedFormula
+)
 
 class FinancialReportGenerator:
 

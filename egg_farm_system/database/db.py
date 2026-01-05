@@ -1,6 +1,3 @@
-"""
-Database initialization and session management
-"""
 from sqlalchemy import create_engine, event
 from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker, declarative_base

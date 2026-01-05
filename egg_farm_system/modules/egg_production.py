@@ -62,7 +62,7 @@ class EggProductionManager:
     def get_farm_production(self, farm_id, start_date, end_date):
         """Get production for entire farm"""
         try:
-            from database.models import Shed
+            from egg_farm_system.database.models import Shed
             
             sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
             productions = []
@@ -151,7 +151,6 @@ class EggProductionManager:
             logger.error(f"Error deleting production: {e}")
             raise
     
-    def close_session(self):
-        """Close database session"""
-        if self.session:
-            self.session.close()
+
+    
+

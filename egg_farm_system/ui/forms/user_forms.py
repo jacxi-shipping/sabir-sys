@@ -13,7 +13,7 @@ class NewUserDialog(QDialog):
         layout = QFormLayout()
         self.username = QLineEdit()
         self.password = QLineEdit()
-        self.password.setEchoMode(self.password.Password)
+        self.password.setEchoMode(QLineEdit.Password)
         self.full_name = QLineEdit()
         layout.addRow('Username:', self.username)
         layout.addRow('Password:', self.password)

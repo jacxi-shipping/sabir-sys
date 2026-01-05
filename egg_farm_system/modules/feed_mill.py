@@ -110,6 +110,11 @@ class RawMaterialManager:
         except Exception as e:
             logger.error(f"Error getting low stock alerts: {e}")
             return []
+    
+    def close_session(self):
+        """Close database session"""
+        if self.session:
+            self.session.close()
 
 
 class FeedFormulaManager:
@@ -224,6 +229,11 @@ class FeedFormulaManager:
         except Exception as e:
             logger.error(f"Error validating formula: {e}")
             return False, str(e)
+    
+    def close_session(self):
+        """Close database session"""
+        if self.session:
+            self.session.close()
 
 
 class FeedProductionManager:
@@ -302,6 +312,11 @@ class FeedProductionManager:
             self.session.rollback()
             logger.error(f"Error producing batch: {e}")
             raise
+    
+    def close_session(self):
+        """Close database session"""
+        if self.session:
+            self.session.close()
 
 
 class FeedIssueManager:
@@ -355,3 +370,8 @@ class FeedIssueManager:
         except Exception as e:
             logger.error(f"Error getting feed issues: {e}")
             return []
+    
+    def close_session(self):
+        """Close database session"""
+        if self.session:
+            self.session.close()
