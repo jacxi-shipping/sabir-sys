@@ -2,8 +2,8 @@
 Ledger and accounting module
 """
 from datetime import datetime
-from database.models import Ledger, Party
-from database.db import DatabaseManager
+from egg_farm_system.database.models import Ledger, Party
+from egg_farm_system.database.db import DatabaseManager
 import logging
 
 logger = logging.getLogger(__name__)

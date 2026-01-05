@@ -1,5 +1,5 @@
-from database.db import DatabaseManager
-from database.models import User
+from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.database.models import User
 from sqlalchemy.orm import Session
 import hashlib, os
 import re

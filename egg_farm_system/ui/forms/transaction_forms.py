@@ -17,9 +17,9 @@ from modules.purchases import PurchaseManager
 from modules.expenses import ExpenseManager, PaymentManager
 from modules.parties import PartyManager
 from modules.inventory import InventoryManager
-from database.models import RawMaterial, Sale, Purchase, Expense
-from database.db import DatabaseManager
-from config import EXPENSE_CATEGORIES
+from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
+from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.config import EXPENSE_CATEGORIES
 
 class TransactionFormWidget(QWidget):
     """Transaction management widget (Sales, Purchases, Expenses)"""

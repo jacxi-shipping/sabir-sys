@@ -2,8 +2,8 @@
 Expenses and payments module
 """
 from datetime import datetime
-from database.models import Expense, Payment
-from database.db import DatabaseManager
+from egg_farm_system.database.models import Expense, Payment
+from egg_farm_system.database.db import DatabaseManager
 from modules.ledger import LedgerManager
 import logging
 

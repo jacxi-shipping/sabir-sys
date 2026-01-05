@@ -2,8 +2,8 @@
 Purchase module with auto ledger posting
 """
 from datetime import datetime
-from database.models import Purchase, RawMaterial
-from database.db import DatabaseManager
+from egg_farm_system.database.models import Purchase, RawMaterial
+from egg_farm_system.database.db import DatabaseManager
 from modules.ledger import LedgerManager
 from utils.currency import CurrencyConverter
 import logging

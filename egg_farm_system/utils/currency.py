@@ -1,7 +1,7 @@
 """
 Currency utilities and conversion functions
 """
-from config import BASE_CURRENCY, SECONDARY_CURRENCY, DEFAULT_EXCHANGE_RATE
+from egg_farm_system.config import BASE_CURRENCY, SECONDARY_CURRENCY, DEFAULT_EXCHANGE_RATE
 
 class CurrencyConverter:
     """Handle currency conversions"""

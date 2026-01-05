@@ -1,8 +1,8 @@
 """
 Shed management module
 """
-from database.models import Shed
-from database.db import DatabaseManager
+from egg_farm_system.database.models import Shed
+from egg_farm_system.database.db import DatabaseManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,14 @@ class ShedManager:
             return self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
         except Exception as e:
             logger.error(f"Error getting sheds: {e}")
+            return []
+    
+    def get_all_sheds(self):
+        """Get all sheds from all farms"""
+        try:
+            return self.session.query(Shed).all()
+        except Exception as e:
+            logger.error(f"Error getting all sheds: {e}")
             return []
     
     def get_shed_by_id(self, shed_id):

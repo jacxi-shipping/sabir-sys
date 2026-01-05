@@ -2,6 +2,9 @@
 Calculation utilities for egg farm system
 """
 from datetime import datetime, timedelta
+from sqlalchemy import func
+from egg_farm_system.database.models import Flock, FeedIssue, EggProduction, Mortality
+
 
 class EggCalculations:
     """Egg production calculations"""
@@ -27,6 +30,40 @@ class EggCalculations:
             return 0
         return (usable_eggs / total_eggs) * 100
 
+    @staticmethod
+    def calculate_hdp_for_flock(session, flock_id, start_date, end_date):
+        """
+        Calculates the Hen-Day Production % for a specific flock over a given period.
+        """
+        flock = session.query(Flock).filter(Flock.id == flock_id).first()
+        if not flock:
+            return 0, 0, 0
+
+        shed_id = flock.shed_id
+        
+        # Get total eggs produced
+        total_eggs = session.query(func.sum(
+            EggProduction.small_count + EggProduction.medium_count + EggProduction.large_count + EggProduction.broken_count
+        )).filter(
+            EggProduction.shed_id == shed_id,
+            EggProduction.date >= start_date,
+            EggProduction.date <= end_date
+        ).scalar() or 0
+
+        # Calculate average live bird count for the period
+        num_days = (end_date - start_date).days + 1
+        total_bird_days = 0
+        current_date = start_date
+        while current_date <= end_date:
+            total_bird_days += flock.get_live_count(as_of_date=current_date)
+            current_date += timedelta(days=1)
+        
+        avg_live_birds = total_bird_days / num_days if num_days > 0 else 0
+
+        hdp = EggCalculations.egg_production_percentage(total_eggs, avg_live_birds, num_days)
+        
+        return hdp, total_eggs, avg_live_birds
+
 
 class FeedCalculations:
     """Feed-related calculations"""
@@ -44,11 +81,53 @@ class FeedCalculations:
         if total_eggs == 0:
             return 0
         return (total_feed_kg / total_eggs) * 1000
+
+    @staticmethod
+    def feed_conversion_ratio_per_dozen(total_feed_kg, total_eggs):
+        """Calculate feed conversion ratio (kg feed per dozen eggs)"""
+        if total_eggs == 0:
+            return 0
+        dozens = total_eggs / 12
+        if dozens == 0:
+            return 0
+        return total_feed_kg / dozens
     
     @staticmethod
     def daily_feed_requirement(live_bird_count, daily_consumption_per_bird_kg=0.12):
         """Calculate daily feed requirement"""
         return live_bird_count * daily_consumption_per_bird_kg
+
+    @staticmethod
+    def calculate_fcr_for_flock(session, flock_id, start_date, end_date):
+        """
+        Calculates the Feed Conversion Ratio for a specific flock over a given period.
+        """
+        flock = session.query(Flock).filter(Flock.id == flock_id).first()
+        if not flock:
+            return 0, 0, 0
+
+        shed_id = flock.shed_id
+
+        # Get total feed issued
+        total_feed_kg = session.query(func.sum(FeedIssue.quantity_kg)).filter(
+            FeedIssue.shed_id == shed_id,
+            FeedIssue.date >= start_date,
+            FeedIssue.date <= end_date
+        ).scalar() or 0
+
+        # Get total eggs produced
+        total_eggs_query = session.query(
+            func.sum(EggProduction.small_count + EggProduction.medium_count + EggProduction.large_count + EggProduction.broken_count)
+        ).filter(
+            EggProduction.shed_id == shed_id,
+            EggProduction.date >= start_date,
+            EggProduction.date <= end_date
+        )
+        total_eggs = total_eggs_query.scalar() or 0
+        
+        fcr = FeedCalculations.feed_conversion_ratio_per_dozen(total_feed_kg, total_eggs)
+        
+        return fcr, total_feed_kg, total_eggs
 
 
 class FinancialCalculations:
@@ -118,6 +197,32 @@ class MortalityCalculations:
         days = MortalityCalculations.flock_age_days(start_date, end_date)
         return days / 7
 
+    @staticmethod
+    def calculate_mortality_rate_for_period(session, flock_id, start_date, end_date):
+        """
+        Calculates the mortality rate for a specific flock over a given period.
+        """
+        flock = session.query(Flock).filter(Flock.id == flock_id).first()
+        if not flock:
+            return 0, 0, 0
+
+        # Get live bird count at the beginning of the period
+        bird_count_start = flock.get_live_count(as_of_date=start_date)
+
+        # Get number of deaths during the period
+        deaths_in_period = session.query(func.sum(Mortality.count)).filter(
+            Mortality.flock_id == flock_id,
+            Mortality.date >= start_date,
+            Mortality.date <= end_date
+        ).scalar() or 0
+
+        if bird_count_start == 0:
+            return 0, deaths_in_period, bird_count_start
+
+        mortality_rate = (deaths_in_period / bird_count_start) * 100
+        
+        return mortality_rate, deaths_in_period, bird_count_start
+
 
 class InventoryCalculations:
     """Inventory valuation and calculations"""
@@ -139,3 +244,4 @@ class InventoryCalculations:
         
         total_cost = (opening_stock * opening_cost) + sum(p['quantity'] * p['unit_cost'] for p in purchases)
         return total_cost / total_qty
+

@@ -10,6 +10,8 @@ from PySide6.QtGui import QFont
 
 from modules.reports import ReportGenerator
 from modules.parties import PartyManager
+from ui.reports.production_analytics_widget import ProductionAnalyticsWidget
+from egg_farm_system.database.db import DatabaseManager
 
 class ReportViewerWidget(QWidget):
     """Report viewing and export widget"""
@@ -18,6 +20,7 @@ class ReportViewerWidget(QWidget):
         super().__init__()
         self.report_generator = ReportGenerator()
         self.farm_id = farm_id
+        self.analytics_widget = None  # To hold the reference
         self.init_ui()
     
     def init_ui(self):
@@ -88,8 +91,13 @@ class ReportViewerWidget(QWidget):
         generate_btn.clicked.connect(self.generate_report)
         export_btn = QPushButton("Export to CSV")
         export_btn.clicked.connect(self.export_report)
+        
+        analytics_btn = QPushButton("Production Analytics")
+        analytics_btn.clicked.connect(self.open_production_analytics)
+
         header_hbox.addWidget(generate_btn)
         header_hbox.addWidget(export_btn)
+        header_hbox.addWidget(analytics_btn)
         layout.addLayout(header_hbox)
         
         # Report content
@@ -98,6 +106,13 @@ class ReportViewerWidget(QWidget):
         layout.addWidget(self.report_text)
         
         self.setLayout(layout)
+
+    def open_production_analytics(self):
+        """Open the Production Analytics widget."""
+        if not self.analytics_widget:
+            session = DatabaseManager.get_session()
+            self.analytics_widget = ProductionAnalyticsWidget(session)
+        self.analytics_widget.show()
     
     def on_report_changed(self):
         """Handle report type change"""

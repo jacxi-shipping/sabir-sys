@@ -1,8 +1,8 @@
 """
 Farm management module
 """
-from database.models import Farm
-from database.db import DatabaseManager
+from egg_farm_system.database.models import Farm
+from egg_farm_system.database.db import DatabaseManager
 import logging
 
 logger = logging.getLogger(__name__)

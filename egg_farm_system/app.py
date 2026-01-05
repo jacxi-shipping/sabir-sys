@@ -9,10 +9,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from PySide6.QtWidgets import QApplication, QDialog
-from database.db import DatabaseManager
+from egg_farm_system.database.db import DatabaseManager
 from ui.main_window import MainWindow
 from ui.forms.login_dialog import LoginDialog
-from config import APP_NAME, APP_VERSION, LOGS_DIR, LOG_LEVEL, LOG_FORMAT
+from egg_farm_system.config import APP_NAME, APP_VERSION, LOGS_DIR, LOG_LEVEL, LOG_FORMAT
 
 # Configure logging
 logging.basicConfig(

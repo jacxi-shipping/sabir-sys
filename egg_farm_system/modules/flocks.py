@@ -2,8 +2,8 @@
 Flock management module
 """
 from datetime import datetime
-from database.models import Flock, Mortality
-from database.db import DatabaseManager
+from egg_farm_system.database.models import Flock, Mortality
+from egg_farm_system.database.db import DatabaseManager
 import logging
 
 logger = logging.getLogger(__name__)

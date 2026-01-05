@@ -2,10 +2,10 @@
 Feed manufacturing and management module
 """
 from datetime import datetime
-from database.models import (
-    RawMaterial, FeedFormula, FeedFormulation, FeedBatch, FinishedFeed, FeedIssue, FeedType
+from egg_farm_system.database.models import (
+    RawMaterial, FeedFormula, FeedFormulation, FeedBatch, FinishedFeed, FeedIssue
 )
-from database.db import DatabaseManager
+from egg_farm_system.database.db import DatabaseManager
 from utils.currency import CurrencyConverter
 import logging
 
@@ -51,7 +51,40 @@ class RawMaterialManager:
         except Exception as e:
             logger.error(f"Error getting material: {e}")
             return None
-    
+
+    def update_material(self, material_id, **data):
+        """Update a raw material."""
+        try:
+            material = self.get_material_by_id(material_id)
+            if not material:
+                raise ValueError(f"Material {material_id} not found")
+            
+            for key, value in data.items():
+                setattr(material, key, value)
+            
+            self.session.commit()
+            logger.info(f"Raw material updated: {material.name}")
+            return material
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error updating material: {e}")
+            raise
+
+    def delete_material(self, material_id):
+        """Delete a raw material."""
+        try:
+            material = self.get_material_by_id(material_id)
+            if not material:
+                raise ValueError(f"Material {material_id} not found")
+            
+            self.session.delete(material)
+            self.session.commit()
+            logger.info(f"Raw material deleted: {material.name}")
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error deleting material: {e}")
+            raise
+
     def update_material_stock(self, material_id, quantity_change):
         """Update material stock"""
         try:
@@ -145,6 +178,36 @@ class FeedFormulaManager:
         except Exception as e:
             logger.error(f"Error getting formula: {e}")
             return None
+
+    def remove_ingredient(self, formulation_id):
+        """Remove an ingredient from a formula."""
+        try:
+            formulation = self.session.query(FeedFormulation).filter(FeedFormulation.id == formulation_id).first()
+            if not formulation:
+                raise ValueError(f"Formulation entry {formulation_id} not found.")
+            
+            self.session.delete(formulation)
+            self.session.commit()
+            logger.info(f"Ingredient removed from formula {formulation.formula_id}")
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error removing ingredient: {e}")
+            raise
+
+    def delete_formula(self, formula_id):
+        """Deletes a feed formula and all its ingredients."""
+        try:
+            formula = self.get_formula_by_id(formula_id)
+            if not formula:
+                raise ValueError(f"Formula {formula_id} not found.")
+            
+            self.session.delete(formula)
+            self.session.commit()
+            logger.info(f"Feed formula deleted: {formula.name}")
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error deleting formula: {e}")
+            raise
     
     def validate_formula(self, formula_id):
         """Validate formula (must equal 100%)"""

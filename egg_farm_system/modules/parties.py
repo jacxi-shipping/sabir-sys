@@ -1,8 +1,8 @@
 """
 Party management module (unified customer/supplier)
 """
-from database.models import Party
-from database.db import DatabaseManager
+from egg_farm_system.database.models import Party
+from egg_farm_system.database.db import DatabaseManager
 import logging
 
 logger = logging.getLogger(__name__)

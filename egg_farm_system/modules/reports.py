@@ -2,10 +2,11 @@
 Reports generation and export module
 """
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
-from database.db import DatabaseManager
-from database.models import (
+from sqlalchemy import func
+from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.database.models import (
     Farm, Shed, EggProduction, FeedIssue, Sale, Purchase, 
     Expense, Payment, Party
 )
@@ -19,6 +20,53 @@ class ReportGenerator:
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
+
+    def get_daily_production_summary(self, farm_id, days=30):
+        """
+        Get daily egg production summary for the last N days for the dashboard.
+        """
+        try:
+            end_date = datetime.utcnow().date()
+            start_date = end_date - timedelta(days=days - 1)
+
+            # Get all sheds for the farm
+            sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
+            shed_ids = [s.id for s in sheds]
+
+            if not shed_ids:
+                return {'dates': [], 'egg_counts': []}
+
+            # Query to get total eggs per day
+            daily_data = self.session.query(
+                func.date(EggProduction.date),
+                func.sum(
+                    EggProduction.small_count + 
+                    EggProduction.medium_count + 
+                    EggProduction.large_count + 
+                    EggProduction.broken_count
+                )
+            ).filter(
+                EggProduction.shed_id.in_(shed_ids),
+                func.date(EggProduction.date) >= start_date,
+                func.date(EggProduction.date) <= end_date
+            ).group_by(
+                func.date(EggProduction.date)
+            ).order_by(
+                func.date(EggProduction.date)
+            ).all()
+
+            # Create a dictionary for quick lookup
+            data_map = {date: count for date, count in daily_data}
+
+            # Fill in dates with no production
+            all_dates = [start_date + timedelta(days=i) for i in range(days)]
+            egg_counts = [data_map.get(date, 0) for date in all_dates]
+            
+            return {'dates': all_dates, 'egg_counts': egg_counts}
+
+        except Exception as e:
+            logger.error(f"Error getting daily production summary: {e}")
+            return {'dates': [], 'egg_counts': []}
     
     def daily_egg_production_report(self, farm_id, date):
         """Generate daily egg production report"""

@@ -1,5 +1,5 @@
-from database.db import DatabaseManager
-from database.models import Setting
+from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.database.models import Setting
 
 
 class SettingsManager:

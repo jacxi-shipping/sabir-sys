@@ -1,8 +1,8 @@
 """
 Inventory management module
 """
-from database.models import RawMaterial, FinishedFeed
-from database.db import DatabaseManager
+from egg_farm_system.database.models import RawMaterial, FinishedFeed
+from egg_farm_system.database.db import DatabaseManager
 import logging
 
 logger = logging.getLogger(__name__)

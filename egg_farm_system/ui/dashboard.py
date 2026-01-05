@@ -1,37 +1,31 @@
 """
-Dashboard widget
+Dashboard widget with interactive charts.
 """
-from datetime import datetime, timedelta
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QGridLayout
 )
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-from modules.farms import FarmManager
-from modules.egg_production import EggProductionManager
-from modules.feed_mill import FeedIssueManager
-from modules.sales import SalesManager
-from modules.inventory import InventoryManager
+from modules.reports import ReportGenerator
+from ui.widgets.charts import TimeSeriesChart
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DashboardWidget(QWidget):
-    """Dashboard displaying key metrics"""
+    """Dashboard displaying key metrics and charts."""
     
     def __init__(self, farm_id):
         super().__init__()
         self.farm_id = farm_id
-        self.farm_manager = FarmManager()
-        self.egg_manager = EggProductionManager()
-        self.feed_manager = FeedIssueManager()
-        self.sales_manager = SalesManager()
-        self.inventory_manager = InventoryManager()
+        self.report_generator = ReportGenerator()
         
         self.init_ui()
         self.refresh_data()
     
     def init_ui(self):
         """Initialize UI"""
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
         
         # Title
         title = QLabel("Dashboard")
@@ -42,94 +36,67 @@ class DashboardWidget(QWidget):
         title.setFont(title_font)
         layout.addWidget(title)
         
-        # Metrics grid
-        metrics_layout = QGridLayout()
-        
-        # Create metric boxes and keep direct references to their value labels
-        eggs_box, self.eggs_today_value = self.create_metric_box("Eggs Today", "0")
-        feed_box, self.feed_today_value = self.create_metric_box("Feed Used Today", "0 kg")
-        sales_box, self.sales_today_value = self.create_metric_box("Sales Today", "Afs 0")
-        low_stock_box, self.low_stock_value = self.create_metric_box("Low Stock Items", "0")
+        # Summary Metrics
+        summary_group = QGroupBox("Last 30 Days Summary")
+        summary_layout = QHBoxLayout()
 
-        metrics_layout.addWidget(eggs_box, 0, 0)
-        metrics_layout.addWidget(feed_box, 0, 1)
-        metrics_layout.addWidget(sales_box, 0, 2)
-        metrics_layout.addWidget(low_stock_box, 0, 3)
+        self.total_eggs_label = self.create_summary_label("Total Production: 0")
+        self.avg_eggs_label = self.create_summary_label("Daily Average: 0")
+
+        summary_layout.addWidget(self.total_eggs_label)
+        summary_layout.addWidget(self.avg_eggs_label)
+        summary_group.setLayout(summary_layout)
+        layout.addWidget(summary_group)
+
+        # Production Chart
+        self.production_chart = TimeSeriesChart(title="Daily Egg Production (Last 30 Days)")
+        self.production_chart.set_labels(left_label="Total Eggs", bottom_label="Date")
+        layout.addWidget(self.production_chart)
         
-        layout.addLayout(metrics_layout)
-        
-        # Farm summary
-        self.farm_summary_text = QLabel()
-        layout.addWidget(self.farm_summary_text)
-        
-        layout.addStretch()
         self.setLayout(layout)
-    
-    def create_metric_box(self, title, value):
-        """Create metric display box"""
-        group = QGroupBox(title)
-        group_layout = QVBoxLayout()
 
-        value_label = QLabel(value)
-        value_label.setObjectName(f"metric_{title.replace(' ', '_').lower()}")
-        value_font = QFont()
-        value_font.setPointSize(20)
-        value_font.setBold(True)
-        value_label.setFont(value_font)
-        
-        group_layout.addWidget(value_label)
-        group.setLayout(group_layout)
+    def create_summary_label(self, text):
+        """Helper to create a consistent label for summary stats."""
+        label = QLabel(text)
+        font = QFont()
+        font.setPointSize(14)
+        label.setFont(font)
+        return label
 
-        return group, value_label
-    
     def refresh_data(self):
-        """Refresh dashboard data"""
+        """Refresh all dashboard data."""
+        logger.info(f"Refreshing dashboard for farm_id: {self.farm_id}")
+        if not self.farm_id:
+            logger.warning("No farm_id set, cannot refresh dashboard.")
+            return
+        
         try:
-            if not self.farm_id:
-                return
+            # Get data for the chart
+            data = self.report_generator.get_daily_production_summary(self.farm_id, days=30)
             
-            today = datetime.utcnow()
-            
-            # Eggs today
-            farm = self.farm_manager.get_farm_by_id(self.farm_id)
-            if farm:
-                total_eggs_today = 0
-                for shed in farm.sheds:
-                    productions = self.egg_manager.get_daily_production(
-                        shed.id, today, today + timedelta(days=1)
-                    )
-                    total_eggs_today += sum(p.total_eggs for p in productions)
+            dates = data.get('dates', [])
+            egg_counts = data.get('egg_counts', [])
+
+            if dates and egg_counts:
+                # Update the chart
+                self.production_chart.plot(dates, egg_counts, pen='b', name="Total Eggs")
                 
-                self.eggs_today_value.setText(str(total_eggs_today))
+                # Update summary labels
+                total_production = sum(egg_counts)
+                average_production = total_production / len(egg_counts) if egg_counts else 0
                 
-                # Feed used today
-                total_feed_today = 0
-                for shed in farm.sheds:
-                    issues = self.feed_manager.get_shed_feed_issues(
-                        shed.id, today, today + timedelta(days=1)
-                    )
-                    total_feed_today += sum(i.quantity_kg for i in issues)
-                
-                self.feed_today_value.setText(f"{total_feed_today:.1f} kg")
-                
-                # Sales today
-                sales = self.sales_manager.get_sales(start_date=today, end_date=today + timedelta(days=1))
-                total_sales = sum(s.total_afg for s in sales)
-                self.sales_today_value.setText(f"Afs {total_sales:,.0f}")
-                
-                # Low stock items
-                low_stock = self.inventory_manager.get_low_stock_alerts()
-                self.low_stock_value.setText(str(len(low_stock)))
-                
-                # Farm summary
-                summary = self.farm_manager.get_farm_summary(self.farm_id)
-                if summary:
-                    summary_text = (
-                        f"Farm: {summary['farm'].name}\n"
-                        f"Sheds: {summary['total_sheds']}\n"
-                        f"Total Capacity: {summary['total_capacity']} birds\n"
-                        f"Total Expenses: Afs {summary['total_expenses']:,.0f}"
-                    )
-                    self.farm_summary_text.setText(summary_text)
+                self.total_eggs_label.setText(f"Total Production: {total_production:,}")
+                self.avg_eggs_label.setText(f"Daily Average: {average_production:,.1f}")
+            else:
+                # Handle case with no data
+                self.production_chart.plot([], [], pen='b', name="Total Eggs")
+                self.total_eggs_label.setText("Total Production: 0")
+                self.avg_eggs_label.setText("Daily Average: 0")
+
         except Exception as e:
-            print(f"Error refreshing dashboard: {e}")
+            logger.exception(f"Error refreshing dashboard data: {e}")
+
+    def set_farm_id(self, farm_id):
+        """Update the farm ID and refresh the data."""
+        self.farm_id = farm_id
+        self.refresh_data()

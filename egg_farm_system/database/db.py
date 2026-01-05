@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path
 import logging
 
-from config import DATABASE_URL
+from egg_farm_system.config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
 
