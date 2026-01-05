@@ -11,57 +11,51 @@ logger = logging.getLogger(__name__)
 class LedgerManager:
     """Manage party ledger entries"""
     
-    def __init__(self):
-        pass # Session will be managed per-method or passed in
-    
     def post_entry(self, party_id, date, description, debit_afg=0, credit_afg=0, 
                    debit_usd=0, credit_usd=0, exchange_rate_used=78.0, 
                    reference_type=None, reference_id=None, session=None): # Added session parameter
         """Post a ledger entry"""
-        _session = session if session else DatabaseManager.get_session()
-        try:
-            party = _session.query(Party).filter(Party.id == party_id).first()
-            if not party:
-                raise ValueError(f"Party {party_id} not found")
+        # This method expects a session to be passed for transactional integrity.
+        # It does not commit/rollback/close the session. The caller is responsible.
+        if session is None:
+            raise ValueError("A session must be provided to post_entry for transactional consistency.")
             
-            entry = Ledger(
-                party_id=party_id,
-                date=date,
-                description=description,
-                debit_afg=debit_afg,
-                credit_afg=credit_afg,
-                debit_usd=debit_usd,
-                credit_usd=credit_usd,
-                exchange_rate_used=exchange_rate_used,
-                reference_type=reference_type,
-                reference_id=reference_id
-            )
-            _session.add(entry)
-            if not session: # Only commit if session was created in this method
-                _session.commit()
-            logger.info(f"Ledger entry posted for party {party_id}")
-            return entry
-        except Exception as e:
-            if not session: # Only rollback if session was created in this method
-                _session.rollback()
-            logger.error(f"Error posting ledger entry: {e}")
-            raise
-        finally:
-            if not session: # Only close if session was created in this method
-                _session.close()
+        party = session.query(Party).filter(Party.id == party_id).first()
+        if not party:
+            raise ValueError(f"Party {party_id} not found")
+        
+        entry = Ledger(
+            party_id=party_id,
+            date=date,
+            description=description,
+            debit_afg=debit_afg,
+            credit_afg=credit_afg,
+            debit_usd=debit_usd,
+            credit_usd=credit_usd,
+            exchange_rate_used=exchange_rate_used,
+            reference_type=reference_type,
+            reference_id=reference_id
+        )
+        session.add(entry)
+        logger.info(f"Ledger entry posted for party {party_id}")
+        return entry
     
     def get_party_ledger(self, party_id):
         """Get all ledger entries for a party"""
+        session = DatabaseManager.get_session()
         try:
-            return self.session.query(Ledger).filter(
+            return session.query(Ledger).filter(
                 Ledger.party_id == party_id
             ).order_by(Ledger.date).all()
         except Exception as e:
             logger.error(f"Error getting party ledger: {e}")
             return []
+        finally:
+            session.close()
     
     def get_party_balance(self, party_id, currency="AFG"):
         """Calculate party balance"""
+        # This method uses get_party_ledger, which manages its own session.
         try:
             entries = self.get_party_ledger(party_id)
             balance = 0
@@ -79,6 +73,7 @@ class LedgerManager:
     
     def get_balance_with_running(self, party_id, currency="AFG"):
         """Get ledger with running balance"""
+        # This method uses get_party_ledger, which manages its own session.
         try:
             entries = self.get_party_ledger(party_id)
             running_balance = 0
@@ -112,6 +107,7 @@ class LedgerManager:
     
     def get_ledger_summary(self, party_id):
         """Get summary of party ledger"""
+        # This method uses get_party_ledger, which manages its own session.
         try:
             entries = self.get_party_ledger(party_id)
             
@@ -140,8 +136,9 @@ class LedgerManager:
     
     def get_all_parties_outstanding(self):
         """Get outstanding balances for all parties"""
+        session = DatabaseManager.get_session()
         try:
-            parties = self.session.query(Party).all()
+            parties = session.query(Party).all()
             outstanding = []
             
             for party in parties:
@@ -160,8 +157,5 @@ class LedgerManager:
         except Exception as e:
             logger.error(f"Error getting outstanding balances: {e}")
             return []
-    
-    def close_session(self):
-        """Close database session"""
-        if self.session:
-            self.session.close()
+        finally:
+            session.close()

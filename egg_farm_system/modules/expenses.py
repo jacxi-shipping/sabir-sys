@@ -14,7 +14,6 @@ class ExpenseManager:
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
-        self.ledger_manager = LedgerManager()
     
     def record_expense(self, farm_id, category, amount_afg, amount_usd, 
                       party_id=None, exchange_rate_used=78.0, date=None, description=None):
@@ -38,7 +37,8 @@ class ExpenseManager:
             
             # Post to ledger if party is linked
             if party_id:
-                self.ledger_manager.post_entry(
+                ledger_manager = LedgerManager() # Instantiate LedgerManager
+                ledger_manager.post_entry(
                     party_id=party_id,
                     date=date,
                     description=f"Expense: {category} - {description or ''}",
@@ -113,7 +113,6 @@ class PaymentManager:
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
-        self.ledger_manager = LedgerManager()
     
     def record_payment(self, party_id, amount_afg, amount_usd, payment_type,
                       payment_method="Cash", reference=None, exchange_rate_used=78.0, 
@@ -141,9 +140,10 @@ class PaymentManager:
             self.session.flush()
             
             # Post to ledger
+            ledger_manager = LedgerManager() # Instantiate LedgerManager
             if payment_type == "Received":
                 # Debit cash, Credit party
-                self.ledger_manager.post_entry(
+                ledger_manager.post_entry(
                     party_id=party_id,
                     date=date,
                     description=f"Payment received: {reference or 'Cash'}",
@@ -156,7 +156,7 @@ class PaymentManager:
                 )
             else:  # Paid
                 # Debit party, Credit cash
-                self.ledger_manager.post_entry(
+                ledger_manager.post_entry(
                     party_id=party_id,
                     date=date,
                     description=f"Payment paid: {reference or 'Cash'}",

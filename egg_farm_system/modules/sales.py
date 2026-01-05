@@ -15,7 +15,6 @@ class SalesManager:
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
-        self.ledger_manager = LedgerManager()
         self.converter = CurrencyConverter()
     
     def record_sale(self, party_id, quantity, rate_afg, rate_usd, 
@@ -43,7 +42,8 @@ class SalesManager:
             self.session.flush()  # Get sale ID
             
             # Post to ledger: Debit party, Credit sales
-            self.ledger_manager.post_entry(
+            ledger_manager = LedgerManager() # Instantiate LedgerManager
+            ledger_manager.post_entry(
                 party_id=party_id,
                 date=date,
                 description=f"Egg sale: {quantity} units",
