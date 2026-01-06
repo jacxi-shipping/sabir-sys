@@ -31,6 +31,47 @@ class EggCalculations:
         return (usable_eggs / total_eggs) * 100
 
     @staticmethod
+    def calculate_production_forecast(history_data, days_to_forecast=7):
+        """
+        Predict future production using simple linear regression (Least Squares).
+        history_data: List of (day_index, value) tuples or just list of values.
+        Returns: List of predicted values for the next 'days_to_forecast' days.
+        """
+        if not history_data or len(history_data) < 2:
+            return []
+
+        # If data is just values, convert to (index, value)
+        if isinstance(history_data[0], (int, float)):
+            data = list(enumerate(history_data))
+        else:
+            data = history_data
+
+        n = len(data)
+        sum_x = sum(d[0] for d in data)
+        sum_y = sum(d[1] for d in data)
+        sum_xy = sum(d[0] * d[1] for d in data)
+        sum_xx = sum(d[0] ** 2 for d in data)
+
+        # Calculate slope (m) and intercept (c) for y = mx + c
+        # Denominator check to avoid division by zero
+        denom = (n * sum_xx - sum_x ** 2)
+        if denom == 0:
+            return [sum_y / n] * days_to_forecast # Return average if slope is undefined
+
+        m = (n * sum_xy - sum_x * sum_y) / denom
+        c = (sum_y - m * sum_x) / n
+
+        # Generate predictions
+        last_x = data[-1][0]
+        predictions = []
+        for i in range(1, days_to_forecast + 1):
+            next_x = last_x + i
+            pred_y = m * next_x + c
+            predictions.append(max(0, pred_y)) # Ensure no negative production
+            
+        return predictions
+
+    @staticmethod
     def calculate_hdp_for_flock(session, flock_id, start_date, end_date):
         """
         Calculates the Hen-Day Production % for a specific flock over a given period.

@@ -30,6 +30,7 @@ from egg_farm_system.ui.forms.user_forms import UserManagementForm
 from egg_farm_system.ui.forms.employee_forms import EmployeeManagementWidget
 from egg_farm_system.ui.forms.equipment_forms import EquipmentFormWidget
 from egg_farm_system.database.models import User # Added import
+from egg_farm_system.ui.themes import ThemeManager # Added import
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.app_version = app_version
         
+        # Initialize Theme
+        self.current_theme = ThemeManager.LIGHT
+        ThemeManager.apply_theme(sys.modules['__main__'].app if hasattr(sys.modules['__main__'], 'app') else self, self.current_theme)
+
         DatabaseManager.initialize()
         # Re-fetch the user to bind it to a new session for MainWindow's lifetime
         if current_user:
@@ -175,6 +180,17 @@ class MainWindow(QMainWindow):
             layout.addWidget(btn)
 
         layout.addStretch()
+
+        # Theme Toggle Button
+        theme_btn = QPushButton("Toggle Theme")
+        theme_btn.setObjectName('theme_btn')
+        theme_icon = asset_dir / 'icon_view.svg'
+        if theme_icon.exists():
+            theme_btn.setIcon(QIcon(str(theme_icon)))
+            theme_btn.setIconSize(QSize(18, 18))
+        theme_btn.clicked.connect(self.toggle_theme)
+        theme_btn.setProperty('full_text', 'Toggle Theme')
+        layout.addWidget(theme_btn)
 
         # Logout button
         logout_btn = QPushButton("Logout")
@@ -492,6 +508,18 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.exception(f"Failed to toggle sidebar: {e}")
 
+    def toggle_theme(self):
+        """Switch between Light and Dark themes"""
+        from PySide6.QtWidgets import QApplication
+        if self.current_theme == ThemeManager.LIGHT:
+            self.current_theme = ThemeManager.DARK
+        else:
+            self.current_theme = ThemeManager.LIGHT
+            
+        app = QApplication.instance()
+        if app:
+            ThemeManager.apply_theme(app, self.current_theme)
+            
     def _on_logout(self):
         """Log out current user and show login dialog; if cancelled, exit app."""
         from ui.forms.login_dialog import LoginDialog

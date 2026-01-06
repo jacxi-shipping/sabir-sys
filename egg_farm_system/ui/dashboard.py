@@ -6,8 +6,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont
 
-from modules.reports import ReportGenerator
-from ui.widgets.charts import TimeSeriesChart
+from egg_farm_system.modules.reports import ReportGenerator
+from egg_farm_system.ui.widgets.charts import TimeSeriesChart
+from egg_farm_system.ui.widgets.forecasting import ForecastingWidget # Added import
 import logging
 from PySide6.QtWidgets import QSizePolicy
 
@@ -50,10 +51,19 @@ class DashboardWidget(QWidget):
         summary_group.setLayout(summary_layout)
         layout.addWidget(summary_group)
 
+        # Charts Layout
+        charts_layout = QHBoxLayout() # Use HBox for side-by-side charts
+        
         # Production Chart
         self.production_chart = TimeSeriesChart(title="Daily Egg Production (Last 30 Days)")
         self.production_chart.set_labels(left_label="Total Eggs", bottom_label="Date")
-        layout.addWidget(self.production_chart)
+        charts_layout.addWidget(self.production_chart)
+        
+        # Forecasting Widget
+        self.forecasting_widget = ForecastingWidget(self.farm_id)
+        charts_layout.addWidget(self.forecasting_widget)
+        
+        layout.addLayout(charts_layout)
         
         self.setLayout(layout)
 
@@ -71,6 +81,10 @@ class DashboardWidget(QWidget):
         if not self.farm_id:
             logger.warning("No farm_id set, cannot refresh dashboard.")
             return
+            
+        # Refresh forecast
+        if hasattr(self, 'forecasting_widget'):
+            self.forecasting_widget.load_data()
         
         try:
             # Get data for the chart
@@ -101,4 +115,6 @@ class DashboardWidget(QWidget):
     def set_farm_id(self, farm_id):
         """Update the farm ID and refresh the data."""
         self.farm_id = farm_id
+        if hasattr(self, 'forecasting_widget'):
+            self.forecasting_widget.set_farm_id(farm_id)
         self.refresh_data()
