@@ -8,10 +8,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont
 
-from modules.reports import ReportGenerator
-from modules.parties import PartyManager
-from ui.reports.production_analytics_widget import ProductionAnalyticsWidget
+from egg_farm_system.modules.reports import ReportGenerator
+from egg_farm_system.modules.parties import PartyManager
+from egg_farm_system.ui.reports.production_analytics_widget import ProductionAnalyticsWidget
 from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.utils.excel_export import ExcelExporter
+from egg_farm_system.utils.print_manager import PrintManager
 
 class ReportViewerWidget(QWidget):
     """Report viewing and export widget"""
@@ -89,16 +91,33 @@ class ReportViewerWidget(QWidget):
         # Generate and Export buttons
         generate_btn = QPushButton("Generate Report")
         generate_btn.clicked.connect(self.generate_report)
-        export_btn = QPushButton("Export to CSV")
-        export_btn.clicked.connect(self.export_report)
+        
+        export_csv_btn = QPushButton("Export to CSV")
+        export_csv_btn.clicked.connect(self.export_report_csv)
+        
+        export_excel_btn = QPushButton("Export to Excel")
+        export_excel_btn.clicked.connect(self.export_report_excel)
+        
+        print_btn = QPushButton("Print")
+        print_btn.clicked.connect(self.print_report)
+        
+        print_preview_btn = QPushButton("Print Preview")
+        print_preview_btn.clicked.connect(self.print_preview_report)
         
         analytics_btn = QPushButton("Production Analytics")
         analytics_btn.clicked.connect(self.open_production_analytics)
 
         header_hbox.addWidget(generate_btn)
-        header_hbox.addWidget(export_btn)
+        header_hbox.addWidget(export_csv_btn)
+        header_hbox.addWidget(export_excel_btn)
+        header_hbox.addWidget(print_btn)
+        header_hbox.addWidget(print_preview_btn)
         header_hbox.addWidget(analytics_btn)
         layout.addLayout(header_hbox)
+        
+        # Store current report data
+        self.current_report_data = None
+        self.current_report_type = None
         
         # Report content
         self.report_text = QTextEdit()
@@ -169,6 +188,8 @@ class ReportViewerWidget(QWidget):
                         text += f"{shed['name']}: {shed['total_eggs']} eggs\n"
                     text += f"\nTotal: {data['totals']['total']} eggs"
                     self.report_text.setText(text)
+                    self.current_report_data = data
+                    self.current_report_type = report_type
 
             elif report_type == 'monthly_production':
                 farm_id = self.farm_id or 1
@@ -180,6 +201,8 @@ class ReportViewerWidget(QWidget):
                     for d, vals in sorted(data['daily_summary'].items()):
                         text += f"{d}: {vals['total']} (usable {vals['usable']})\n"
                     self.report_text.setText(text)
+                    self.current_report_data = data
+                    self.current_report_type = report_type
 
             elif report_type == 'feed_usage':
                 farm_id = self.farm_id or 1
@@ -191,6 +214,8 @@ class ReportViewerWidget(QWidget):
                     for shed_name, shed_data in data['sheds'].items():
                         text += f"{shed_name}: {shed_data['total_kg']} kg\n"
                     self.report_text.setText(text)
+                    self.current_report_data = data
+                    self.current_report_type = report_type
 
             elif report_type == 'party_statement':
                 party_id = self.party_combo.currentData()
@@ -203,43 +228,24 @@ class ReportViewerWidget(QWidget):
                     for e in data['entries']:
                         text += f"{e['date']}: {e['description']} D:{e['debit_afg']} C:{e['credit_afg']} Bal:{e['balance_afg']}\n"
                     self.report_text.setText(text)
+                    self.current_report_data = data
+                    self.current_report_type = report_type
 
             else:
                 QMessageBox.information(self, "Info", f"Report generation for {report_type} is not supported yet")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to generate report: {e}")
     
-    def export_report(self):
+    def export_report_csv(self):
         """Export report to CSV"""
-        report_type = self.report_combo.currentData()
+        if not self.current_report_data:
+            QMessageBox.warning(self, 'Warning', 'Please generate a report first')
+            return
+        
+        report_type = self.current_report_type
+        data = self.current_report_data
+        
         try:
-            # Generate same data used for display
-            if report_type == 'daily_production':
-                date = self.date_edit.date().toPython()
-                farm_id = self.farm_id or 1
-                data = self.report_generator.daily_egg_production_report(farm_id, date)
-            elif report_type == 'monthly_production':
-                year = self.date_edit.date().year()
-                month = self.date_edit.date().month()
-                data = self.report_generator.monthly_egg_production_report(self.farm_id or 1, year, month)
-            elif report_type == 'feed_usage':
-                start = self.start_date_edit.date().toPython()
-                end = self.end_date_edit.date().toPython()
-                data = self.report_generator.feed_usage_report(self.farm_id or 1, start, end)
-            elif report_type == 'party_statement':
-                party_id = self.party_combo.currentData()
-                if not party_id:
-                    QMessageBox.warning(self, 'Warning', 'Select a party')
-                    return
-                data = self.report_generator.party_statement(party_id)
-            else:
-                QMessageBox.information(self, 'Info', 'Export not supported for this report')
-                return
-
-            if not data:
-                QMessageBox.warning(self, 'Warning', 'No data to export')
-                return
-
             csv_text = self.report_generator.export_to_csv(data, report_type)
             if not csv_text:
                 QMessageBox.critical(self, 'Error', 'Failed to generate CSV')
@@ -253,3 +259,62 @@ class ReportViewerWidget(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Export failed: {e}")
+    
+    def export_report_excel(self):
+        """Export report to Excel"""
+        if not self.current_report_data:
+            QMessageBox.warning(self, 'Warning', 'Please generate a report first')
+            return
+        
+        report_type = self.current_report_type
+        data = self.current_report_data
+        
+        try:
+            path, _ = QFileDialog.getSaveFileName(
+                self, 
+                'Save Excel', 
+                f'{report_type}.xlsx', 
+                'Excel Files (*.xlsx);;All Files (*.*)'
+            )
+            
+            if path:
+                exporter = ExcelExporter()
+                exporter.export_report_data(data, report_type, Path(path))
+                QMessageBox.information(self, 'Success', f'Exported to {path}')
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Excel export failed: {e}")
+    
+    def print_report(self):
+        """Print current report"""
+        if not self.current_report_data:
+            QMessageBox.warning(self, 'Warning', 'Please generate a report first')
+            return
+        
+        try:
+            report_type = self.current_report_type
+            data = self.current_report_data
+            title = self.report_combo.currentText()
+            
+            html = PrintManager.format_report_html(data, report_type, title)
+            PrintManager.print_text(html, title, self)
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Print failed: {e}")
+    
+    def print_preview_report(self):
+        """Show print preview for current report"""
+        if not self.current_report_data:
+            QMessageBox.warning(self, 'Warning', 'Please generate a report first')
+            return
+        
+        try:
+            report_type = self.current_report_type
+            data = self.current_report_data
+            title = self.report_combo.currentText()
+            
+            html = PrintManager.format_report_html(data, report_type, title)
+            PrintManager.print_preview(html, title, self)
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Print preview failed: {e}")

@@ -3,20 +3,30 @@ import logging
 import traceback
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QPushButton,
-    QTableView, QFileDialog, QAbstractItemView
+    QTableView, QFileDialog, QAbstractItemView, QLabel, QSpinBox,
+    QCheckBox, QMenu, QHeaderView
 )
-from PySide6.QtCore import Qt, QSortFilterProxyModel
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPainter
+from PySide6.QtCore import Qt, QSortFilterProxyModel, Signal
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPainter, QAction
 from PySide6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(__name__)
 
 
 class DataTableWidget(QWidget):
-    """Reusable datatable with search, simple column filter, CSV/PDF export."""
+    """Enhanced datatable with search, filtering, pagination, column management, and export."""
 
-    def __init__(self, parent=None):
+    # Signals
+    row_selected = Signal(int)  # Emitted when a row is selected
+    row_double_clicked = Signal(int)  # Emitted when a row is double-clicked
+
+    def __init__(self, parent=None, enable_pagination=True):
         super().__init__(parent)
+        self.enable_pagination = enable_pagination
+        self.current_page = 1
+        self.page_size = 25
+        self.column_visibility = {}  # Track column visibility
+        
         self.model = QStandardItemModel()
         self.proxy = QSortFilterProxyModel()
         self.proxy.setSourceModel(self.model)
@@ -28,6 +38,10 @@ class DataTableWidget(QWidget):
         self.view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.view.setAlternatingRowColors(True)
         self.view.verticalHeader().setVisible(False)
+        self.view.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.view.horizontalHeader().customContextMenuRequested.connect(self._show_column_menu)
+        self.view.doubleClicked.connect(self._on_row_double_clicked)
+        self.view.selectionModel().selectionChanged.connect(self._on_selection_changed)
 
         # Controls
         self.search = QLineEdit()
@@ -38,19 +52,47 @@ class DataTableWidget(QWidget):
         self.filter_col.addItem('All columns', -1)
         self.filter_col.currentIndexChanged.connect(self._on_search)
 
+        # Pagination controls
+        if self.enable_pagination:
+            self.page_size_combo = QComboBox()
+            self.page_size_combo.addItems(['10', '25', '50', '100', 'All'])
+            self.page_size_combo.setCurrentText('25')
+            self.page_size_combo.currentTextChanged.connect(self._on_page_size_changed)
+            
+            self.page_label = QLabel("Page 1 of 1")
+            self.prev_btn = QPushButton("◀")
+            self.prev_btn.clicked.connect(self._prev_page)
+            self.next_btn = QPushButton("▶")
+            self.next_btn.clicked.connect(self._next_page)
+            
+            self.total_label = QLabel("Total: 0")
+
         self.export_pdf_btn = QPushButton()
         self.export_pdf_btn.setText('Export PDF')
         self.export_csv_btn = QPushButton()
         self.export_csv_btn.setText('Export CSV')
+        self.export_excel_btn = QPushButton()
+        self.export_excel_btn.setText('Export Excel')
 
         self.export_pdf_btn.clicked.connect(self.export_pdf)
         self.export_csv_btn.clicked.connect(self.export_csv)
+        self.export_excel_btn.clicked.connect(self.export_excel)
 
         ctrl_layout = QHBoxLayout()
         ctrl_layout.addWidget(self.search)
         ctrl_layout.addWidget(self.filter_col)
         ctrl_layout.addStretch()
+        
+        if self.enable_pagination:
+            ctrl_layout.addWidget(QLabel("Page size:"))
+            ctrl_layout.addWidget(self.page_size_combo)
+            ctrl_layout.addWidget(self.total_label)
+            ctrl_layout.addWidget(self.prev_btn)
+            ctrl_layout.addWidget(self.page_label)
+            ctrl_layout.addWidget(self.next_btn)
+        
         ctrl_layout.addWidget(self.export_csv_btn)
+        ctrl_layout.addWidget(self.export_excel_btn)
         ctrl_layout.addWidget(self.export_pdf_btn)
 
         layout = QVBoxLayout()
@@ -58,6 +100,8 @@ class DataTableWidget(QWidget):
         layout.addWidget(self.view)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
+        
+        self._update_pagination()
 
     def _on_search(self, *_):
         text = self.search.text()
@@ -69,6 +113,122 @@ class DataTableWidget(QWidget):
         else:
             self.proxy.setFilterKeyColumn(col)
             self.proxy.setFilterFixedString(text)
+        self.current_page = 1
+        self._update_pagination()
+    
+    def _on_page_size_changed(self, size_text):
+        """Handle page size change"""
+        if size_text == 'All':
+            self.page_size = -1  # -1 means show all
+        else:
+            self.page_size = int(size_text)
+        self.current_page = 1
+        self._update_pagination()
+    
+    def _prev_page(self):
+        """Go to previous page"""
+        if self.current_page > 1:
+            self.current_page -= 1
+            self._update_pagination()
+    
+    def _next_page(self):
+        """Go to next page"""
+        total_pages = self._get_total_pages()
+        if self.current_page < total_pages:
+            self.current_page += 1
+            self._update_pagination()
+    
+    def _get_total_pages(self):
+        """Calculate total number of pages"""
+        if self.page_size == -1:
+            return 1
+        total_rows = self.proxy.rowCount()
+        return max(1, (total_rows + self.page_size - 1) // self.page_size)
+    
+    def _update_pagination(self):
+        """Update pagination display and filter"""
+        if not self.enable_pagination:
+            return
+        
+        total_rows = self.proxy.rowCount()
+        total_pages = self._get_total_pages()
+        
+        # Update labels
+        self.page_label.setText(f"Page {self.current_page} of {total_pages}")
+        self.total_label.setText(f"Total: {total_rows}")
+        
+        # Enable/disable navigation buttons
+        self.prev_btn.setEnabled(self.current_page > 1)
+        self.next_btn.setEnabled(self.current_page < total_pages)
+        
+        # Apply pagination filter
+        if self.page_size == -1:
+            # Show all rows
+            for row in range(total_rows):
+                index = self.proxy.index(row, 0)
+                if index.isValid():
+                    self.view.setRowHidden(row, False)
+        else:
+            start_row = (self.current_page - 1) * self.page_size
+            end_row = min(start_row + self.page_size, total_rows)
+            
+            # Hide all rows first
+            for row in range(total_rows):
+                index = self.proxy.index(row, 0)
+                if index.isValid():
+                    self.view.setRowHidden(row, True)
+            
+            # Show rows for current page
+            for row in range(start_row, end_row):
+                index = self.proxy.index(row, 0)
+                if index.isValid():
+                    self.view.setRowHidden(row, False)
+    
+    def _show_column_menu(self, position):
+        """Show context menu for column management"""
+        menu = QMenu(self)
+        
+        # Add toggle visibility for each column
+        for col in range(self.model.columnCount()):
+            header = self.model.headerData(col, Qt.Horizontal)
+            if header:
+                action = QAction(header, self)
+                action.setCheckable(True)
+                action.setChecked(not self.view.isColumnHidden(col))
+                action.triggered.connect(lambda checked, c=col: self._toggle_column_visibility(c, checked))
+                menu.addAction(action)
+        
+        menu.addSeparator()
+        
+        # Reset columns action
+        reset_action = QAction("Reset Column Widths", self)
+        reset_action.triggered.connect(self._reset_column_widths)
+        menu.addAction(reset_action)
+        
+        menu.exec_(self.view.horizontalHeader().mapToGlobal(position))
+    
+    def _toggle_column_visibility(self, column: int, visible: bool):
+        """Toggle column visibility"""
+        self.view.setColumnHidden(column, not visible)
+        self.column_visibility[column] = visible
+    
+    def _reset_column_widths(self):
+        """Reset all column widths to fit contents"""
+        self.view.resizeColumnsToContents()
+    
+    def _on_row_double_clicked(self, index):
+        """Handle row double click"""
+        source_index = self.proxy.mapToSource(index)
+        if source_index.isValid():
+            self.row_double_clicked.emit(source_index.row())
+    
+    def _on_selection_changed(self):
+        """Handle selection change"""
+        selected = self.view.selectionModel().selectedRows()
+        if selected:
+            source_index = self.proxy.mapToSource(selected[0])
+            if source_index.isValid():
+                self.row_selected.emit(source_index.row())
 
     def set_headers(self, headers):
         self.model.clear()
@@ -89,6 +249,7 @@ class DataTableWidget(QWidget):
                 for it in items:
                     it.setEditable(False)
                 self.model.appendRow(items)
+            self._update_pagination()
         except Exception as e:
             logger.exception("Failed to set rows in DataTableWidget: %s", e)
             traceback.print_exc()
@@ -251,16 +412,86 @@ class DataTableWidget(QWidget):
 
         painter.end()
 
-    def export_csv(self, path=None):
+    def export_csv(self, path=None, export_filtered=True, export_selected=False):
+        """Export to CSV with options for filtered/selected data"""
         import csv
         if path is None:
             path, _ = QFileDialog.getSaveFileName(self, "Export CSV", str(Path.cwd() / 'table.csv'), "CSV Files (*.csv)")
             if not path:
                 return
-        headers = [self.model.headerData(i, Qt.Horizontal) for i in range(self.model.columnCount())]
+        
+        # Get visible columns only
+        visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
+        headers = [self.model.headerData(i, Qt.Horizontal) for i in visible_cols]
+        
         with open(path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(headers)
-            for r in range(self.model.rowCount()):
-                row = [self.model.item(r, c).text() if self.model.item(r, c) is not None else '' for c in range(self.model.columnCount())]
-                writer.writerow(row)
+            
+            if export_selected:
+                # Export only selected rows
+                selected = self.view.selectionModel().selectedRows()
+                for index in selected:
+                    source_index = self.proxy.mapToSource(index)
+                    if source_index.isValid():
+                        row = [self.model.item(source_index.row(), c).text() 
+                               if self.model.item(source_index.row(), c) is not None else '' 
+                               for c in visible_cols]
+                        writer.writerow(row)
+            else:
+                # Export all visible rows (respecting filter)
+                for r in range(self.proxy.rowCount()):
+                    if export_filtered and self.view.isRowHidden(r):
+                        continue
+                    source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
+                    if source_index.isValid():
+                        row = [self.model.item(source_index.row(), c).text() 
+                               if self.model.item(source_index.row(), c) is not None else '' 
+                               for c in visible_cols]
+                        writer.writerow(row)
+    
+    def export_excel(self, path=None, export_filtered=True, export_selected=False):
+        """Export to Excel with options for filtered/selected data"""
+        try:
+            from egg_farm_system.utils.excel_export import ExcelExporter
+        except ImportError:
+            logger.error("Excel export requires openpyxl")
+            return
+        
+        if path is None:
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Export Excel", str(Path.cwd() / 'table.xlsx'), 
+                "Excel Files (*.xlsx);;All Files (*.*)"
+            )
+            if not path:
+                return
+        
+        # Get visible columns only
+        visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
+        headers = [self.model.headerData(i, Qt.Horizontal) for i in visible_cols]
+        
+        rows = []
+        if export_selected:
+            # Export only selected rows
+            selected = self.view.selectionModel().selectedRows()
+            for index in selected:
+                source_index = self.proxy.mapToSource(index)
+                if source_index.isValid():
+                    row = [self.model.item(source_index.row(), c).text() 
+                           if self.model.item(source_index.row(), c) is not None else '' 
+                           for c in visible_cols]
+                    rows.append(row)
+        else:
+            # Export all visible rows (respecting filter)
+            for r in range(self.proxy.rowCount()):
+                if export_filtered and self.view.isRowHidden(r):
+                    continue
+                source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
+                if source_index.isValid():
+                    row = [self.model.item(source_index.row(), c).text() 
+                           if self.model.item(source_index.row(), c) is not None else '' 
+                           for c in visible_cols]
+                    rows.append(row)
+        
+        exporter = ExcelExporter()
+        exporter.export_table_data(headers, rows, Path(path), "Data")

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QGraphicsOpacityEffect, QDialog
 )
 import traceback
-from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Slot
+from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Slot, QTimer
 from PySide6.QtGui import QIcon, QFont
 
 from egg_farm_system.database.db import DatabaseManager
@@ -31,6 +31,11 @@ from egg_farm_system.ui.forms.employee_forms import EmployeeManagementWidget
 from egg_farm_system.ui.forms.equipment_forms import EquipmentFormWidget
 from egg_farm_system.database.models import User # Added import
 from egg_farm_system.ui.themes import ThemeManager # Added import
+from egg_farm_system.utils.keyboard_shortcuts import ShortcutManager
+from egg_farm_system.utils.notification_manager import get_notification_manager, NotificationSeverity
+from egg_farm_system.ui.widgets.notification_center import NotificationCenterWidget
+from egg_farm_system.ui.widgets.backup_restore_widget import BackupRestoreWidget
+from egg_farm_system.ui.widgets.global_search_widget import GlobalSearchWidget, SearchBarWidget
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +65,42 @@ class MainWindow(QMainWindow):
 
         self.farm_manager = FarmManager()
         
+        # Initialize notification manager and check for alerts
+        self.notification_manager = get_notification_manager()
+        self._check_notifications()
+        
+        # Initialize keyboard shortcuts
+        self.shortcut_manager = ShortcutManager(self)
+        self._setup_keyboard_shortcuts()
+        
+        # Initialize navigation history
+        from egg_farm_system.ui.widgets.breadcrumbs import NavigationHistory
+        self.nav_history = NavigationHistory()
+        
+        # Initialize workflow automation and start task timer
+        from egg_farm_system.utils.workflow_automation import get_workflow_automation
+        self.workflow_automation = get_workflow_automation()
+        self.workflow_timer = QTimer()
+        self.workflow_timer.timeout.connect(self._run_workflow_tasks)
+        self.workflow_timer.start(60000)  # Check every minute
+        
         # Create main layout
         main_widget = QWidget()
-        main_layout = QHBoxLayout()
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Breadcrumbs
+        from egg_farm_system.ui.widgets.breadcrumbs import BreadcrumbWidget
+        self.breadcrumbs = BreadcrumbWidget()
+        self.breadcrumbs.path_clicked.connect(self._on_breadcrumb_clicked)
+        main_layout.addWidget(self.breadcrumbs)
+        
+        # Content area with sidebar
+        content_layout = QHBoxLayout()
         
         # Create sidebar
         self.sidebar = self.create_sidebar()
-        main_layout.addWidget(self.sidebar) # Remove stretch factor for sidebar
+        content_layout.addWidget(self.sidebar) # Remove stretch factor for sidebar
 
         # Create content area
         self.content_area = QFrame()
@@ -75,11 +109,13 @@ class MainWindow(QMainWindow):
         self.content_layout = QVBoxLayout()
         self.content_layout.setContentsMargins(0, 0, 0, 0) # Remove margins
         self.content_area.setLayout(self.content_layout)
-        main_layout.addWidget(self.content_area, 1) # Content area takes remaining space
+        content_layout.addWidget(self.content_area, 1) # Content area takes remaining space
         
-        main_layout.setStretch(0, 0) # Sidebar does not stretch
-        main_layout.setStretch(1, 1) # Content area stretches
-        main_layout.setSizeConstraint(QLayout.SetNoConstraint) # Ignore size hints of children
+        content_layout.setStretch(0, 0) # Sidebar does not stretch
+        content_layout.setStretch(1, 1) # Content area stretches
+        content_layout.setSizeConstraint(QLayout.SetNoConstraint) # Ignore size hints of children
+        
+        main_layout.addLayout(content_layout)
 
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
@@ -100,18 +136,64 @@ class MainWindow(QMainWindow):
         # Header
         header = QFrame()
         header.setObjectName("sidebar_header")
-        header_layout = QHBoxLayout()
+        header_layout = QVBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
-        header.setLayout(header_layout)
-
+        
+        # Title row
+        title_row = QHBoxLayout()
         title = QLabel(f"Egg Farm v{self.app_version}")
         title.setObjectName("app_title")
         title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.title_widget = title
+        title_row.addWidget(title)
+        title_row.addStretch()
+        header_layout.addLayout(title_row)
+        
+        # Global search bar
+        self.search_bar = SearchBarWidget()
+        header_layout.addWidget(self.search_bar)
+        
+        header.setLayout(header_layout)
 
-        header_layout.addWidget(title)
-        header_layout.addStretch()
-
+        # Notification bell button
+        self.notification_btn = QPushButton()
+        self.notification_btn.setObjectName('notification_btn')
+        self.notification_btn.setMaximumSize(32, 32)
+        self.notification_btn.setToolTip("Notifications")
+        # Try to set bell icon
+        bell_icon = asset_dir / 'icon_view.svg'  # Using existing icon as placeholder
+        if bell_icon.exists():
+            self.notification_btn.setIcon(QIcon(str(bell_icon)))
+            self.notification_btn.setIconSize(QSize(20, 20))
+        self.notification_btn.clicked.connect(self.show_notifications)
+        self.notification_btn.setStyleSheet("""
+            QPushButton {
+                border: none;
+                background-color: transparent;
+                border-radius: 16px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.1);
+            }
+        """)
+        header_layout.addWidget(self.notification_btn)
+        
+        # Notification badge
+        self.notification_badge = QLabel("0")
+        self.notification_badge.setObjectName('notification_badge')
+        self.notification_badge.setStyleSheet("""
+            QLabel {
+                background-color: #e74c3c;
+                color: white;
+                border-radius: 10px;
+                padding: 2px 6px;
+                font-weight: bold;
+                font-size: 9pt;
+            }
+        """)
+        self.notification_badge.setVisible(False)
+        header_layout.addWidget(self.notification_badge)
+        
         # Current user label
         self.user_label = QLabel()
         self.user_label.setObjectName('user_label')
@@ -152,6 +234,11 @@ class MainWindow(QMainWindow):
             ("Employees", self.load_employees_management, 'icon_parties.svg'),
             ("Users", self.load_users_management, 'icon_parties.svg'),
             ("Settings", self.load_settings, 'icon_reports.svg'),
+            ("Backup & Restore", self.load_backup_restore, 'icon_reports.svg'),
+            ("Analytics", self.load_analytics, 'icon_reports.svg'),
+            ("Workflow Automation", self.load_workflow_automation, 'icon_reports.svg'),
+            ("Audit Trail", self.load_audit_trail, 'icon_reports.svg'),
+            ("Email Config", self.load_email_config, 'icon_reports.svg'),
             ("Reports", self.load_reports, 'icon_reports.svg'),
         ]
 
@@ -275,6 +362,8 @@ class MainWindow(QMainWindow):
         dashboard = DashboardWidget(self.get_current_farm_id())
         dashboard.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(dashboard)
+        self._update_breadcrumbs("Dashboard", "dashboard")
+        self._add_to_history("Dashboard", "dashboard", self.load_dashboard)
     
     def load_farm_management(self):
         """Load farm management widget"""
@@ -283,6 +372,8 @@ class MainWindow(QMainWindow):
         farm_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         farm_widget.farm_changed.connect(self.refresh_farm_list)
         self.content_layout.addWidget(farm_widget)
+        self._update_breadcrumbs("Farm Management", "farm_management")
+        self._add_to_history("Farm Management", "farm_management", self.load_farm_management)
     
     def load_production(self):
         """Load egg production widget"""
@@ -290,6 +381,8 @@ class MainWindow(QMainWindow):
         prod_widget = ProductionFormWidget(self.get_current_farm_id())
         prod_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(prod_widget)
+        self._update_breadcrumbs("Egg Production", "production")
+        self._add_to_history("Egg Production", "production", self.load_production)
     
     def load_feed_management(self):
         """Load feed management widget"""
@@ -298,6 +391,8 @@ class MainWindow(QMainWindow):
         feed_widget = FeedFormWidget()
         feed_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(feed_widget)
+        self._update_breadcrumbs("Feed Management", "feed")
+        self._add_to_history("Feed Management", "feed", self.load_feed_management)
     
     def load_inventory(self):
         """Load inventory widget"""
@@ -305,6 +400,8 @@ class MainWindow(QMainWindow):
         inventory_widget = InventoryFormWidget()
         inventory_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(inventory_widget)
+        self._update_breadcrumbs("Inventory", "inventory")
+        self._add_to_history("Inventory", "inventory", self.load_inventory)
 
     def load_equipment_management(self):
         """Load equipment management widget"""
@@ -319,6 +416,8 @@ class MainWindow(QMainWindow):
         party_widget = PartyFormWidget()
         party_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(party_widget)
+        self._update_breadcrumbs("Parties", "parties")
+        self._add_to_history("Parties", "parties", self.load_parties)
     
     def load_sales(self):
         """Load sales widget"""
@@ -326,6 +425,8 @@ class MainWindow(QMainWindow):
         sales_widget = TransactionFormWidget("sales", self.get_current_farm_id())
         sales_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(sales_widget)
+        self._update_breadcrumbs("Sales", "sales")
+        self._add_to_history("Sales", "sales", self.load_sales)
     
     def load_purchases(self):
         """Load purchases widget"""
@@ -333,6 +434,8 @@ class MainWindow(QMainWindow):
         purchases_widget = TransactionFormWidget("purchases", self.get_current_farm_id())
         purchases_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(purchases_widget)
+        self._update_breadcrumbs("Purchases", "purchases")
+        self._add_to_history("Purchases", "purchases", self.load_purchases)
     
     def load_expenses(self):
         """Load expenses widget"""
@@ -340,6 +443,8 @@ class MainWindow(QMainWindow):
         expenses_widget = TransactionFormWidget("expenses", self.get_current_farm_id())
         expenses_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(expenses_widget)
+        self._update_breadcrumbs("Expenses", "expenses")
+        self._add_to_history("Expenses", "expenses", self.load_expenses)
     
     def load_employees_management(self):
         """Load employees management widget"""
@@ -354,6 +459,8 @@ class MainWindow(QMainWindow):
         reports_widget = ReportViewerWidget(self.get_current_farm_id())
         reports_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(reports_widget)
+        self._update_breadcrumbs("Reports", "reports")
+        self._add_to_history("Reports", "reports", self.load_reports)
 
     def load_users_management(self):
         """Load user management UI"""
@@ -368,6 +475,196 @@ class MainWindow(QMainWindow):
         settings_widget = SettingsForm()
         settings_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(settings_widget)
+    
+    def load_backup_restore(self):
+        """Load backup and restore widget"""
+        self.clear_content()
+        backup_widget = BackupRestoreWidget()
+        backup_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(backup_widget)
+        self._update_breadcrumbs("Backup & Restore", "backup_restore")
+        self._add_to_history("Backup & Restore", "backup_restore", self.load_backup_restore)
+    
+    def load_analytics(self):
+        """Load analytics dashboard"""
+        self.clear_content()
+        from egg_farm_system.ui.widgets.analytics_dashboard import AnalyticsDashboardWidget
+        analytics_widget = AnalyticsDashboardWidget(self.get_current_farm_id())
+        analytics_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(analytics_widget)
+        self._update_breadcrumbs("Analytics", "analytics")
+        self._add_to_history("Analytics", "analytics", self.load_analytics)
+    
+    def load_workflow_automation(self):
+        """Load workflow automation widget"""
+        self.clear_content()
+        from egg_farm_system.ui.widgets.workflow_automation_widget import WorkflowAutomationWidget
+        workflow_widget = WorkflowAutomationWidget()
+        workflow_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(workflow_widget)
+        self._update_breadcrumbs("Workflow Automation", "workflow")
+        self._add_to_history("Workflow Automation", "workflow", self.load_workflow_automation)
+    
+    def load_audit_trail(self):
+        """Load audit trail viewer"""
+        self.clear_content()
+        from egg_farm_system.ui.widgets.audit_trail_viewer import AuditTrailViewerWidget
+        audit_widget = AuditTrailViewerWidget()
+        audit_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(audit_widget)
+        self._update_breadcrumbs("Audit Trail", "audit_trail")
+        self._add_to_history("Audit Trail", "audit_trail", self.load_audit_trail)
+    
+    def load_email_config(self):
+        """Load email configuration widget"""
+        self.clear_content()
+        from egg_farm_system.ui.widgets.email_config_widget import EmailConfigWidget
+        email_widget = EmailConfigWidget()
+        email_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(email_widget)
+        self._update_breadcrumbs("Email Configuration", "email_config")
+        self._add_to_history("Email Configuration", "email_config", self.load_email_config)
+    
+    def show_notifications(self):
+        """Show notification center"""
+        from PySide6.QtWidgets import QDialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Notifications")
+        dialog.setMinimumSize(500, 600)
+        layout = QVBoxLayout(dialog)
+        notification_widget = NotificationCenterWidget()
+        layout.addWidget(notification_widget)
+        dialog.exec()
+        self._update_notification_badge()
+    
+    def _check_notifications(self):
+        """Check for notifications and update badge"""
+        try:
+            from egg_farm_system.modules.inventory import InventoryManager
+            inventory_manager = InventoryManager()
+            self.notification_manager.check_low_stock(inventory_manager)
+        except Exception as e:
+            logger.error(f"Error checking notifications: {e}")
+        
+        self._update_notification_badge()
+        # Listen for notification changes
+        self.notification_manager.add_listener(self._on_notification_changed)
+    
+    def _update_notification_badge(self):
+        """Update notification badge count"""
+        unread_count = self.notification_manager.get_unread_count()
+        if unread_count > 0:
+            self.notification_badge.setText(str(unread_count))
+            self.notification_badge.setVisible(True)
+        else:
+            self.notification_badge.setVisible(False)
+    
+    def _on_notification_changed(self, notification=None):
+        """Handle notification changes"""
+        self._update_notification_badge()
+    
+    def _setup_keyboard_shortcuts(self):
+        """Setup keyboard shortcuts"""
+        shortcuts = {
+            "dashboard": self.load_dashboard,
+            "farm_management": self.load_farm_management,
+            "production": self.load_production,
+            "feed": self.load_feed_management,
+            "inventory": self.load_inventory,
+            "parties": self.load_parties,
+            "sales": self.load_sales,
+            "purchases": self.load_purchases,
+            "expenses": self.load_expenses,
+            "reports": self.load_reports,
+            "settings": self.load_settings,
+            "refresh": self._refresh_current_page,
+            "help": self._show_help,
+            "search": self._open_global_search,
+        }
+        self.shortcut_manager.setup_default_shortcuts(shortcuts)
+    
+    def _open_global_search(self):
+        """Open global search dialog"""
+        dialog = GlobalSearchWidget(self)
+        dialog.item_selected.connect(self._on_search_result_selected)
+        dialog.exec()
+    
+    def _on_search_result_selected(self, item_data: dict):
+        """Handle search result selection"""
+        result_type = item_data.get('type', '')
+        
+        navigation_map = {
+            'farm': self.load_farm_management,
+            'shed': self.load_farm_management,
+            'flock': self.load_farm_management,
+            'party': self.load_parties,
+            'sale': self.load_sales,
+            'purchase': self.load_purchases,
+            'expense': self.load_expenses,
+            'production': self.load_production,
+            'material': self.load_inventory,
+            'feed': self.load_feed_management
+        }
+        
+        handler = navigation_map.get(result_type)
+        if handler:
+            handler()
+    
+    def _run_workflow_tasks(self):
+        """Run pending workflow tasks (called by timer)"""
+        try:
+            self.workflow_automation.run_pending_tasks()
+        except Exception as e:
+            logger.error(f"Error running workflow tasks: {e}")
+    
+    def _refresh_current_page(self):
+        """Refresh current page"""
+        try:
+            current_widget = None
+            if self.content_layout.count():
+                current_widget = self.content_layout.itemAt(0).widget()
+            
+            if current_widget and hasattr(current_widget, 'refresh_data'):
+                current_widget.refresh_data()
+        except Exception as e:
+            logger.error(f"Error refreshing page: {e}")
+    
+    def _show_help(self):
+        """Show help dialog"""
+        from egg_farm_system.ui.widgets.help_system import HelpDialog
+        dialog = HelpDialog(self)
+        dialog.exec()
+    
+    def _update_breadcrumbs(self, page_name: str, page_path: str):
+        """Update breadcrumb navigation"""
+        paths = [
+            {'name': 'Home', 'path': 'dashboard'},
+            {'name': page_name, 'path': page_path}
+        ]
+        self.breadcrumbs.set_paths(paths)
+    
+    def _add_to_history(self, name: str, path: str, callback: callable):
+        """Add page to navigation history"""
+        self.nav_history.add(name, path, callback)
+    
+    def _on_breadcrumb_clicked(self, path: str):
+        """Handle breadcrumb click"""
+        navigation_map = {
+            'dashboard': self.load_dashboard,
+            'farm_management': self.load_farm_management,
+            'production': self.load_production,
+            'feed': self.load_feed_management,
+            'inventory': self.load_inventory,
+            'parties': self.load_parties,
+            'sales': self.load_sales,
+            'purchases': self.load_purchases,
+            'expenses': self.load_expenses,
+            'reports': self.load_reports,
+        }
+        
+        handler = navigation_map.get(path)
+        if handler:
+            handler()
     
     def close_application(self):
         """Close application"""
