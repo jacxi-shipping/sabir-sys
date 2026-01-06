@@ -20,6 +20,7 @@ from modules.inventory import InventoryManager
 from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES
+from egg_farm_system.ui.widgets.advanced_sales_dialog import AdvancedSalesDialog
 
 class TransactionFormWidget(QWidget):
     """Transaction management widget (Sales, Purchases, Expenses)"""
@@ -90,10 +91,12 @@ class TransactionFormWidget(QWidget):
                 transactions = self.sales_manager.get_sales()
                 for row, trans in enumerate(transactions):
                     party = self.party_manager.get_party_by_id(trans.party_id)
+                    # Show cartons if available, otherwise show quantity
+                    qty_display = f"{trans.cartons:.2f} cartons" if trans.cartons else f"{trans.quantity} eggs"
                     rows.append([
                         trans.date.strftime("%Y-%m-%d"),
                         party.name if party else "",
-                        str(trans.quantity),
+                        qty_display,
                         f"{trans.rate_afg:.2f}",
                         f"{trans.total_afg:.2f}",
                         ""
@@ -148,7 +151,10 @@ class TransactionFormWidget(QWidget):
                     edit_btn.setIcon(QIcon(str(edit_icon)))
                     edit_btn.setIconSize(QSize(16, 16))
                 edit_btn.setToolTip('Edit')
-                edit_btn.clicked.connect(lambda checked, t=trans, tt=ttype: self.edit_transaction(t, tt) if hasattr(self, 'edit_transaction') else None)
+                if ttype == 'sale':
+                    edit_btn.clicked.connect(lambda checked, t=trans: self.edit_sale(t))
+                else:
+                    edit_btn.clicked.connect(lambda checked, t=trans, tt=ttype: self.edit_transaction(t, tt) if hasattr(self, 'edit_transaction') else None)
 
                 delete_btn = QToolButton()
                 delete_btn.setAutoRaise(True)
@@ -207,14 +213,18 @@ class TransactionFormWidget(QWidget):
     def add_transaction(self):
         """Add new transaction"""
         if self.transaction_type == 'sales':
-            dialog = SalesDialog(self, None, self.sales_manager, self.party_manager)
+            # Use advanced sales dialog
+            dialog = AdvancedSalesDialog(self, None, farm_id=self.farm_id)
+            dialog.sale_saved.connect(self.refresh_data)
+            dialog.exec()
         elif self.transaction_type == 'purchases':
             dialog = PurchaseDialog(self, None, self.purchase_manager, self.party_manager, self.inventory_manager)
+            if dialog.exec():
+                self.refresh_data()
         else:
             dialog = ExpenseDialog(self, None, self.expense_manager, self.party_manager, farm_id=self.farm_id)
-        
-        if dialog.exec():
-            self.refresh_data()
+            if dialog.exec():
+                self.refresh_data()
     
     def delete_transaction(self, transaction, trans_type):
         """Delete transaction"""
@@ -242,6 +252,12 @@ class TransactionFormWidget(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to delete transaction: {e}")
 
+    def edit_sale(self, sale):
+        """Edit sale using advanced dialog"""
+        dialog = AdvancedSalesDialog(self, sale, farm_id=self.farm_id)
+        dialog.sale_saved.connect(self.refresh_data)
+        dialog.exec()
+    
     def set_farm_id(self, farm_id):
         """Set current farm id and refresh data"""
         self.farm_id = farm_id

@@ -224,6 +224,8 @@ class MainWindow(QMainWindow):
             ("Dashboard", self.load_dashboard, 'icon_dashboard.svg'),
             ("Farm Management", self.load_farm_management, 'icon_farm.svg'),
             ("Egg Production", self.load_production, 'icon_egg.svg'),
+            ("Egg Stock", self.load_egg_stock, 'icon_egg.svg'),
+            ("Egg Expenses", self.load_egg_expenses, 'icon_expenses.svg'),
             ("Feed Management", self.load_feed_management, 'icon_feed.svg'),
             ("Inventory", self.load_inventory, 'icon_inventory.svg'),
             ("Equipment", self.load_equipment_management, 'icon_inventory.svg'),
@@ -348,6 +350,8 @@ class MainWindow(QMainWindow):
                 # If widget implements a refresh method, call it to reload data
                 if hasattr(current_widget, 'refresh_data') and callable(current_widget.refresh_data):
                     current_widget.refresh_data()
+                elif hasattr(current_widget, 'refresh_stock') and callable(current_widget.refresh_stock):
+                    current_widget.refresh_stock()
             except Exception as e:
                 logger.exception(f"Error handling farm change: {e}")
     
@@ -383,6 +387,28 @@ class MainWindow(QMainWindow):
         self.content_layout.addWidget(prod_widget)
         self._update_breadcrumbs("Egg Production", "production")
         self._add_to_history("Egg Production", "production", self.load_production)
+    
+    def load_egg_stock(self):
+        """Load egg stock management widget"""
+        self.clear_content()
+        from egg_farm_system.ui.widgets.egg_stock_widget import EggStockWidget
+        stock_widget = EggStockWidget()
+        stock_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        if self.get_current_farm_id():
+            stock_widget.set_farm_id(self.get_current_farm_id())
+        self.content_layout.addWidget(stock_widget)
+        self._update_breadcrumbs("Egg Stock", "egg_stock")
+        self._add_to_history("Egg Stock", "egg_stock", self.load_egg_stock)
+    
+    def load_egg_expenses(self):
+        """Load egg expense management widget"""
+        self.clear_content()
+        from egg_farm_system.ui.widgets.egg_expense_widget import EggExpenseWidget
+        expense_widget = EggExpenseWidget()
+        expense_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(expense_widget)
+        self._update_breadcrumbs("Egg Expenses", "egg_expenses")
+        self._add_to_history("Egg Expenses", "egg_expenses", self.load_egg_expenses)
     
     def load_feed_management(self):
         """Load feed management widget"""

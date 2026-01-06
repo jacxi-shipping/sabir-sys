@@ -379,6 +379,13 @@ class Sale(Base):
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # Advanced fields for carton-based sales
+    cartons = Column(Float, nullable=True)  # Number of cartons
+    egg_grade = Column(String(20), nullable=True)  # small, medium, large, broken, mixed
+    tray_expense_afg = Column(Float, nullable=True)  # Tray expense for this sale
+    carton_expense_afg = Column(Float, nullable=True)  # Carton expense for this sale
+    total_expense_afg = Column(Float, nullable=True)  # Total expense (tray + carton)
+    
     # Relationships
     party = relationship("Party", back_populates="sales")
     
