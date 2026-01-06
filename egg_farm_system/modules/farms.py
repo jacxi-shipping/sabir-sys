@@ -3,6 +3,7 @@ Farm management module
 """
 from egg_farm_system.database.models import Farm
 from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.utils.cache_manager import cached
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,20 @@ class FarmManager:
     def get_all_farms(self):
         """Get all farms"""
         try:
-            return self.session.query(Farm).all()
+            # Check cache first
+            from egg_farm_system.utils.cache_manager import get_cache_manager
+            cache = get_cache_manager()
+            cached_result = cache.get("farms_all")
+            if cached_result is not None:
+                return cached_result
+            
+            # Query database
+            farms = self.session.query(Farm).all()
+            
+            # Cache result
+            cache.set("farms_all", farms, ttl_seconds=300)
+            
+            return farms
         except Exception as e:
             logger.error(f"Error getting farms: {e}")
             return []

@@ -63,6 +63,59 @@ class SalesManager:
             logger.error(f"Error recording sale: {e}")
             raise
     
+    def record_sale_advanced(self, party_id, cartons, eggs, grade, rate_afg, rate_usd,
+                            tray_expense_afg=0, carton_expense_afg=0,
+                            exchange_rate_used=78.0, date=None, notes=None):
+        """Record advanced egg sale with carton and expense tracking"""
+        try:
+            if date is None:
+                date = datetime.utcnow()
+            
+            total_afg = eggs * rate_afg
+            total_usd = eggs * rate_usd
+            total_expense_afg = tray_expense_afg + carton_expense_afg
+            
+            sale = Sale(
+                party_id=party_id,
+                date=date,
+                quantity=eggs,
+                cartons=cartons,
+                egg_grade=grade,
+                rate_afg=rate_afg,
+                rate_usd=rate_usd,
+                total_afg=total_afg,
+                total_usd=total_usd,
+                exchange_rate_used=exchange_rate_used,
+                tray_expense_afg=tray_expense_afg,
+                carton_expense_afg=carton_expense_afg,
+                total_expense_afg=total_expense_afg,
+                notes=notes
+            )
+            self.session.add(sale)
+            self.session.flush()  # Get sale ID
+            
+            # Post to ledger: Debit party, Credit sales
+            ledger_manager = LedgerManager()
+            ledger_manager.post_entry(
+                party_id=party_id,
+                date=date,
+                description=f"Egg sale: {cartons:.2f} cartons ({eggs} eggs) - {grade}",
+                debit_afg=total_afg,
+                debit_usd=total_usd,
+                exchange_rate_used=exchange_rate_used,
+                reference_type="Sale",
+                reference_id=sale.id,
+                session=self.session
+            )
+            
+            self.session.commit()
+            logger.info(f"Advanced sale recorded: {cartons} cartons ({eggs} eggs) to party {party_id}")
+            return sale
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error recording advanced sale: {e}")
+            raise
+    
     def get_sales(self, party_id=None, start_date=None, end_date=None):
         """Get sales records"""
         try:

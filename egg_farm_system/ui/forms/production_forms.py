@@ -16,6 +16,8 @@ from modules.farms import FarmManager
 from modules.sheds import ShedManager
 from modules.flocks import FlockManager
 from modules.egg_production import EggProductionManager
+from egg_farm_system.utils.egg_management import EggManagementSystem
+from PySide6.QtWidgets import QGroupBox, QGridLayout
 
 class ProductionFormWidget(QWidget):
     """Egg production tracking widget"""
@@ -172,53 +174,132 @@ class ProductionFormWidget(QWidget):
 
 
 class ProductionDialog(QDialog):
-    """Production recording dialog"""
+    """Production recording dialog with tray/carton conversion"""
     
     def __init__(self, parent, shed_id, production, egg_manager):
         super().__init__(parent)
         self.shed_id = shed_id
         self.production = production
         self.egg_manager = egg_manager
+        self.egg_management = EggManagementSystem()
         
         self.setWindowTitle("Egg Production" if production else "Record Production")
-        self.setGeometry(100, 100, 400, 300)
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(450)
         
-        layout = QFormLayout()
+        layout = QVBoxLayout()
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
         
+        # Date
+        date_layout = QFormLayout()
         self.date_edit = QDateTimeEdit()
         self.date_edit.setDateTime(QDateTime.currentDateTime())
+        self.date_edit.setCalendarPopup(True)
+        date_layout.addRow("Date:", self.date_edit)
+        layout.addLayout(date_layout)
+        
+        # Egg Counts Group
+        counts_group = QGroupBox("Egg Counts by Grade")
+        counts_layout = QFormLayout()
+        counts_layout.setSpacing(8)
         
         self.small_spin = QSpinBox()
+        self.small_spin.setMinimum(0)
+        self.small_spin.setMaximum(100000)
+        self.small_spin.valueChanged.connect(self.update_conversion)
+        
         self.medium_spin = QSpinBox()
+        self.medium_spin.setMinimum(0)
+        self.medium_spin.setMaximum(100000)
+        self.medium_spin.valueChanged.connect(self.update_conversion)
+        
         self.large_spin = QSpinBox()
+        self.large_spin.setMinimum(0)
+        self.large_spin.setMaximum(100000)
+        self.large_spin.valueChanged.connect(self.update_conversion)
+        
         self.broken_spin = QSpinBox()
+        self.broken_spin.setMinimum(0)
+        self.broken_spin.setMaximum(100000)
+        self.broken_spin.valueChanged.connect(self.update_conversion)
         
         if production:
-            self.date_edit.setDateTime(QDateTime(production.date))
+            self.date_edit.setDateTime(QDateTime.fromString(
+                production.date.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss"
+            ))
             self.small_spin.setValue(production.small_count)
             self.medium_spin.setValue(production.medium_count)
             self.large_spin.setValue(production.large_count)
             self.broken_spin.setValue(production.broken_count)
         
-        layout.addRow("Date:", self.date_edit)
-        layout.addRow("Small:", self.small_spin)
-        layout.addRow("Medium:", self.medium_spin)
-        layout.addRow("Large:", self.large_spin)
-        layout.addRow("Broken:", self.broken_spin)
+        counts_layout.addRow("Small:", self.small_spin)
+        counts_layout.addRow("Medium:", self.medium_spin)
+        counts_layout.addRow("Large:", self.large_spin)
+        counts_layout.addRow("Broken:", self.broken_spin)
+        counts_group.setLayout(counts_layout)
+        layout.addWidget(counts_group)
+        
+        # Conversion Display Group
+        conversion_group = QGroupBox("Conversion Summary")
+        conversion_layout = QGridLayout()
+        conversion_layout.setSpacing(8)
+        
+        self.total_eggs_label = QLabel("Total: 0 eggs")
+        total_font = QFont()
+        total_font.setBold(True)
+        total_font.setPointSize(11)
+        self.total_eggs_label.setFont(total_font)
+        conversion_layout.addWidget(self.total_eggs_label, 0, 0, 1, 2)
+        
+        self.tray_label = QLabel("= 0.00 trays")
+        conversion_layout.addWidget(self.tray_label, 1, 0)
+        
+        self.carton_label = QLabel("= 0.00 cartons")
+        conversion_layout.addWidget(self.carton_label, 1, 1)
+        
+        conversion_group.setLayout(conversion_layout)
+        layout.addWidget(conversion_group)
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
         save_btn = QPushButton("Save")
+        save_btn.setMinimumWidth(100)
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
         
         save_btn.clicked.connect(self.save_production)
         cancel_btn.clicked.connect(self.reject)
         
         btn_layout.addWidget(save_btn)
         btn_layout.addWidget(cancel_btn)
-        layout.addRow(btn_layout)
+        layout.addLayout(btn_layout)
         
         self.setLayout(layout)
+        
+        # Initial conversion update
+        self.update_conversion()
+    
+    def update_conversion(self):
+        """Update tray/carton conversion display"""
+        try:
+            total_eggs = (
+                self.small_spin.value() +
+                self.medium_spin.value() +
+                self.large_spin.value() +
+                self.broken_spin.value()
+            )
+            
+            trays = self.egg_management.eggs_to_trays(total_eggs)
+            cartons = self.egg_management.eggs_to_cartons(total_eggs)
+            
+            self.total_eggs_label.setText(f"Total: {total_eggs:,} eggs")
+            self.tray_label.setText(f"= {trays:.2f} trays")
+            self.carton_label.setText(f"= {cartons:.2f} cartons")
+        except Exception as e:
+            pass
     
     def save_production(self):
         """Save production"""
