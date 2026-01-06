@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 # Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from PySide6.QtWidgets import QApplication, QDialog
 from egg_farm_system.database.db import DatabaseManager
