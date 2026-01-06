@@ -2,16 +2,31 @@
 Currency utilities and conversion functions
 """
 from egg_farm_system.config import BASE_CURRENCY, SECONDARY_CURRENCY, DEFAULT_EXCHANGE_RATE
+from egg_farm_system.modules.settings import SettingsManager
 
 class CurrencyConverter:
     """Handle currency conversions"""
     
-    def __init__(self, exchange_rate=DEFAULT_EXCHANGE_RATE):
+    def __init__(self, exchange_rate=None):
         """
         Initialize converter with exchange rate.
         Default: 1 USD = 78 AFG
+        If exchange_rate is None, loads from settings or uses default.
         """
-        self.exchange_rate = exchange_rate
+        if exchange_rate is None:
+            self.exchange_rate = self.get_exchange_rate()
+        else:
+            self.exchange_rate = exchange_rate
+    
+    def get_exchange_rate(self):
+        """Get exchange rate from settings or return default"""
+        try:
+            rate_str = SettingsManager.get_setting('exchange_rate_afg_usd')
+            if rate_str:
+                return float(rate_str)
+        except (ValueError, TypeError):
+            pass
+        return DEFAULT_EXCHANGE_RATE
     
     def afg_to_usd(self, amount_afg):
         """Convert AFG to USD"""
@@ -24,9 +39,14 @@ class CurrencyConverter:
         return amount_usd * self.exchange_rate
     
     def set_exchange_rate(self, rate):
-        """Update exchange rate"""
+        """Update exchange rate and save to settings"""
         if rate > 0:
             self.exchange_rate = rate
+            SettingsManager.set_setting(
+                'exchange_rate_afg_usd', 
+                str(rate),
+                'Exchange rate: AFG per USD'
+            )
         else:
             raise ValueError("Exchange rate must be positive")
     
