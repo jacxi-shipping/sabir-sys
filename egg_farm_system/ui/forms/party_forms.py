@@ -95,12 +95,15 @@ class PartyFormWidget(QWidget):
                 delete_btn.clicked.connect(lambda checked, p=party: self.delete_party(p))
 
                 container = QWidget()
+                container.setMinimumHeight(36)
+                container.setMaximumHeight(36)
                 l = QHBoxLayout(container)
-                l.setContentsMargins(0, 0, 0, 0)
-                l.setSpacing(6)
+                l.setContentsMargins(4, 2, 4, 2)
+                l.setSpacing(4)
                 l.addWidget(view_btn)
                 l.addWidget(edit_btn)
                 l.addWidget(delete_btn)
+                l.addStretch()
                 self.table.set_cell_widget(row_idx, 4, container)
             
             # Data rows have been populated via `set_rows` above and action
@@ -116,30 +119,10 @@ class PartyFormWidget(QWidget):
             self.refresh_parties()
     
     def view_party(self, party):
-        """View party ledger"""
-        try:
-            statement = self.ledger_manager.get_ledger_summary(party.id)
-            if statement:
-                msg = f"""
-                Party: {party.name}
-                Phone: {party.phone or 'N/A'}
-                Address: {party.address or 'N/A'}
-                
-                Ledger Summary:
-                Total Debit AFG: {statement['total_debit_afg']:.2f}
-                Total Credit AFG: {statement['total_credit_afg']:.2f}
-                Balance AFG: {statement['balance_afg']:.2f}
-                
-                Total Debit USD: {statement['total_debit_usd']:.2f}
-                Total Credit USD: {statement['total_credit_usd']:.2f}
-                Balance USD: {statement['balance_usd']:.2f}
-                
-                Total Entries: {statement['entry_count']}
-                Last Entry: {statement['last_entry_date']}
-                """
-                QMessageBox.information(self, "Party Statement", msg)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to view party: {e}")
+        """View party ledger with premium dialog"""
+        from egg_farm_system.ui.widgets.party_view_dialog import PartyViewDialog
+        dialog = PartyViewDialog(self, party)
+        dialog.exec()
     
     def edit_party(self, party):
         """Edit party dialog"""

@@ -44,6 +44,9 @@ class DataTableWidget(QWidget):
         self.view.selectionModel().selectionChanged.connect(self._on_selection_changed)
         # Set consistent column stretching
         self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Set minimum row height to accommodate action buttons
+        self.view.verticalHeader().setMinimumSectionSize(40)
+        self.view.setMinimumHeight(200)
 
         # Controls
         self.search = QLineEdit()
@@ -267,7 +270,14 @@ class DataTableWidget(QWidget):
                 # map source to proxy index
                 pidx = self.proxy.mapFromSource(idx)
                 if pidx.isValid():
+                    # Ensure widget has proper size
+                    if hasattr(widget, 'setMinimumHeight'):
+                        widget.setMinimumHeight(36)
+                    if hasattr(widget, 'setMaximumHeight'):
+                        widget.setMaximumHeight(36)
                     self.view.setIndexWidget(pidx, widget)
+                    # Set row height to accommodate widget
+                    self.view.setRowHeight(pidx.row(), 40)
         except Exception as e:
             logger.exception("Failed to set cell widget at %s,%s: %s", row, col, e)
             traceback.print_exc()
@@ -311,12 +321,16 @@ class DataTableWidget(QWidget):
     def export_pdf(self, path=None):
         if path is None:
             path, _ = QFileDialog.getSaveFileName(self, "Export PDF", str(Path.cwd() / 'table.pdf'), "PDF Files (*.pdf)")
-            if not path:
+            if not path or not isinstance(path, str):
                 return
+        # Ensure path is a string
+        if not isinstance(path, str):
+            logger.error(f"Invalid path type for PDF export: {type(path)}")
+            return
         # Create printer and painter
         printer = QPrinter(QPrinter.HighResolution)
         printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(path)
+        printer.setOutputFileName(str(path))
 
         painter = QPainter(printer)
 
@@ -419,8 +433,12 @@ class DataTableWidget(QWidget):
         import csv
         if path is None:
             path, _ = QFileDialog.getSaveFileName(self, "Export CSV", str(Path.cwd() / 'table.csv'), "CSV Files (*.csv)")
-            if not path:
+            if not path or not isinstance(path, str):
                 return
+        # Ensure path is a string
+        if not isinstance(path, str):
+            logger.error(f"Invalid path type for CSV export: {type(path)}")
+            return
         
         # Get visible columns only
         visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
@@ -465,8 +483,12 @@ class DataTableWidget(QWidget):
                 self, "Export Excel", str(Path.cwd() / 'table.xlsx'), 
                 "Excel Files (*.xlsx);;All Files (*.*)"
             )
-            if not path:
+            if not path or not isinstance(path, str):
                 return
+        # Ensure path is a string
+        if not isinstance(path, str):
+            logger.error(f"Invalid path type for Excel export: {type(path)}")
+            return
         
         # Get visible columns only
         visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]

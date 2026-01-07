@@ -166,11 +166,14 @@ class TransactionFormWidget(QWidget):
                 delete_btn.clicked.connect(lambda checked, t=trans, tt=ttype: self.delete_transaction(t, tt))
 
                 container = QWidget()
+                container.setMinimumHeight(36)
+                container.setMaximumHeight(36)
                 l = QHBoxLayout(container)
-                l.setContentsMargins(0, 0, 0, 0)
-                l.setSpacing(6)
+                l.setContentsMargins(4, 2, 4, 2)
+                l.setSpacing(4)
                 l.addWidget(edit_btn)
                 l.addWidget(delete_btn)
+                l.addStretch()
                 self.table.set_cell_widget(row_idx, self.table.model.columnCount()-1, container)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load data: {e}")

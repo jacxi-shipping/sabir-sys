@@ -87,7 +87,7 @@ class LedgerManager:
                 else:
                     change = entry.debit_usd - entry.credit_usd
                     debit = entry.debit_usd
-                    credit = entry.edit_usd
+                    credit = entry.credit_usd
                 
                 running_balance += change
                 

@@ -133,11 +133,14 @@ class ProductionFormWidget(QWidget):
                 delete_btn.clicked.connect(lambda checked, p=prod: self.delete_production(p))
 
                 container = QWidget()
+                container.setMinimumHeight(36)
+                container.setMaximumHeight(36)
                 l = QHBoxLayout(container)
-                l.setContentsMargins(0, 0, 0, 0)
-                l.setSpacing(6)
+                l.setContentsMargins(4, 2, 4, 2)
+                l.setSpacing(4)
                 l.addWidget(edit_btn)
                 l.addWidget(delete_btn)
+                l.addStretch()
                 self.table.set_cell_widget(row_idx, 6, container)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load productions: {e}")
