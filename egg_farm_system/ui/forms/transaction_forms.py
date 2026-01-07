@@ -17,6 +17,7 @@ from modules.purchases import PurchaseManager
 from modules.expenses import ExpenseManager, PaymentManager
 from modules.parties import PartyManager
 from modules.inventory import InventoryManager
+from modules.feed_mill import RawMaterialManager
 from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES
@@ -153,8 +154,10 @@ class TransactionFormWidget(QWidget):
                 edit_btn.setToolTip('Edit')
                 if ttype == 'sale':
                     edit_btn.clicked.connect(lambda checked, t=trans: self.edit_sale(t))
-                else:
-                    edit_btn.clicked.connect(lambda checked, t=trans, tt=ttype: self.edit_transaction(t, tt) if hasattr(self, 'edit_transaction') else None)
+                elif ttype == 'purchase':
+                    edit_btn.clicked.connect(lambda checked, t=trans: self.edit_purchase(t))
+                else:  # expense
+                    edit_btn.clicked.connect(lambda checked, t=trans: self.edit_expense(t))
 
                 delete_btn = QToolButton()
                 delete_btn.setAutoRaise(True)
@@ -261,6 +264,18 @@ class TransactionFormWidget(QWidget):
         dialog.sale_saved.connect(self.refresh_data)
         dialog.exec()
     
+    def edit_purchase(self, purchase):
+        """Edit purchase"""
+        dialog = PurchaseDialog(self, purchase, self.purchase_manager, self.party_manager, self.inventory_manager)
+        if dialog.exec():
+            self.refresh_data()
+    
+    def edit_expense(self, expense):
+        """Edit expense"""
+        dialog = ExpenseDialog(self, expense, self.expense_manager, self.party_manager, farm_id=self.farm_id)
+        if dialog.exec():
+            self.refresh_data()
+    
     def set_farm_id(self, farm_id):
         """Set current farm id and refresh data"""
         self.farm_id = farm_id
@@ -299,15 +314,27 @@ class SalesDialog(QDialog):
         self.rate_afg_spin = QDoubleSpinBox()
         self.rate_usd_spin = QDoubleSpinBox()
         
+        self.payment_method_combo = QComboBox()
+        self.payment_method_combo.addItems(["Cash", "Credit"])
+        self.payment_method_combo.setCurrentText("Cash")
+        
         layout.addRow("Date:", self.date_edit)
         layout.addRow("Party:", self.party_combo)
         layout.addRow("Quantity:", self.quantity_spin)
         layout.addRow("Rate (AFG):", self.rate_afg_spin)
         layout.addRow("Rate (USD):", self.rate_usd_spin)
+        layout.addRow("Payment Method:", self.payment_method_combo)
         
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
+        btn_layout.addStretch()
         save_btn = QPushButton("Save")
+        save_btn.setMinimumWidth(100)
+        save_btn.setMinimumHeight(35)
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
         save_btn.clicked.connect(self.save_sale)
         cancel_btn.clicked.connect(self.reject)
         
@@ -325,7 +352,8 @@ class SalesDialog(QDialog):
                 self.quantity_spin.value(),
                 self.rate_afg_spin.value(),
                 self.rate_usd_spin.value(),
-                date=self.date_edit.dateTime().toPython()
+                date=self.date_edit.dateTime().toPython(),
+                payment_method=self.payment_method_combo.currentText()
             )
             QMessageBox.information(self, "Success", "Sale recorded successfully")
             self.accept()
@@ -358,8 +386,12 @@ class PurchaseDialog(QDialog):
         self.material_combo = QComboBox()
         materials = []
         try:
-            materials = inventory_manager.session.query(RawMaterial).all()
-        except Exception:
+            # Use RawMaterialManager to get materials
+            material_manager = RawMaterialManager()
+            materials = material_manager.get_all_materials()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error loading materials: {e}")
             materials = []
         for material in materials:
             self.material_combo.addItem(material.name, material.id)
@@ -370,16 +402,28 @@ class PurchaseDialog(QDialog):
         self.rate_afg_spin = QDoubleSpinBox()
         self.rate_usd_spin = QDoubleSpinBox()
         
+        self.payment_method_combo = QComboBox()
+        self.payment_method_combo.addItems(["Cash", "Credit"])
+        self.payment_method_combo.setCurrentText("Cash")
+        
         layout.addRow("Date:", self.date_edit)
         layout.addRow("Party:", self.party_combo)
         layout.addRow("Material:", self.material_combo)
         layout.addRow("Quantity:", self.quantity_spin)
         layout.addRow("Rate (AFG):", self.rate_afg_spin)
         layout.addRow("Rate (USD):", self.rate_usd_spin)
+        layout.addRow("Payment Method:", self.payment_method_combo)
         
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
+        btn_layout.addStretch()
         save_btn = QPushButton("Save")
+        save_btn.setMinimumWidth(100)
+        save_btn.setMinimumHeight(35)
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
         save_btn.clicked.connect(self.save_purchase)
         cancel_btn.clicked.connect(self.reject)
         
@@ -388,20 +432,96 @@ class PurchaseDialog(QDialog):
         layout.addRow(btn_layout)
         
         self.setLayout(layout)
+        
+        # Load existing purchase data if editing
+        if self.purchase:
+            self.load_purchase_data()
+    
+    def load_purchase_data(self):
+        """Load existing purchase data"""
+        if not self.purchase:
+            return
+        
+        try:
+            self.date_edit.setDateTime(QDateTime.fromString(
+                self.purchase.date.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss"
+            ))
+            
+            # Find party index
+            for i in range(self.party_combo.count()):
+                if self.party_combo.itemData(i) == self.purchase.party_id:
+                    self.party_combo.setCurrentIndex(i)
+                    break
+            
+            # Find material index
+            for i in range(self.material_combo.count()):
+                if self.material_combo.itemData(i) == self.purchase.material_id:
+                    self.material_combo.setCurrentIndex(i)
+                    break
+            
+            self.quantity_spin.setValue(self.purchase.quantity)
+            self.rate_afg_spin.setValue(self.purchase.rate_afg)
+            self.rate_usd_spin.setValue(self.purchase.rate_usd)
+            
+            # Load payment method
+            if hasattr(self.purchase, 'payment_method') and self.purchase.payment_method:
+                index = self.payment_method_combo.findText(self.purchase.payment_method)
+                if index >= 0:
+                    self.payment_method_combo.setCurrentIndex(index)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error loading purchase data: {e}")
     
     def save_purchase(self):
         """Save purchase"""
         try:
-            self.purchase_manager.record_purchase(
-                self.party_combo.currentData(),
-                self.material_combo.currentData(),
-                self.quantity_spin.value(),
-                self.rate_afg_spin.value(),
-                self.rate_usd_spin.value(),
-                date=self.date_edit.dateTime().toPython()
-            )
-            QMessageBox.information(self, "Success", "Purchase recorded successfully")
-            self.accept()
+            # Validation
+            if self.party_combo.currentData() is None:
+                QMessageBox.warning(self, "Validation Error", "Please select a party.")
+                return
+            
+            if self.material_combo.currentData() is None:
+                QMessageBox.warning(self, "Validation Error", "Please select a material.")
+                return
+            
+            if self.quantity_spin.value() <= 0:
+                QMessageBox.warning(self, "Validation Error", "Quantity must be greater than 0.")
+                return
+            
+            if self.purchase:
+                # Update existing purchase
+                from egg_farm_system.database.db import DatabaseManager
+                session = DatabaseManager.get_session()
+                try:
+                    purchase = session.query(Purchase).filter_by(id=self.purchase.id).first()
+                    if purchase:
+                        purchase.party_id = self.party_combo.currentData()
+                        purchase.material_id = self.material_combo.currentData()
+                        purchase.date = self.date_edit.dateTime().toPython()
+                        purchase.quantity = self.quantity_spin.value()
+                        purchase.rate_afg = self.rate_afg_spin.value()
+                        purchase.rate_usd = self.rate_usd_spin.value()
+                        purchase.total_afg = purchase.quantity * purchase.rate_afg
+                        purchase.total_usd = purchase.quantity * purchase.rate_usd
+                        purchase.payment_method = self.payment_method_combo.currentText()
+                        session.commit()
+                        QMessageBox.information(self, "Success", "Purchase updated successfully")
+                        self.accept()
+                finally:
+                    session.close()
+            else:
+                # Create new purchase
+                self.purchase_manager.record_purchase(
+                    self.party_combo.currentData(),
+                    self.material_combo.currentData(),
+                    self.quantity_spin.value(),
+                    self.rate_afg_spin.value(),
+                    self.rate_usd_spin.value(),
+                    date=self.date_edit.dateTime().toPython(),
+                    payment_method=self.payment_method_combo.currentText()
+                )
+                QMessageBox.information(self, "Success", "Purchase recorded successfully")
+                self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to record purchase: {e}")
 
@@ -416,8 +536,8 @@ class ExpenseDialog(QDialog):
         self.party_manager = party_manager
         self.farm_id = farm_id
         
-        self.setWindowTitle("New Expense")
-        self.setGeometry(100, 100, 400, 250)
+        self.setWindowTitle("Edit Expense" if expense else "New Expense")
+        self.setGeometry(100, 100, 400, 300)
         
         layout = QFormLayout()
         
@@ -436,15 +556,27 @@ class ExpenseDialog(QDialog):
         for party in party_manager.get_all_parties():
             self.party_combo.addItem(party.name, party.id)
         
+        self.payment_method_combo = QComboBox()
+        self.payment_method_combo.addItems(["Cash", "Credit"])
+        self.payment_method_combo.setCurrentText("Cash")
+        
         layout.addRow("Date:", self.date_edit)
         layout.addRow("Category:", self.category_combo)
         layout.addRow("Amount (AFG):", self.amount_afg_spin)
         layout.addRow("Amount (USD):", self.amount_usd_spin)
         layout.addRow("Party:", self.party_combo)
+        layout.addRow("Payment Method:", self.payment_method_combo)
         
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
+        btn_layout.addStretch()
         save_btn = QPushButton("Save")
+        save_btn.setMinimumWidth(100)
+        save_btn.setMinimumHeight(35)
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
         save_btn.clicked.connect(self.save_expense)
         cancel_btn.clicked.connect(self.reject)
         
@@ -453,23 +585,84 @@ class ExpenseDialog(QDialog):
         layout.addRow(btn_layout)
         
         self.setLayout(layout)
+        
+        # Load existing expense data if editing
+        if self.expense:
+            self.load_expense_data()
+    
+    def load_expense_data(self):
+        """Load existing expense data"""
+        if not self.expense:
+            return
+        
+        try:
+            self.date_edit.setDateTime(QDateTime.fromString(
+                self.expense.date.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss"
+            ))
+            
+            # Find category index
+            index = self.category_combo.findText(self.expense.category)
+            if index >= 0:
+                self.category_combo.setCurrentIndex(index)
+            
+            self.amount_afg_spin.setValue(self.expense.amount_afg)
+            self.amount_usd_spin.setValue(self.expense.amount_usd)
+            
+            # Find party index
+            if self.expense.party_id:
+                for i in range(self.party_combo.count()):
+                    if self.party_combo.itemData(i) == self.expense.party_id:
+                        self.party_combo.setCurrentIndex(i)
+                        break
+            
+            # Load payment method
+            if hasattr(self.expense, 'payment_method') and self.expense.payment_method:
+                index = self.payment_method_combo.findText(self.expense.payment_method)
+                if index >= 0:
+                    self.payment_method_combo.setCurrentIndex(index)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error loading expense data: {e}")
     
     def save_expense(self):
         """Save expense"""
         try:
             farm_id = self.farm_id or (self.parent().farm_id if hasattr(self.parent(), 'farm_id') else None)
             if not farm_id:
-                raise ValueError("No farm selected for expense")
-
-            self.expense_manager.record_expense(
-                farm_id,
-                self.category_combo.currentText(),
-                self.amount_afg_spin.value(),
-                self.amount_usd_spin.value(),
-                party_id=self.party_combo.currentData(),
-                date=self.date_edit.dateTime().toPython()
-            )
-            QMessageBox.information(self, "Success", "Expense recorded successfully")
-            self.accept()
+                QMessageBox.warning(self, "Warning", "Farm ID is required")
+                return
+            
+            if self.expense:
+                # Update existing expense
+                from egg_farm_system.database.db import DatabaseManager
+                session = DatabaseManager.get_session()
+                try:
+                    expense = session.query(Expense).filter_by(id=self.expense.id).first()
+                    if expense:
+                        expense.farm_id = farm_id
+                        expense.category = self.category_combo.currentText()
+                        expense.amount_afg = self.amount_afg_spin.value()
+                        expense.amount_usd = self.amount_usd_spin.value()
+                        expense.party_id = self.party_combo.currentData()
+                        expense.date = self.date_edit.dateTime().toPython()
+                        expense.payment_method = self.payment_method_combo.currentText()
+                        session.commit()
+                        QMessageBox.information(self, "Success", "Expense updated successfully")
+                        self.accept()
+                finally:
+                    session.close()
+            else:
+                # Create new expense
+                self.expense_manager.record_expense(
+                    farm_id,
+                    self.category_combo.currentText(),
+                    self.amount_afg_spin.value(),
+                    self.amount_usd_spin.value(),
+                    party_id=self.party_combo.currentData(),
+                    date=self.date_edit.dateTime().toPython(),
+                    payment_method=self.payment_method_combo.currentText()
+                )
+                QMessageBox.information(self, "Success", "Expense recorded successfully")
+                self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to record expense: {e}")

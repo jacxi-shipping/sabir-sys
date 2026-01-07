@@ -19,7 +19,7 @@ class PurchaseManager:
         self.converter = CurrencyConverter()
     
     def record_purchase(self, party_id, material_id, quantity, rate_afg, rate_usd,
-                       exchange_rate_used=78.0, date=None, notes=None):
+                       exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
         """Record material purchase and post to ledger"""
         try:
             if date is None:
@@ -42,6 +42,7 @@ class PurchaseManager:
                 total_afg=total_afg,
                 total_usd=total_usd,
                 exchange_rate_used=exchange_rate_used,
+                payment_method=payment_method,
                 notes=notes
             )
             self.session.add(purchase)

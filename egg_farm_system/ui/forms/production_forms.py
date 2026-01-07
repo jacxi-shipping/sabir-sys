@@ -266,12 +266,16 @@ class ProductionDialog(QDialog):
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
         save_btn = QPushButton("Save")
         save_btn.setMinimumWidth(100)
+        save_btn.setMinimumHeight(35)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
         
         save_btn.clicked.connect(self.save_production)
         cancel_btn.clicked.connect(self.reject)

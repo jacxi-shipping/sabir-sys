@@ -16,7 +16,7 @@ class ExpenseManager:
         self.session = DatabaseManager.get_session()
     
     def record_expense(self, farm_id, category, amount_afg, amount_usd, 
-                      party_id=None, exchange_rate_used=78.0, date=None, description=None):
+                      party_id=None, exchange_rate_used=78.0, date=None, description=None, payment_method="Cash"):
         """Record farm expense"""
         try:
             if date is None:
@@ -30,7 +30,8 @@ class ExpenseManager:
                 description=description,
                 amount_afg=amount_afg,
                 amount_usd=amount_usd,
-                exchange_rate_used=exchange_rate_used
+                exchange_rate_used=exchange_rate_used,
+                payment_method=payment_method
             )
             self.session.add(expense)
             self.session.flush()

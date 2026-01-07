@@ -38,9 +38,19 @@ class EmployeeDialog(QDialog):
         layout.addRow("Salary Period:", self.salary_period_combo)
 
         buttons = QHBoxLayout()
-        save_btn = QPushButton("Save"); save_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("Cancel"); cancel_btn.clicked.connect(self.reject)
-        buttons.addWidget(save_btn); buttons.addWidget(cancel_btn)
+        buttons.setSpacing(10)
+        buttons.setContentsMargins(0, 10, 0, 0)
+        buttons.addStretch()
+        save_btn = QPushButton("Save")
+        save_btn.setMinimumWidth(100)
+        save_btn.setMinimumHeight(35)
+        save_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
+        cancel_btn.clicked.connect(self.reject)
+        buttons.addWidget(save_btn)
+        buttons.addWidget(cancel_btn)
         layout.addRow(buttons)
 
     def get_data(self):

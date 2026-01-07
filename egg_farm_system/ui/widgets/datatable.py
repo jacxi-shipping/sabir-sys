@@ -4,7 +4,7 @@ import traceback
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QPushButton,
     QTableView, QFileDialog, QAbstractItemView, QLabel, QSpinBox,
-    QCheckBox, QMenu, QHeaderView
+    QCheckBox, QMenu, QHeaderView, QMessageBox
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel, Signal
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPainter, QAction
@@ -319,156 +319,177 @@ class DataTableWidget(QWidget):
         self.set_headers(headers)
 
     def export_pdf(self, path=None):
-        if path is None:
-            path, _ = QFileDialog.getSaveFileName(self, "Export PDF", str(Path.cwd() / 'table.pdf'), "PDF Files (*.pdf)")
-            if not path or not isinstance(path, str):
-                return
-        # Ensure path is a string
-        if not isinstance(path, str):
-            logger.error(f"Invalid path type for PDF export: {type(path)}")
-            return
-        # Create printer and painter
-        printer = QPrinter(QPrinter.HighResolution)
-        printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(str(path))
-
-        painter = QPainter(printer)
-
-        # Page geometry and margins
-        page_rect = printer.pageRect()
-        margin = 40  # device units
-        x = page_rect.x() + margin
-        y = page_rect.y() + margin
-        w = page_rect.width() - 2 * margin
-        h = page_rect.height() - 2 * margin
-
-        # Prepare font metrics for layout
-        font = painter.font()
-        font.setPointSize(10)
-        painter.setFont(font)
-        fm = painter.fontMetrics()
-
-        cols = self.model.columnCount()
-        headers = [self.model.headerData(i, Qt.Horizontal) or "" for i in range(cols)]
-
-        # Determine column widths proportional to header text widths (fallback equal)
-        col_widths = []
-        total_w = 0
-        for i in range(cols):
-            # approximate width using header and a few sample rows
-            header_w = fm.horizontalAdvance(str(headers[i])) + 20
-            sample_w = header_w
-            for r in range(min(5, self.model.rowCount())):
-                item = self.model.item(r, i)
-                if item:
-                    sample_w = max(sample_w, fm.horizontalAdvance(item.text()) + 10)
-            col_widths.append(sample_w)
-            total_w += sample_w
-
-        # scale to printable width
-        if total_w > 0:
-            scale = w / total_w
-        else:
-            scale = 1.0
-        col_widths = [int(max(40, cw * scale)) for cw in col_widths]
-
-        # Row height
-        row_h = fm.height() + 6
-
-        # Header height
-        header_h = fm.height() + 8
-
-        # How many rows per page
-        rows_per_page = max(1, (h - header_h) // row_h)
-
-        # Paginate and draw
-        row_count = self.model.rowCount()
-        page = 0
-        r = 0
-        while r < row_count:
-            # Draw title/header for page
-            painter.save()
-            painter.translate(x, y)
-
-            # Draw table header background
-            painter.fillRect(0, 0, sum(col_widths), header_h, Qt.lightGray)
-            cx = 0
-            for i, wcol in enumerate(col_widths):
-                painter.drawRect(cx, 0, wcol, header_h)
-                painter.drawText(cx + 4, fm.ascent() + 4, str(headers[i]))
-                cx += wcol
-
-            # Draw rows
-            ry = header_h
-            for pr in range(rows_per_page):
-                if r >= row_count:
-                    break
-                cx = 0
-                # alternate background
-                if pr % 2 == 0:
-                    painter.fillRect(0, ry, sum(col_widths), row_h, Qt.white)
+        """Export table to PDF"""
+        try:
+            if path is None:
+                result = QFileDialog.getSaveFileName(self, "Export PDF", str(Path.cwd() / 'table.pdf'), "PDF Files (*.pdf)")
+                if isinstance(result, tuple):
+                    path, _ = result
                 else:
-                    painter.fillRect(0, ry, sum(col_widths), row_h, Qt.lightGray.lighter(120))
+                    path = result
+                if not path:
+                    return
+            # Ensure path is a string
+            if not isinstance(path, str):
+                logger.error(f"Invalid path type for PDF export: {type(path)}")
+                return
+            
+            # Create printer and painter
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(str(path))
 
-                for i, wcol in enumerate(col_widths):
-                    painter.drawRect(cx, ry, wcol, row_h)
+            painter = QPainter(printer)
+
+            # Page geometry and margins
+            page_rect = printer.pageRect()
+            margin = 40  # device units
+            x = page_rect.x() + margin
+            y = page_rect.y() + margin
+            w = page_rect.width() - 2 * margin
+            h = page_rect.height() - 2 * margin
+
+            # Prepare font metrics for layout
+            font = painter.font()
+            font.setPointSize(10)
+            painter.setFont(font)
+            fm = painter.fontMetrics()
+
+            cols = self.model.columnCount()
+            headers = [self.model.headerData(i, Qt.Horizontal) or "" for i in range(cols)]
+
+            # Determine column widths proportional to header text widths (fallback equal)
+            col_widths = []
+            total_w = 0
+            for i in range(cols):
+                # approximate width using header and a few sample rows
+                header_w = fm.horizontalAdvance(str(headers[i])) + 20
+                sample_w = header_w
+                for r in range(min(5, self.model.rowCount())):
                     item = self.model.item(r, i)
-                    text = item.text() if item is not None else ''
-                    painter.drawText(cx + 4, ry + fm.ascent() + 3, str(text))
+                    if item:
+                        sample_w = max(sample_w, fm.horizontalAdvance(item.text()) + 10)
+                col_widths.append(sample_w)
+                total_w += sample_w
+
+            # scale to printable width
+            if total_w > 0:
+                scale = w / total_w
+            else:
+                scale = 1.0
+            col_widths = [int(max(40, cw * scale)) for cw in col_widths]
+
+            # Row height
+            row_h = fm.height() + 6
+
+            # Header height
+            header_h = fm.height() + 8
+
+            # How many rows per page
+            rows_per_page = max(1, (h - header_h) // row_h)
+
+            # Paginate and draw
+            row_count = self.model.rowCount()
+            page = 0
+            r = 0
+            while r < row_count:
+                # Draw title/header for page
+                painter.save()
+                painter.translate(x, y)
+
+                # Draw table header background
+                painter.fillRect(0, 0, sum(col_widths), header_h, Qt.lightGray)
+                cx = 0
+                for i, wcol in enumerate(col_widths):
+                    painter.drawRect(cx, 0, wcol, header_h)
+                    painter.drawText(cx + 4, fm.ascent() + 4, str(headers[i]))
                     cx += wcol
 
-                ry += row_h
-                r += 1
+                # Draw rows
+                ry = header_h
+                for pr in range(rows_per_page):
+                    if r >= row_count:
+                        break
+                    cx = 0
+                    # alternate background
+                    if pr % 2 == 0:
+                        painter.fillRect(0, ry, sum(col_widths), row_h, Qt.white)
+                    else:
+                        painter.fillRect(0, ry, sum(col_widths), row_h, Qt.lightGray.lighter(120))
 
-            painter.restore()
+                    for i, wcol in enumerate(col_widths):
+                        painter.drawRect(cx, ry, wcol, row_h)
+                        item = self.model.item(r, i)
+                        text = item.text() if item is not None else ''
+                        painter.drawText(cx + 4, ry + fm.ascent() + 3, str(text))
+                        cx += wcol
 
-            page += 1
-            if r < row_count:
-                printer.newPage()
+                    ry += row_h
+                    r += 1
 
-        painter.end()
+                painter.restore()
+
+                page += 1
+                if r < row_count:
+                    printer.newPage()
+
+            painter.end()
+            QMessageBox.information(self, "Success", f"PDF exported to {path}")
+        except Exception as e:
+            logger.exception(f"Error exporting PDF: {e}")
+            QMessageBox.critical(self, "Export Error", f"Failed to export PDF: {e}")
 
     def export_csv(self, path=None, export_filtered=True, export_selected=False):
         """Export to CSV with options for filtered/selected data"""
         import csv
-        if path is None:
-            path, _ = QFileDialog.getSaveFileName(self, "Export CSV", str(Path.cwd() / 'table.csv'), "CSV Files (*.csv)")
-            if not path or not isinstance(path, str):
+        try:
+            if path is None:
+                result = QFileDialog.getSaveFileName(self, "Export CSV", str(Path.cwd() / 'table.csv'), "CSV Files (*.csv)")
+                if isinstance(result, tuple):
+                    path, _ = result
+                else:
+                    path = result
+                if not path:
+                    return
+            # Ensure path is a string
+            if not isinstance(path, str):
+                logger.error(f"Invalid path type for CSV export: {type(path)}")
                 return
-        # Ensure path is a string
-        if not isinstance(path, str):
-            logger.error(f"Invalid path type for CSV export: {type(path)}")
-            return
-        
-        # Get visible columns only
-        visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
-        headers = [self.model.headerData(i, Qt.Horizontal) for i in visible_cols]
-        
-        with open(path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(headers)
             
-            if export_selected:
-                # Export only selected rows
-                selected = self.view.selectionModel().selectedRows()
-                for index in selected:
-                    source_index = self.proxy.mapToSource(index)
-                    if source_index.isValid():
-                        row = [self.model.item(source_index.row(), c).text() 
-                               if self.model.item(source_index.row(), c) is not None else '' 
-                               for c in visible_cols]
-                        writer.writerow(row)
-            else:
-                # Export all visible rows (respecting filter)
-                for r in range(self.proxy.rowCount()):
-                    if export_filtered and self.view.isRowHidden(r):
-                        continue
-                    source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
-                    if source_index.isValid():
-                        row = [self.model.item(source_index.row(), c).text() 
-                               if self.model.item(source_index.row(), c) is not None else '' 
-                               for c in visible_cols]
-                        writer.writerow(row)
+            # Get visible columns only
+            visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
+            headers = [self.model.headerData(i, Qt.Horizontal) or f"Column {i+1}" for i in visible_cols]
+            
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(headers)
+                
+                if export_selected:
+                    # Export only selected rows
+                    selected = self.view.selectionModel().selectedRows()
+                    for index in selected:
+                        source_index = self.proxy.mapToSource(index)
+                        if source_index.isValid():
+                            row = [self.model.item(source_index.row(), c).text() 
+                                   if self.model.item(source_index.row(), c) is not None else '' 
+                                   for c in visible_cols]
+                            writer.writerow(row)
+                else:
+                    # Export all visible rows (respecting filter)
+                    for r in range(self.proxy.rowCount()):
+                        if export_filtered and self.view.isRowHidden(r):
+                            continue
+                        source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
+                        if source_index.isValid():
+                            row = [self.model.item(source_index.row(), c).text() 
+                                   if self.model.item(source_index.row(), c) is not None else '' 
+                                   for c in visible_cols]
+                            writer.writerow(row)
+            
+            QMessageBox.information(self, "Success", f"Data exported to {path}")
+        except Exception as e:
+            logger.exception(f"Error exporting CSV: {e}")
+            QMessageBox.critical(self, "Export Error", f"Failed to export CSV: {e}")
     
     def export_excel(self, path=None, export_filtered=True, export_selected=False):
         """Export to Excel with options for filtered/selected data"""

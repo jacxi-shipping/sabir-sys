@@ -43,6 +43,9 @@ class DatabaseManager:
             from egg_farm_system.database.migrate_sales_table import migrate_sales_table
             migrate_sales_table()
             
+            from egg_farm_system.database.migrate_payment_method import migrate_payment_method
+            migrate_payment_method()
+            
             logger.info("Database initialized successfully")
             
         except Exception as e:

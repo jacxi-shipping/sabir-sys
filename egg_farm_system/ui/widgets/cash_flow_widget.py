@@ -177,55 +177,59 @@ class CashFlowWidget(QWidget):
                 # Get all cash transactions
                 transactions = []
                 
-                # Sales (cash inflow)
+                # Sales (cash inflow) - ONLY if payment_method is Cash
                 sales = session.query(Sale).filter(
                     Sale.date >= start_date,
-                    Sale.date <= end_date
+                    Sale.date <= end_date,
+                    Sale.payment_method == "Cash"
                 ).all()
                 for sale in sales:
                     transactions.append({
                         'date': sale.date,
                         'type': 'Sale',
-                        'description': f"Sale to {sale.party.name if sale.party else 'Cash'}: {sale.cartons} cartons",
-                        'amount_afg': sale.total_amount_afg,
-                        'amount_usd': sale.total_amount_usd,
+                        'description': f"Sale to {sale.party.name if sale.party else 'Cash'}: {sale.cartons or sale.quantity} {'cartons' if sale.cartons else 'eggs'}",
+                        'amount_afg': sale.total_afg,
+                        'amount_usd': sale.total_usd,
                         'is_inflow': True
                     })
                 
-                # Purchases (cash outflow)
+                # Purchases (cash outflow) - ONLY if payment_method is Cash
                 purchases = session.query(Purchase).filter(
                     Purchase.date >= start_date,
-                    Purchase.date <= end_date
+                    Purchase.date <= end_date,
+                    Purchase.payment_method == "Cash"
                 ).all()
                 for purchase in purchases:
                     transactions.append({
                         'date': purchase.date,
                         'type': 'Purchase',
-                        'description': f"Purchase from {purchase.party.name if purchase.party else 'Cash'}: {purchase.material.name}",
-                        'amount_afg': purchase.total_amount_afg,
-                        'amount_usd': purchase.total_amount_usd,
+                        'description': f"Purchase from {purchase.party.name if purchase.party else 'Cash'}: {purchase.material.name if purchase.material else 'Material'}",
+                        'amount_afg': purchase.total_afg,
+                        'amount_usd': purchase.total_usd,
                         'is_inflow': False
                     })
                 
-                # Expenses (cash outflow)
+                # Expenses (cash outflow) - ONLY if payment_method is Cash
                 expenses = session.query(Expense).filter(
                     Expense.date >= start_date,
-                    Expense.date <= end_date
+                    Expense.date <= end_date,
+                    Expense.payment_method == "Cash"
                 ).all()
                 for expense in expenses:
                     transactions.append({
                         'date': expense.date,
                         'type': 'Expense',
-                        'description': f"{expense.category}: {expense.description}",
+                        'description': f"{expense.category}: {expense.description or ''}",
                         'amount_afg': expense.amount_afg,
                         'amount_usd': expense.amount_usd,
                         'is_inflow': False
                     })
                 
-                # Payments (can be inflow or outflow)
+                # Payments (can be inflow or outflow) - ONLY if payment_method is Cash
                 payments = session.query(Payment).filter(
                     Payment.date >= start_date,
-                    Payment.date <= end_date
+                    Payment.date <= end_date,
+                    Payment.payment_method == "Cash"
                 ).all()
                 for payment in payments:
                     transactions.append({
@@ -324,20 +328,32 @@ class CashFlowWidget(QWidget):
             total_inflow = 0
             total_outflow = 0
             
-            # Sales
-            sales = session.query(Sale).filter(Sale.date < start_date).all()
-            total_inflow += sum(s.total_amount_afg for s in sales)
+            # Sales - ONLY Cash transactions
+            sales = session.query(Sale).filter(
+                Sale.date < start_date,
+                Sale.payment_method == "Cash"
+            ).all()
+            total_inflow += sum(s.total_afg for s in sales)
             
-            # Purchases
-            purchases = session.query(Purchase).filter(Purchase.date < start_date).all()
-            total_outflow += sum(p.total_amount_afg for p in purchases)
+            # Purchases - ONLY Cash transactions
+            purchases = session.query(Purchase).filter(
+                Purchase.date < start_date,
+                Purchase.payment_method == "Cash"
+            ).all()
+            total_outflow += sum(p.total_afg for p in purchases)
             
-            # Expenses
-            expenses = session.query(Expense).filter(Expense.date < start_date).all()
+            # Expenses - ONLY Cash transactions
+            expenses = session.query(Expense).filter(
+                Expense.date < start_date,
+                Expense.payment_method == "Cash"
+            ).all()
             total_outflow += sum(e.amount_afg for e in expenses)
             
-            # Payments
-            payments = session.query(Payment).filter(Payment.date < start_date).all()
+            # Payments - ONLY Cash transactions
+            payments = session.query(Payment).filter(
+                Payment.date < start_date,
+                Payment.payment_method == "Cash"
+            ).all()
             for payment in payments:
                 if payment.payment_type == "Received":
                     total_inflow += payment.amount_afg
@@ -404,13 +420,19 @@ class CashTransactionDialog(QDialog):
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
         
         save_btn = QPushButton(f"Save {self.transaction_type}")
+        save_btn.setMinimumWidth(120)
+        save_btn.setMinimumHeight(35)
         save_btn.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,

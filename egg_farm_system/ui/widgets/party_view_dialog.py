@@ -184,8 +184,12 @@ class PartyViewDialog(QDialog):
         
         # Close button
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         close_btn = QPushButton("Close")
+        close_btn.setMinimumWidth(100)
+        close_btn.setMinimumHeight(35)
         close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
@@ -390,13 +394,19 @@ class CreditDebitDialog(QDialog):
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
         
         save_btn = QPushButton(f"Save {self.transaction_type}")
+        save_btn.setMinimumWidth(120)
+        save_btn.setMinimumHeight(35)
         save_btn.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,

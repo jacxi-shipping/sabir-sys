@@ -385,6 +385,7 @@ class Sale(Base):
     tray_expense_afg = Column(Float, nullable=True)  # Tray expense for this sale
     carton_expense_afg = Column(Float, nullable=True)  # Carton expense for this sale
     total_expense_afg = Column(Float, nullable=True)  # Total expense (tray + carton)
+    payment_method = Column(String(20), default="Cash")  # Cash or Credit
     
     # Relationships
     party = relationship("Party", back_populates="sales")
@@ -407,6 +408,7 @@ class Purchase(Base):
     total_afg = Column(Float, nullable=False)
     total_usd = Column(Float, nullable=False)
     exchange_rate_used = Column(Float, nullable=False)
+    payment_method = Column(String(20), default="Cash")  # Cash or Credit
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     
@@ -453,6 +455,7 @@ class Expense(Base):
     amount_afg = Column(Float, nullable=False)
     amount_usd = Column(Float, nullable=False)
     exchange_rate_used = Column(Float, nullable=False)
+    payment_method = Column(String(20), default="Cash")  # Cash or Credit
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships

@@ -18,7 +18,7 @@ class SalesManager:
         self.converter = CurrencyConverter()
     
     def record_sale(self, party_id, quantity, rate_afg, rate_usd, 
-                    exchange_rate_used=78.0, date=None, notes=None):
+                    exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
         """Record egg sale and post to ledger"""
         try:
             if date is None:
@@ -36,6 +36,7 @@ class SalesManager:
                 total_afg=total_afg,
                 total_usd=total_usd,
                 exchange_rate_used=exchange_rate_used,
+                payment_method=payment_method,
                 notes=notes
             )
             self.session.add(sale)
@@ -65,7 +66,7 @@ class SalesManager:
     
     def record_sale_advanced(self, party_id, cartons, eggs, grade, rate_afg, rate_usd,
                             tray_expense_afg=0, carton_expense_afg=0,
-                            exchange_rate_used=78.0, date=None, notes=None):
+                            exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
         """Record advanced egg sale with carton and expense tracking"""
         try:
             if date is None:
@@ -89,6 +90,7 @@ class SalesManager:
                 tray_expense_afg=tray_expense_afg,
                 carton_expense_afg=carton_expense_afg,
                 total_expense_afg=total_expense_afg,
+                payment_method=payment_method,
                 notes=notes
             )
             self.session.add(sale)

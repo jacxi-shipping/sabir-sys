@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox, QComboBox, QDateTimeEdit, QMessageBox, QGroupBox,
     QGridLayout, QLineEdit, QTextEdit
 )
-from PySide6.QtCore import Qt, QDateTime, Signal
+from PySide6.QtCore import Qt, QDateTime, Signal, QTimer
 from PySide6.QtGui import QFont
 from datetime import datetime
 import logging
@@ -36,10 +36,40 @@ class AdvancedSalesDialog(QDialog):
         self.setWindowTitle("Advanced Egg Sale" if not sale else "Edit Sale")
         self.setMinimumWidth(600)
         self.setMinimumHeight(550)
+        self.setModal(True)  # Make dialog modal
         
         self.init_ui()
         self.load_data()
         self.setup_connections()
+        
+        # Ensure all inputs are enabled, focusable, and not read-only
+        self.carton_spin.setEnabled(True)
+        self.carton_spin.setFocusPolicy(Qt.StrongFocus)
+        self.carton_spin.setReadOnly(False)
+        self.rate_per_egg_afg.setEnabled(True)
+        self.rate_per_egg_afg.setFocusPolicy(Qt.StrongFocus)
+        self.rate_per_egg_afg.setReadOnly(False)
+        self.rate_per_egg_usd.setEnabled(True)
+        self.rate_per_egg_usd.setFocusPolicy(Qt.StrongFocus)
+        self.rate_per_egg_usd.setReadOnly(False)
+        self.grade_combo.setEnabled(True)
+        self.grade_combo.setFocusPolicy(Qt.StrongFocus)
+        self.party_combo.setEnabled(True)
+        self.party_combo.setFocusPolicy(Qt.StrongFocus)
+        self.date_edit.setEnabled(True)
+        self.date_edit.setFocusPolicy(Qt.StrongFocus)
+        self.date_edit.setReadOnly(False)
+        self.payment_method_combo.setEnabled(True)
+        self.payment_method_combo.setFocusPolicy(Qt.StrongFocus)
+        self.notes_edit.setEnabled(True)
+        self.notes_edit.setFocusPolicy(Qt.StrongFocus)
+        self.notes_edit.setReadOnly(False)
+        
+        # Set initial focus
+        self.carton_spin.setFocus()
+        
+        # Set initial focus to carton input
+        QTimer.singleShot(100, lambda: self.carton_spin.setFocus())
     
     def init_ui(self):
         """Initialize UI"""
@@ -70,8 +100,13 @@ class AdvancedSalesDialog(QDialog):
         for party in parties:
             self.party_combo.addItem(party.name, party.id)
         
+        self.payment_method_combo = QComboBox()
+        self.payment_method_combo.addItems(["Cash", "Credit"])
+        self.payment_method_combo.setCurrentText("Cash")
+        
         basic_layout.addRow("Date:", self.date_edit)
         basic_layout.addRow("Customer:", self.party_combo)
+        basic_layout.addRow("Payment Method:", self.payment_method_combo)
         basic_group.setLayout(basic_layout)
         layout.addWidget(basic_group)
         
@@ -87,6 +122,8 @@ class AdvancedSalesDialog(QDialog):
         self.carton_spin.setMaximum(10000)
         self.carton_spin.setDecimals(2)
         self.carton_spin.setSuffix(" cartons")
+        self.carton_spin.setKeyboardTracking(True)
+        self.carton_spin.setReadOnly(False)
         carton_layout.addWidget(self.carton_spin, 0, 1)
         
         # Egg grade
@@ -119,12 +156,16 @@ class AdvancedSalesDialog(QDialog):
         self.rate_per_egg_afg.setMaximum(1000)
         self.rate_per_egg_afg.setDecimals(2)
         self.rate_per_egg_afg.setSuffix(" AFG/egg")
+        self.rate_per_egg_afg.setKeyboardTracking(True)
+        self.rate_per_egg_afg.setReadOnly(False)
         
         self.rate_per_egg_usd = QDoubleSpinBox()
         self.rate_per_egg_usd.setMinimum(0)
         self.rate_per_egg_usd.setMaximum(100)
         self.rate_per_egg_usd.setDecimals(2)
         self.rate_per_egg_usd.setSuffix(" USD/egg")
+        self.rate_per_egg_usd.setKeyboardTracking(True)
+        self.rate_per_egg_usd.setReadOnly(False)
         
         pricing_layout.addRow("Rate per Egg (AFG):", self.rate_per_egg_afg)
         pricing_layout.addRow("Rate per Egg (USD):", self.rate_per_egg_usd)
@@ -173,8 +214,8 @@ class AdvancedSalesDialog(QDialog):
         selling_font = QFont()
         selling_font.setBold(True)
         selling_font.setPointSize(11)
-        selling_font.setStyleSheet("color: green;")
         self.selling_price_label.setFont(selling_font)
+        self.selling_price_label.setStyleSheet("color: green;")
         summary_layout.addRow("Selling Price:", self.selling_price_label)
         
         self.profit_label = QLabel("0.00 AFG")
@@ -196,12 +237,16 @@ class AdvancedSalesDialog(QDialog):
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
         self.save_btn = QPushButton("Save Sale")
         self.save_btn.setMinimumWidth(120)
+        self.save_btn.setMinimumHeight(35)
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setMinimumWidth(120)
+        self.cancel_btn.setMinimumHeight(35)
         
         self.save_btn.clicked.connect(self.save_sale)
         self.cancel_btn.clicked.connect(self.reject)
@@ -231,6 +276,12 @@ class AdvancedSalesDialog(QDialog):
                 if self.party_combo.itemData(i) == self.sale.party_id:
                     self.party_combo.setCurrentIndex(i)
                     break
+            
+            # Load payment method
+            if hasattr(self.sale, 'payment_method') and self.sale.payment_method:
+                index = self.payment_method_combo.findText(self.sale.payment_method)
+                if index >= 0:
+                    self.payment_method_combo.setCurrentIndex(index)
             
             # Load carton data if available
             if self.sale.cartons:
@@ -365,6 +416,7 @@ class AdvancedSalesDialog(QDialog):
                         sale.tray_expense_afg = tray_expense
                         sale.carton_expense_afg = carton_expense
                         sale.total_expense_afg = total_expense
+                        sale.payment_method = self.payment_method_combo.currentText()
                         sale.notes = self.notes_edit.toPlainText()
                         session.commit()
                 finally:
@@ -382,7 +434,8 @@ class AdvancedSalesDialog(QDialog):
                     carton_expense_afg=carton_expense,
                     date=self.date_edit.dateTime().toPython(),
                     notes=self.notes_edit.toPlainText(),
-                    exchange_rate_used=exchange_rate
+                    exchange_rate_used=exchange_rate,
+                    payment_method=self.payment_method_combo.currentText()
                 )
             
             QMessageBox.information(self, "Success", "Sale recorded successfully!")
