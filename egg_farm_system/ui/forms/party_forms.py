@@ -72,7 +72,7 @@ class PartyFormWidget(QWidget):
                 view_btn.setFixedSize(28, 28)
                 if view_icon.exists():
                     view_btn.setIcon(QIcon(str(view_icon)))
-                    view_btn.setIconSize(QSize(16, 16))
+                    view_btn.setIconSize(QSize(20, 20))
                 view_btn.setToolTip('View')
                 view_btn.clicked.connect(lambda checked, p=party: self.view_party(p))
 
@@ -81,7 +81,7 @@ class PartyFormWidget(QWidget):
                 edit_btn.setFixedSize(28, 28)
                 if edit_icon.exists():
                     edit_btn.setIcon(QIcon(str(edit_icon)))
-                    edit_btn.setIconSize(QSize(16, 16))
+                    edit_btn.setIconSize(QSize(20, 20))
                 edit_btn.setToolTip('Edit')
                 edit_btn.clicked.connect(lambda checked, p=party: self.edit_party(p))
 
@@ -90,7 +90,7 @@ class PartyFormWidget(QWidget):
                 delete_btn.setFixedSize(28, 28)
                 if delete_icon.exists():
                     delete_btn.setIcon(QIcon(str(delete_icon)))
-                    delete_btn.setIconSize(QSize(16, 16))
+                    delete_btn.setIconSize(QSize(20, 20))
                 delete_btn.setToolTip('Delete')
                 delete_btn.clicked.connect(lambda checked, p=party: self.delete_party(p))
 

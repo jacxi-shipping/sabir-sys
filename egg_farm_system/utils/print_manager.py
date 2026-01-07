@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from PySide6.QtWidgets import QPrinter, QPrintDialog, QPrintPreviewDialog
+from PySide6.QtPrintSupport import QPrinter, QPrintDialog, QPrintPreviewDialog
 from PySide6.QtGui import QTextDocument, QPainter, QPageSize
 from PySide6.QtCore import QMarginsF, Qt
 

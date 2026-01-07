@@ -149,7 +149,7 @@ class TransactionFormWidget(QWidget):
                 edit_btn.setFixedSize(28, 28)
                 if edit_icon.exists():
                     edit_btn.setIcon(QIcon(str(edit_icon)))
-                    edit_btn.setIconSize(QSize(16, 16))
+                    edit_btn.setIconSize(QSize(20, 20))
                 edit_btn.setToolTip('Edit')
                 if ttype == 'sale':
                     edit_btn.clicked.connect(lambda checked, t=trans: self.edit_sale(t))
@@ -161,7 +161,7 @@ class TransactionFormWidget(QWidget):
                 delete_btn.setFixedSize(28, 28)
                 if delete_icon.exists():
                     delete_btn.setIcon(QIcon(str(delete_icon)))
-                    delete_btn.setIconSize(QSize(16, 16))
+                    delete_btn.setIconSize(QSize(20, 20))
                 delete_btn.setToolTip('Delete')
                 delete_btn.clicked.connect(lambda checked, t=trans, tt=ttype: self.delete_transaction(t, tt))
 
