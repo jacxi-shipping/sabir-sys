@@ -7,7 +7,7 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLayout,
     QPushButton, QLabel, QComboBox, QMessageBox, QTabWidget, QStyle, QSizePolicy,
-    QGraphicsOpacityEffect, QDialog
+    QGraphicsOpacityEffect, QDialog, QScrollArea
 )
 import traceback
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Slot, QTimer
@@ -35,7 +35,7 @@ from egg_farm_system.utils.keyboard_shortcuts import ShortcutManager
 from egg_farm_system.utils.notification_manager import get_notification_manager, NotificationSeverity
 from egg_farm_system.ui.widgets.notification_center import NotificationCenterWidget
 from egg_farm_system.ui.widgets.backup_restore_widget import BackupRestoreWidget
-from egg_farm_system.ui.widgets.global_search_widget import GlobalSearchWidget, SearchBarWidget
+from egg_farm_system.ui.widgets.global_search_widget import GlobalSearchWidget
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.app_version = app_version
         
-        # Initialize Theme
-        self.current_theme = ThemeManager.LIGHT
+        # Initialize Theme - Default to Farm theme
+        self.current_theme = ThemeManager.FARM
         ThemeManager.apply_theme(sys.modules['__main__'].app if hasattr(sys.modules['__main__'], 'app') else self, self.current_theme)
 
         DatabaseManager.initialize()
@@ -65,9 +65,8 @@ class MainWindow(QMainWindow):
 
         self.farm_manager = FarmManager()
         
-        # Initialize notification manager and check for alerts
+        # Initialize notification manager (don't check yet - badge not created)
         self.notification_manager = get_notification_manager()
-        self._check_notifications()
         
         # Initialize keyboard shortcuts
         self.shortcut_manager = ShortcutManager(self)
@@ -120,180 +119,244 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
         
+        # Now that UI is created, check notifications and update badge
+        self._check_notifications()
+        
         # Load dashboard initially
         self.load_dashboard()
     
     def create_sidebar(self):
-        """Create left sidebar navigation"""
+        """Create left sidebar navigation with grouped collapsible sections"""
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
         sidebar.setMaximumWidth(SIDEBAR_WIDTH)
-
-        layout = QVBoxLayout()
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
-
-        # Header
-        header = QFrame()
-        header.setObjectName("sidebar_header")
-        header_layout = QVBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Title row
-        title_row = QHBoxLayout()
-        title = QLabel(f"Egg Farm v{self.app_version}")
-        title.setObjectName("app_title")
-        title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        self.title_widget = title
-        title_row.addWidget(title)
-        title_row.addStretch()
-        header_layout.addLayout(title_row)
-        
-        # Global search bar
-        self.search_bar = SearchBarWidget()
-        header_layout.addWidget(self.search_bar)
-        
-        header.setLayout(header_layout)
-
-        # Notification bell button
-        self.notification_btn = QPushButton()
-        self.notification_btn.setObjectName('notification_btn')
-        self.notification_btn.setMaximumSize(32, 32)
-        self.notification_btn.setToolTip("Notifications")
-        # Try to set bell icon
-        bell_icon = asset_dir / 'icon_view.svg'  # Using existing icon as placeholder
-        if bell_icon.exists():
-            self.notification_btn.setIcon(QIcon(str(bell_icon)))
-            self.notification_btn.setIconSize(QSize(20, 20))
-        self.notification_btn.clicked.connect(self.show_notifications)
-        self.notification_btn.setStyleSheet("""
-            QPushButton {
-                border: none;
-                background-color: transparent;
-                border-radius: 16px;
-            }
-            QPushButton:hover {
-                background-color: rgba(0, 0, 0, 0.1);
+        sidebar.setStyleSheet("""
+            QFrame#sidebar {
+                background-color: #2c3e50;
             }
         """)
-        header_layout.addWidget(self.notification_btn)
+
+        # Scroll area for navigation
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         
-        # Notification badge
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+
+        # Farm selector at top
+        farm_layout = QHBoxLayout()
+        farm_layout.setSpacing(5)
+        self.farm_combo = QComboBox()
+        self.farm_combo.setMinimumHeight(35)
+        self.farm_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #34495e;
+                color: white;
+                border: 1px solid #4a5f7f;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            QComboBox:hover {
+                background-color: #3d566e;
+            }
+        """)
+        self.farm_combo.currentIndexChanged.connect(self.on_farm_changed)
+        self.refresh_farm_list()
+        self.farm_combo_widget = self.farm_combo
+        farm_layout.addWidget(self.farm_combo)
+        layout.addLayout(farm_layout)
+
+        # Import collapsible group
+        from egg_farm_system.ui.widgets.collapsible_group import CollapsibleGroup
+
+        # Dashboard (always visible, not in a group)
+        dashboard_btn = QPushButton("📊 Dashboard")
+        dashboard_btn.setMinimumHeight(40)
+        dashboard_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 10px 15px;
+                border: none;
+                background-color: #3498db;
+                color: white;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        dashboard_btn.clicked.connect(lambda: self._safe_load(self.load_dashboard))
+        layout.addWidget(dashboard_btn)
+
+        # Egg Management Group
+        egg_group = CollapsibleGroup("🥚 Egg Management")
+        egg_group.add_button("Production", lambda: self._safe_load(self.load_production), 'icon_egg.svg')
+        egg_group.add_button("Stock", lambda: self._safe_load(self.load_egg_stock), 'icon_egg.svg')
+        egg_group.add_button("Expenses", lambda: self._safe_load(self.load_egg_expenses), 'icon_expenses.svg')
+        layout.addWidget(egg_group)
+
+        # Farm Operations Group
+        farm_group = CollapsibleGroup("🏭 Farm Operations")
+        farm_group.add_button("Farm Management", lambda: self._safe_load(self.load_farm_management), 'icon_farm.svg')
+        farm_group.add_button("Feed Management", lambda: self._safe_load(self.load_feed_management), 'icon_feed.svg')
+        farm_group.add_button("Inventory", lambda: self._safe_load(self.load_inventory), 'icon_inventory.svg')
+        farm_group.add_button("Equipment", lambda: self._safe_load(self.load_equipment_management), 'icon_inventory.svg')
+        layout.addWidget(farm_group)
+
+        # Transactions Group
+        trans_group = CollapsibleGroup("💰 Transactions")
+        trans_group.add_button("Sales", lambda: self._safe_load(self.load_sales), 'icon_sales.svg')
+        trans_group.add_button("Purchases", lambda: self._safe_load(self.load_purchases), 'icon_purchases.svg')
+        trans_group.add_button("Expenses", lambda: self._safe_load(self.load_expenses), 'icon_expenses.svg')
+        trans_group.add_button("Parties", lambda: self._safe_load(self.load_parties), 'icon_parties.svg')
+        layout.addWidget(trans_group)
+
+        # Reports & Analytics Group
+        reports_group = CollapsibleGroup("📊 Reports & Analytics")
+        reports_group.add_button("Reports", lambda: self._safe_load(self.load_reports), 'icon_reports.svg')
+        reports_group.add_button("Analytics", lambda: self._safe_load(self.load_analytics), 'icon_reports.svg')
+        layout.addWidget(reports_group)
+
+        # System Group
+        system_group = CollapsibleGroup("⚙️ System")
+        system_group.add_button("Settings", lambda: self._safe_load(self.load_settings), 'icon_reports.svg')
+        system_group.add_button("Backup & Restore", lambda: self._safe_load(self.load_backup_restore), 'icon_reports.svg')
+        system_group.add_button("Workflow Automation", lambda: self._safe_load(self.load_workflow_automation), 'icon_reports.svg')
+        system_group.add_button("Audit Trail", lambda: self._safe_load(self.load_audit_trail), 'icon_reports.svg')
+        system_group.add_button("Email Config", lambda: self._safe_load(self.load_email_config), 'icon_reports.svg')
+        layout.addWidget(system_group)
+
+        # Admin Group (only for admins)
+        try:
+            if hasattr(self, 'current_user') and self.current_user and getattr(self.current_user, 'role', '') == 'admin':
+                admin_group = CollapsibleGroup("👤 Administration")
+                admin_group.add_button("Users", lambda: self._safe_load(self.load_users_management), 'icon_parties.svg')
+                admin_group.add_button("Employees", lambda: self._safe_load(self.load_employees_management), 'icon_parties.svg')
+                layout.addWidget(admin_group)
+        except Exception:
+            pass
+
+        layout.addStretch()
+
+        # Bottom buttons
+        bottom_layout = QVBoxLayout()
+        bottom_layout.setSpacing(5)
+        
+        # Premium Notification button
+        notif_layout = QHBoxLayout()
+        self.notification_btn = QPushButton("🔔 Notifications")
+        self.notification_btn.setMinimumHeight(42)
+        self.notification_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 10px 18px;
+                border: none;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #34495e,
+                    stop:1 #2c3e50);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 11pt;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3d566e,
+                    stop:1 #34495e);
+                transform: translateY(-1px);
+            }
+        """)
+        self.notification_btn.clicked.connect(self.show_notifications)
+        notif_layout.addWidget(self.notification_btn)
+        
+        # Premium Notification badge
         self.notification_badge = QLabel("0")
         self.notification_badge.setObjectName('notification_badge')
         self.notification_badge.setStyleSheet("""
             QLabel {
-                background-color: #e74c3c;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #e74c3c,
+                    stop:1 #c0392b);
                 color: white;
-                border-radius: 10px;
-                padding: 2px 6px;
-                font-weight: bold;
+                border-radius: 12px;
+                padding: 3px 8px;
+                font-weight: 700;
                 font-size: 9pt;
+                min-width: 22px;
+                min-height: 22px;
             }
         """)
         self.notification_badge.setVisible(False)
-        header_layout.addWidget(self.notification_badge)
+        self.notification_badge.setAlignment(Qt.AlignCenter)
+        notif_layout.addWidget(self.notification_badge)
+        bottom_layout.addLayout(notif_layout)
         
-        # Current user label
-        self.user_label = QLabel()
-        self.user_label.setObjectName('user_label')
-        self.user_label.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
-        # show current user if available
-        try:
-            if hasattr(self, 'current_user') and self.current_user:
-                self.user_label.setText(f"User: {getattr(self.current_user, 'username', '')}")
-            else:
-                self.user_label.setText("Not logged in")
-        except Exception:
-            self.user_label.setText("Not logged in")
-        header_layout.addWidget(self.user_label)
-
-        layout.addWidget(header)
-
-        # Farm selector
-        self.farm_label = QLabel("Select Farm:")
-        layout.addWidget(self.farm_label)
-        self.farm_combo = QComboBox()
-        self.farm_combo.currentIndexChanged.connect(self.on_farm_changed)
-        self.refresh_farm_list()
-        layout.addWidget(self.farm_combo)
-        self.farm_combo_widget = self.farm_combo
-
-        # Navigation buttons
-        nav_buttons = [
-            ("Dashboard", self.load_dashboard, 'icon_dashboard.svg'),
-            ("Farm Management", self.load_farm_management, 'icon_farm.svg'),
-            ("Egg Production", self.load_production, 'icon_egg.svg'),
-            ("Egg Stock", self.load_egg_stock, 'icon_egg.svg'),
-            ("Egg Expenses", self.load_egg_expenses, 'icon_expenses.svg'),
-            ("Feed Management", self.load_feed_management, 'icon_feed.svg'),
-            ("Inventory", self.load_inventory, 'icon_inventory.svg'),
-            ("Equipment", self.load_equipment_management, 'icon_inventory.svg'),
-            ("Parties", self.load_parties, 'icon_parties.svg'),
-            ("Sales", self.load_sales, 'icon_sales.svg'),
-            ("Purchases", self.load_purchases, 'icon_purchases.svg'),
-            ("Expenses", self.load_expenses, 'icon_expenses.svg'),
-            ("Employees", self.load_employees_management, 'icon_parties.svg'),
-            ("Users", self.load_users_management, 'icon_parties.svg'),
-            ("Settings", self.load_settings, 'icon_reports.svg'),
-            ("Backup & Restore", self.load_backup_restore, 'icon_reports.svg'),
-            ("Analytics", self.load_analytics, 'icon_reports.svg'),
-            ("Workflow Automation", self.load_workflow_automation, 'icon_reports.svg'),
-            ("Audit Trail", self.load_audit_trail, 'icon_reports.svg'),
-            ("Email Config", self.load_email_config, 'icon_reports.svg'),
-            ("Reports", self.load_reports, 'icon_reports.svg'),
-        ]
-
-        asset_dir = Path(__file__).parent.parent / 'assets'
-        for button_text, callback, icon_file in nav_buttons:
-            btn = QPushButton(button_text)
-            btn.setProperty('full_text', button_text)
-            svg_path = asset_dir / icon_file
-            try:
-                if svg_path.exists():
-                    btn.setIcon(QIcon(str(svg_path)))
-                    btn.setIconSize(QSize(20, 20))
-            except Exception:
-                pass
-            btn.setMinimumHeight(36)
-            # wrap callback to catch and report exceptions during page load
-            btn.clicked.connect(lambda checked=False, cb=callback: self._safe_load(cb))
-            # role-based availability: disable Settings (and Users) for non-admins
-            try:
-                if button_text in ('Settings', 'Users', 'Employees', 'Equipment'):
-                    if not (hasattr(self, 'current_user') and self.current_user and getattr(self.current_user, 'role', '') == 'admin'):
-                        btn.setEnabled(False)
-                        btn.setToolTip('Admin only')
-            except Exception:
-                pass
-            layout.addWidget(btn)
-
-        layout.addStretch()
-
-        # Theme Toggle Button
-        theme_btn = QPushButton("Toggle Theme")
-        theme_btn.setObjectName('theme_btn')
-        theme_icon = asset_dir / 'icon_view.svg'
-        if theme_icon.exists():
-            theme_btn.setIcon(QIcon(str(theme_icon)))
-            theme_btn.setIconSize(QSize(18, 18))
-        theme_btn.clicked.connect(self.toggle_theme)
-        theme_btn.setProperty('full_text', 'Toggle Theme')
-        layout.addWidget(theme_btn)
-
-        # Logout button
-        logout_btn = QPushButton("Logout")
-        logout_btn.setObjectName('logout_btn')
-        exit_icon = asset_dir / 'icon_exit.svg'
-        if exit_icon.exists():
-            logout_btn.setIcon(QIcon(str(exit_icon)))
-            logout_btn.setIconSize(QSize(18, 18))
+        # Premium Theme toggle
+        self.theme_btn = QPushButton("🎨 Farm Theme")
+        self.theme_btn.setMinimumHeight(42)
+        self.theme_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 10px 18px;
+                border: none;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #34495e,
+                    stop:1 #2c3e50);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 11pt;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3d566e,
+                    stop:1 #34495e);
+                transform: translateY(-1px);
+            }
+        """)
+        self.theme_btn.clicked.connect(self.toggle_theme)
+        bottom_layout.addWidget(self.theme_btn)
+        
+        # Premium Logout button
+        logout_btn = QPushButton("🚪 Logout")
+        logout_btn.setMinimumHeight(42)
+        logout_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 10px 18px;
+                border: none;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #e74c3c,
+                    stop:1 #c0392b);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 11pt;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ec7063,
+                    stop:1 #e74c3c);
+                transform: translateY(-1px);
+            }
+        """)
         logout_btn.clicked.connect(self._on_logout)
-        logout_btn.setProperty('full_text', 'Logout')
-        layout.addWidget(logout_btn)
         self.logout_button = logout_btn
-
-        sidebar.setLayout(layout)
+        bottom_layout.addWidget(logout_btn)
+        
+        layout.addLayout(bottom_layout)
+        
+        scroll.setWidget(container)
+        
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.addWidget(scroll)
+        
         return sidebar
 
     def _safe_load(self, callback):
@@ -578,6 +641,9 @@ class MainWindow(QMainWindow):
     
     def _update_notification_badge(self):
         """Update notification badge count"""
+        if not hasattr(self, 'notification_badge') or self.notification_badge is None:
+            return  # Badge not created yet
+        
         unread_count = self.notification_manager.get_unread_count()
         if unread_count > 0:
             self.notification_badge.setText(str(unread_count))
@@ -832,16 +898,24 @@ class MainWindow(QMainWindow):
             logger.exception(f"Failed to toggle sidebar: {e}")
 
     def toggle_theme(self):
-        """Switch between Light and Dark themes"""
+        """Cycle through available themes: Farm -> Light -> Dark -> Farm"""
         from PySide6.QtWidgets import QApplication
-        if self.current_theme == ThemeManager.LIGHT:
-            self.current_theme = ThemeManager.DARK
-        else:
+        if self.current_theme == ThemeManager.FARM:
             self.current_theme = ThemeManager.LIGHT
+            theme_name = "Light Theme"
+        elif self.current_theme == ThemeManager.LIGHT:
+            self.current_theme = ThemeManager.DARK
+            theme_name = "Dark Theme"
+        else:
+            self.current_theme = ThemeManager.FARM
+            theme_name = "Farm Theme"
             
         app = QApplication.instance()
         if app:
             ThemeManager.apply_theme(app, self.current_theme)
+            # Update button text
+            if hasattr(self, 'theme_btn'):
+                self.theme_btn.setText(f"🎨 {theme_name}")
             
     def _on_logout(self):
         """Log out current user and show login dialog; if cancelled, exit app."""

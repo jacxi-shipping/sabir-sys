@@ -38,6 +38,11 @@ class DatabaseManager:
             # Create all tables
             Base.metadata.create_all(bind=cls._engine)
             cls._SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=cls._engine)
+            
+            # Run migrations
+            from egg_farm_system.database.migrate_sales_table import migrate_sales_table
+            migrate_sales_table()
+            
             logger.info("Database initialized successfully")
             
         except Exception as e:

@@ -42,6 +42,8 @@ class DataTableWidget(QWidget):
         self.view.horizontalHeader().customContextMenuRequested.connect(self._show_column_menu)
         self.view.doubleClicked.connect(self._on_row_double_clicked)
         self.view.selectionModel().selectionChanged.connect(self._on_selection_changed)
+        # Set consistent column stretching
+        self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         # Controls
         self.search = QLineEdit()

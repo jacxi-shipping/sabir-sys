@@ -56,13 +56,13 @@ class InventoryFormWidget(QWidget):
         self.setLayout(layout)
     
     def create_table(self, headers):
-        """Create data table"""
+        """Create data table with consistent column stretching"""
         table = QTableWidget()
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
-        # set default resize behavior
+        # Set consistent resize behavior: stretch all columns for better UX
         for i in range(len(headers)):
-            table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
         table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         table.setAlternatingRowColors(True)
         return table
