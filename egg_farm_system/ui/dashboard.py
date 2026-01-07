@@ -265,7 +265,8 @@ class DashboardWidget(QWidget):
         """Create a premium metric card widget with modern design"""
         card = QFrame()
         card.setFrameShape(QFrame.NoFrame)
-        card.setFixedHeight(100)
+        card.setFixedHeight(110)
+        card.setMinimumWidth(200)
         # Create gradient color
         darker_color = self._darken_color(color, 0.15)
         card.setStyleSheet(f"""
@@ -274,14 +275,13 @@ class DashboardWidget(QWidget):
                     stop:0 {color},
                     stop:1 {darker_color});
                 border-radius: 12px;
-                padding: 14px;
                 border: none;
             }}
         """)
         
         layout = QVBoxLayout(card)
-        layout.setSpacing(6)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(4)
+        layout.setContentsMargins(16, 14, 16, 14)
         
         title_label = QLabel(title)
         title_label.setStyleSheet("""
@@ -290,17 +290,20 @@ class DashboardWidget(QWidget):
             font-weight: 600;
             letter-spacing: 0.2px;
         """)
-        title_label.setWordWrap(False)
+        title_label.setWordWrap(True)
+        title_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         layout.addWidget(title_label)
         
         value_label = QLabel(value)
         value_label.setStyleSheet("""
             color: white;
-            font-size: 22pt;
+            font-size: 24pt;
             font-weight: 700;
             letter-spacing: -0.3px;
         """)
         value_label.setWordWrap(False)
+        value_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        value_label.setMinimumHeight(35)
         layout.addWidget(value_label)
         
         return card

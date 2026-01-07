@@ -149,8 +149,15 @@ class FarmFormWidget(QWidget):
         edit_btn.setToolTip('Edit'); edit_btn.clicked.connect(lambda: edit_func(item_instance))
         delete_btn = QToolButton(); delete_btn.setIcon(QIcon(str(Path(__file__).parent.parent.parent / 'assets' / 'icon_delete.svg')))
         delete_btn.setToolTip('Delete'); delete_btn.clicked.connect(lambda: delete_func(item_instance))
-        container = QWidget(); layout = QHBoxLayout(container); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(5)
-        layout.addWidget(edit_btn); layout.addWidget(delete_btn); layout.addStretch()
+        container = QWidget()
+        container.setMinimumHeight(36)
+        container.setMaximumHeight(36)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(4, 2, 4, 2)
+        layout.setSpacing(4)
+        layout.addWidget(edit_btn)
+        layout.addWidget(delete_btn)
+        layout.addStretch()
         # Last column is assumed to be actions
         table.view.setIndexWidget(table.model.index(row, table.model.columnCount() - 1), container)
 

@@ -220,6 +220,7 @@ class MainWindow(QMainWindow):
         reports_group = CollapsibleGroup("📊 Reports & Analytics")
         reports_group.add_button("Reports", lambda: self._safe_load(self.load_reports), 'icon_reports.svg')
         reports_group.add_button("Analytics", lambda: self._safe_load(self.load_analytics), 'icon_reports.svg')
+        reports_group.add_button("Cash Flow", lambda: self._safe_load(self.load_cash_flow), 'icon_reports.svg')
         layout.addWidget(reports_group)
 
         # System Group
@@ -583,6 +584,16 @@ class MainWindow(QMainWindow):
         self.content_layout.addWidget(analytics_widget)
         self._update_breadcrumbs("Analytics", "analytics")
         self._add_to_history("Analytics", "analytics", self.load_analytics)
+    
+    def load_cash_flow(self):
+        """Load cash flow management widget"""
+        self.clear_content()
+        from egg_farm_system.ui.widgets.cash_flow_widget import CashFlowWidget
+        cash_flow_widget = CashFlowWidget(self.get_current_farm_id())
+        cash_flow_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(cash_flow_widget)
+        self._update_breadcrumbs("Cash Flow", "cash_flow")
+        self._add_to_history("Cash Flow", "cash_flow", self.load_cash_flow)
     
     def load_workflow_automation(self):
         """Load workflow automation widget"""
