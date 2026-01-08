@@ -33,6 +33,12 @@ class GlobalSearchWidget(QDialog):
         # Close on Escape
         QShortcut(QKeySequence("Escape"), self, self.close)
     
+    def closeEvent(self, event):
+        """Clean up resources when dialog closes"""
+        if self.search_manager:
+            self.search_manager.close()
+        super().closeEvent(event)
+    
     def init_ui(self):
         """Initialize UI"""
         layout = QVBoxLayout(self)

@@ -153,16 +153,17 @@ class GlobalSearchManager:
     
     def _search_purchases(self, query: str) -> List[Dict[str, Any]]:
         """Search purchases"""
-        purchases = self.session.query(Purchase).join(Party).filter(
+        from egg_farm_system.database.models import RawMaterial
+        purchases = self.session.query(Purchase).join(Party).join(RawMaterial).filter(
             Party.name.ilike(f"%{query}%") |
-            Purchase.material_name.ilike(f"%{query}%") |
-            Purchase.notes.ilike(f"%{query}%")
+            RawMaterial.name.ilike(f"%{query}%") |
+            (Purchase.notes.isnot(None) & Purchase.notes.ilike(f"%{query}%"))
         ).order_by(Purchase.date.desc()).limit(20).all()
         
         return [{
             'id': p.id,
             'type': 'purchase',
-            'title': f"Purchase: {p.material_name}",
+            'title': f"Purchase: {p.material.name if p.material else 'Unknown'}",
             'subtitle': f"From {p.party.name} on {p.date.strftime('%Y-%m-%d')}",
             'data': p
         } for p in purchases]

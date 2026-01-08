@@ -7,8 +7,29 @@ from egg_farm_system.database.models import (
 )
 
 class FinancialReportGenerator:
+    """
+    Generates financial reports (P&L, Cash Flow).
+    
+    Note: This class does NOT manage the session lifecycle. The caller is responsible
+    for creating and closing the session. The session should remain open for the
+    lifetime of this generator instance.
+    
+    Example:
+        session = DatabaseManager.get_session()
+        try:
+            generator = FinancialReportGenerator(session)
+            pnl = generator.generate_pnl_statement(start_date, end_date)
+        finally:
+            session.close()
+    """
 
     def __init__(self, session):
+        """
+        Initialize the report generator with a database session.
+        
+        Args:
+            session: SQLAlchemy database session (caller must close it)
+        """
         self.session = session
 
     def generate_pnl_statement(self, start_date, end_date, farm_id=None):

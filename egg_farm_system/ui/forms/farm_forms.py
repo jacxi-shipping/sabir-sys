@@ -6,10 +6,14 @@ from PySide6.QtWidgets import (
     QMessageBox, QDialog, QFormLayout, QSplitter,
     QSpinBox, QToolButton
 )
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import Qt, Signal, QSize, QTimer
 from PySide6.QtGui import QFont, QIcon, QStandardItem
 from pathlib import Path
 from egg_farm_system.ui.widgets.datatable import DataTableWidget
+from egg_farm_system.ui.widgets.loading_overlay import LoadingOverlay
+from egg_farm_system.ui.widgets.success_message import SuccessMessage
+from egg_farm_system.ui.widgets.keyboard_shortcuts import KeyboardShortcuts
+from egg_farm_system.utils.error_handler import ErrorHandler
 
 from egg_farm_system.modules.farms import FarmManager
 from egg_farm_system.modules.sheds import ShedManager
@@ -22,11 +26,22 @@ class ShedDialog(QDialog):
         self.setWindowTitle(f"{'Edit' if shed else 'Add'} Shed")
         layout = QFormLayout(self)
         self.name_edit = QLineEdit(shed.name if shed else "")
+        self.name_edit.setToolTip("Enter the name of the shed (required)")
+        self.name_edit.setPlaceholderText("e.g., Shed A, North Shed")
         self.capacity_spin = QSpinBox()
         self.capacity_spin.setRange(1, 100000)
         self.capacity_spin.setValue(shed.capacity if shed else 1000)
-        layout.addRow("Shed Name:", self.name_edit)
-        layout.addRow("Capacity (birds):", self.capacity_spin)
+        self.capacity_spin.setToolTip("Enter the maximum number of birds this shed can accommodate (required)")
+        self.capacity_spin.setSuffix(" birds")
+        
+        # Required field indicators
+        name_label = QLabel("Shed Name: <span style='color: red;'>*</span>")
+        name_label.setTextFormat(Qt.RichText)
+        capacity_label = QLabel("Capacity (birds): <span style='color: red;'>*</span>")
+        capacity_label.setTextFormat(Qt.RichText)
+        
+        layout.addRow(name_label, self.name_edit)
+        layout.addRow(capacity_label, self.capacity_spin)
         buttons = QHBoxLayout()
         buttons.setSpacing(10)
         buttons.setContentsMargins(0, 10, 0, 0)
@@ -42,9 +57,29 @@ class ShedDialog(QDialog):
         buttons.addWidget(save_btn)
         buttons.addWidget(cancel_btn)
         layout.addRow(buttons)
+        
+        # Add keyboard shortcuts
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.SAVE, self.accept)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.CLOSE, self.reject)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.ESCAPE, self.reject)
 
     def get_data(self):
-        return {"name": self.name_edit.text(), "capacity": self.capacity_spin.value()}
+        return {"name": self.name_edit.text().strip(), "capacity": self.capacity_spin.value()}
+    
+    def validate(self):
+        """Validate form inputs"""
+        if not self.name_edit.text().strip():
+            QMessageBox.warning(self, "Validation Error", "Shed name is required.")
+            return False
+        if self.capacity_spin.value() <= 0:
+            QMessageBox.warning(self, "Validation Error", "Capacity must be greater than 0.")
+            return False
+        return True
+    
+    def accept(self):
+        """Override accept to validate before closing"""
+        if self.validate():
+            super().accept()
 
 # --- Farm Dialog ---
 class FarmDialog(QDialog):
@@ -55,12 +90,22 @@ class FarmDialog(QDialog):
         self.setWindowTitle("Farm Details" if farm else "New Farm")
         layout = QFormLayout(self)
         self.name_edit = QLineEdit()
+        self.name_edit.setToolTip("Enter the name of the farm (required)")
+        self.name_edit.setPlaceholderText("e.g., Main Farm, North Farm")
         self.location_edit = QLineEdit()
+        self.location_edit.setToolTip("Enter the location/address of the farm (optional)")
+        self.location_edit.setPlaceholderText("e.g., Kabul, District 5")
         if farm:
             self.name_edit.setText(farm.name)
             self.location_edit.setText(farm.location or "")
-        layout.addRow("Farm Name:", self.name_edit)
-        layout.addRow("Location:", self.location_edit)
+        
+        # Required field indicators
+        name_label = QLabel("Farm Name: <span style='color: red;'>*</span>")
+        name_label.setTextFormat(Qt.RichText)
+        location_label = QLabel("Location:")
+        
+        layout.addRow(name_label, self.name_edit)
+        layout.addRow(location_label, self.location_edit)
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
         btn_layout.setContentsMargins(0, 10, 0, 0)
@@ -77,17 +122,54 @@ class FarmDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         layout.addRow(btn_layout)
         self.setLayout(layout)
+        
+        # Add keyboard shortcuts
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.SAVE, self.save_farm)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.CLOSE, self.reject)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.ESCAPE, self.reject)
     
     def save_farm(self):
+        """Save farm with loading indicator and success feedback"""
+        name = self.name_edit.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Validation Error", "Farm name is required. Please enter a name for the farm.")
+            return
+        
+        # Show loading overlay
+        loading = LoadingOverlay(self, "Saving farm...")
+        loading.show()
+        QTimer.singleShot(50, lambda: self._do_save(name, loading))
+    
+    def _do_save(self, name, loading):
+        """Perform the actual save operation"""
         try:
-            name = self.name_edit.text().strip()
-            if not name: return QMessageBox.warning(self, "Validation", "Farm name is required")
+            location = self.location_edit.text().strip()
             if self.farm:
-                self.farm_manager.update_farm(self.farm.id, name, self.location_edit.text().strip())
+                self.farm_manager.update_farm(self.farm.id, name, location)
+                message = f"Farm '{name}' updated successfully."
             else:
-                self.farm_manager.create_farm(name, self.location_edit.text().strip())
-            self.accept()
-        except Exception as e: QMessageBox.critical(self, "Error", f"Failed to save farm: {e}")
+                self.farm_manager.create_farm(name, location)
+                message = f"Farm '{name}' created successfully."
+            
+            loading.hide()
+            loading.deleteLater()
+            
+            # Show success message
+            success_msg = SuccessMessage(self, message)
+            success_msg.show()
+            QTimer.singleShot(100, lambda: self.accept())
+        except ValueError as e:
+            loading.hide()
+            loading.deleteLater()
+            QMessageBox.warning(self, "Validation Error", f"Invalid input: {str(e)}")
+        except Exception as e:
+            loading.hide()
+            loading.deleteLater()
+            QMessageBox.critical(
+                self, 
+                "Save Failed", 
+                f"Failed to save farm.\n\nError: {str(e)}\n\nPlease check your input and try again."
+            )
 
 # --- Main Widget ---
 class FarmFormWidget(QWidget):
@@ -98,6 +180,7 @@ class FarmFormWidget(QWidget):
         self.farm_manager = FarmManager()
         self.shed_manager = ShedManager()
         self.selected_farm_id = None
+        self.loading_overlay = LoadingOverlay(self)
         self.init_ui()
         self.refresh_farms()
 
@@ -107,7 +190,14 @@ class FarmFormWidget(QWidget):
         header_hbox = QHBoxLayout(); title = QLabel("Farms"); title.setFont(QFont("Arial", 14, QFont.Bold))
         header_hbox.addWidget(title); header_hbox.addStretch()
         new_farm_btn = QPushButton("Add New Farm"); new_farm_btn.clicked.connect(self.add_farm)
+        new_farm_btn.setToolTip("Add a new farm (Ctrl+N)")
         header_hbox.addWidget(new_farm_btn); layout.addLayout(header_hbox)
+        
+        # Add keyboard shortcuts
+        KeyboardShortcuts.add_standard_shortcuts(self, {
+            'new': self.add_farm,
+            'refresh': self.refresh_farms
+        })
         self.farms_table = DataTableWidget()
         self.farms_table.set_headers(["ID", "Name", "Location", "Sheds", "Actions"])
         self.farms_table.view.setColumnHidden(0, True)
@@ -118,6 +208,7 @@ class FarmFormWidget(QWidget):
         shed_header_hbox.addWidget(self.sheds_title); shed_header_hbox.addStretch()
         self.add_shed_btn = QPushButton("Add Shed"); self.add_shed_btn.clicked.connect(self.add_shed)
         self.add_shed_btn.setEnabled(False)
+        self.add_shed_btn.setToolTip("Add a new shed to the selected farm (Ctrl+N)")
         shed_header_hbox.addWidget(self.add_shed_btn); sheds_layout.addLayout(shed_header_hbox)
         self.sheds_table = DataTableWidget()
         self.sheds_table.set_headers(["ID", "Name", "Capacity", "Actions"])
@@ -142,27 +233,59 @@ class FarmFormWidget(QWidget):
         self.refresh_sheds()
 
     def refresh_farms(self):
-        self.farms_table.model.setRowCount(0)
-        farms = self.farm_manager.get_all_farms()
-        for farm in farms:
-            row = self.farms_table.model.rowCount()
-            self.farms_table.model.insertRow(row)
-            self.farms_table.model.setItem(row, 0, QStandardItem(str(farm.id)))
-            self.farms_table.model.setItem(row, 1, QStandardItem(farm.name))
-            self.farms_table.model.setItem(row, 2, QStandardItem(farm.location or ""))
-            self.farms_table.model.setItem(row, 3, QStandardItem(str(len(farm.sheds))))
-            self.add_action_buttons(self.farms_table, row, farm, self.edit_farm, self.delete_farm)
+        """Refresh farms table with loading indicator"""
+        self.loading_overlay.set_message("Loading farms...")
+        self.loading_overlay.show()
+        QTimer.singleShot(50, self._do_refresh_farms)
+    
+    def _do_refresh_farms(self):
+        """Perform the actual refresh"""
+        try:
+            self.farms_table.model.setRowCount(0)
+            farms = self.farm_manager.get_all_farms()
+            rows = []
+            for farm in farms:
+                row = self.farms_table.model.rowCount()
+                self.farms_table.model.insertRow(row)
+                self.farms_table.model.setItem(row, 0, QStandardItem(str(farm.id)))
+                self.farms_table.model.setItem(row, 1, QStandardItem(farm.name))
+                self.farms_table.model.setItem(row, 2, QStandardItem(farm.location or ""))
+                self.farms_table.model.setItem(row, 3, QStandardItem(str(len(farm.sheds))))
+                self.add_action_buttons(self.farms_table, row, farm, self.edit_farm, self.delete_farm)
+                rows.append([str(farm.id), farm.name, farm.location or "", str(len(farm.sheds)), ""])
+            
+            # Update empty state
+            if len(rows) == 0:
+                self.farms_table.stacked.setCurrentIndex(1)
+            else:
+                self.farms_table.stacked.setCurrentIndex(0)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load farms: {str(e)}")
+        finally:
+            self.loading_overlay.hide()
 
     def refresh_sheds(self):
-        self.sheds_table.model.setRowCount(0)
-        if self.selected_farm_id:
-            for shed in self.shed_manager.get_sheds_by_farm(self.selected_farm_id):
-                row = self.sheds_table.model.rowCount()
-                self.sheds_table.model.insertRow(row)
-                self.sheds_table.model.setItem(row, 0, QStandardItem(str(shed.id)))
-                self.sheds_table.model.setItem(row, 1, QStandardItem(shed.name))
-                self.sheds_table.model.setItem(row, 2, QStandardItem(str(shed.capacity)))
-                self.add_action_buttons(self.sheds_table, row, shed, self.edit_shed, self.delete_shed)
+        """Refresh sheds table"""
+        try:
+            self.sheds_table.model.setRowCount(0)
+            rows = []
+            if self.selected_farm_id:
+                for shed in self.shed_manager.get_sheds_by_farm(self.selected_farm_id):
+                    row = self.sheds_table.model.rowCount()
+                    self.sheds_table.model.insertRow(row)
+                    self.sheds_table.model.setItem(row, 0, QStandardItem(str(shed.id)))
+                    self.sheds_table.model.setItem(row, 1, QStandardItem(shed.name))
+                    self.sheds_table.model.setItem(row, 2, QStandardItem(str(shed.capacity)))
+                    self.add_action_buttons(self.sheds_table, row, shed, self.edit_shed, self.delete_shed)
+                    rows.append([str(shed.id), shed.name, str(shed.capacity), ""])
+            
+            # Update empty state
+            if len(rows) == 0:
+                self.sheds_table.stacked.setCurrentIndex(1)
+            else:
+                self.sheds_table.stacked.setCurrentIndex(0)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load sheds: {str(e)}")
 
     def add_action_buttons(self, table, row, item_instance, edit_func, delete_func):
         edit_btn = QToolButton(); edit_btn.setIcon(QIcon(str(Path(__file__).parent.parent.parent / 'assets' / 'icon_edit.svg')))
@@ -185,29 +308,151 @@ class FarmFormWidget(QWidget):
 
     def add_farm(self):
         dialog = FarmDialog(self, None)
-        if dialog.exec(): self.refresh_farms(); self.farm_changed.emit()
+        if dialog.exec():
+            self.refresh_farms()
+            self.farm_changed.emit()
+            success_msg = SuccessMessage(self, "Farm added successfully")
+            success_msg.show()
 
     def edit_farm(self, farm):
         dialog = FarmDialog(self, farm)
-        if dialog.exec(): self.refresh_farms(); self.farm_changed.emit()
+        if dialog.exec():
+            self.refresh_farms()
+            self.farm_changed.emit()
+            success_msg = SuccessMessage(self, "Farm updated successfully")
+            success_msg.show()
 
     def delete_farm(self, farm):
-        if QMessageBox.question(self, "Confirm", f"Delete farm '{farm.name}'?") == QMessageBox.Yes:
-            self.farm_manager.delete_farm(farm.id); self.refresh_farms(); self.farm_changed.emit()
+        """Delete farm with detailed confirmation"""
+        # Count related data
+        shed_count = len(farm.sheds) if hasattr(farm, 'sheds') else 0
+        
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Confirm Delete")
+        msg.setText(f"Are you sure you want to delete the farm '{farm.name}'?")
+        
+        if shed_count > 0:
+            msg.setInformativeText(
+                f"This farm has {shed_count} shed(s) associated with it.\n\n"
+                "Deleting this farm will also delete all associated sheds and their data.\n"
+                "This action cannot be undone."
+            )
+        else:
+            msg.setInformativeText("This action cannot be undone.")
+        
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                self.loading_overlay.set_message("Deleting farm...")
+                self.loading_overlay.show()
+                QTimer.singleShot(50, lambda: self._do_delete_farm(farm))
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(self, "Delete Failed", f"Failed to delete farm: {str(e)}")
+    
+    def _do_delete_farm(self, farm):
+        """Perform the actual delete"""
+        try:
+            farm_name = farm.name
+            self.farm_manager.delete_farm(farm.id)
+            self.loading_overlay.hide()
+            self.refresh_farms()
+            self.farm_changed.emit()
+            success_msg = SuccessMessage(self, f"Farm '{farm_name}' deleted successfully")
+            success_msg.show()
+        except Exception as e:
+            self.loading_overlay.hide()
+            QMessageBox.critical(
+                self, 
+                "Delete Failed", 
+                f"Failed to delete farm.\n\nError: {str(e)}\n\nPlease try again."
+            )
 
     def add_shed(self):
         if not self.selected_farm_id: return
         dialog = ShedDialog(parent=self)
         if dialog.exec():
-            data = dialog.get_data(); self.shed_manager.create_shed(self.selected_farm_id, data['name'], data['capacity'])
-            self.refresh_sheds(); self.refresh_farms()
+            data = dialog.get_data()
+            try:
+                self.loading_overlay.set_message("Creating shed...")
+                self.loading_overlay.show()
+                QTimer.singleShot(50, lambda: self._do_add_shed(data))
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(self, "Error", f"Failed to create shed: {str(e)}")
+    
+    def _do_add_shed(self, data):
+        """Perform the actual add"""
+        try:
+            self.shed_manager.create_shed(self.selected_farm_id, data['name'], data['capacity'])
+            self.loading_overlay.hide()
+            self.refresh_sheds()
+            self.refresh_farms()
+            success_msg = SuccessMessage(self, f"Shed '{data['name']}' created successfully")
+            success_msg.show()
+        except Exception as e:
+            self.loading_overlay.hide()
+            QMessageBox.critical(self, "Error", f"Failed to create shed: {str(e)}")
 
     def edit_shed(self, shed):
         dialog = ShedDialog(shed, self)
         if dialog.exec():
-            data = dialog.get_data(); self.shed_manager.update_shed(shed.id, data['name'], data['capacity'])
+            data = dialog.get_data()
+            try:
+                self.loading_overlay.set_message("Updating shed...")
+                self.loading_overlay.show()
+                QTimer.singleShot(50, lambda: self._do_edit_shed(shed, data))
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(self, "Error", f"Failed to update shed: {str(e)}")
+    
+    def _do_edit_shed(self, shed, data):
+        """Perform the actual edit"""
+        try:
+            self.shed_manager.update_shed(shed.id, data['name'], data['capacity'])
+            self.loading_overlay.hide()
             self.refresh_sheds()
+            success_msg = SuccessMessage(self, f"Shed '{data['name']}' updated successfully")
+            success_msg.show()
+        except Exception as e:
+            self.loading_overlay.hide()
+            QMessageBox.critical(self, "Error", f"Failed to update shed: {str(e)}")
 
     def delete_shed(self, shed):
-        if QMessageBox.question(self, "Confirm", f"Delete shed '{shed.name}'?") == QMessageBox.Yes:
-            self.shed_manager.delete_shed(shed.id); self.refresh_sheds(); self.refresh_farms()
+        """Delete shed with detailed confirmation"""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Confirm Delete")
+        msg.setText(f"Are you sure you want to delete the shed '{shed.name}'?")
+        msg.setInformativeText(
+            f"Capacity: {shed.capacity} birds\n\n"
+            "This action cannot be undone."
+        )
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                shed_name = shed.name
+                self.loading_overlay.set_message("Deleting shed...")
+                self.loading_overlay.show()
+                QTimer.singleShot(50, lambda: self._do_delete_shed(shed, shed_name))
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(self, "Delete Failed", f"Failed to delete shed: {str(e)}")
+    
+    def _do_delete_shed(self, shed, shed_name):
+        """Perform the actual delete"""
+        try:
+            self.shed_manager.delete_shed(shed.id)
+            self.loading_overlay.hide()
+            self.refresh_sheds()
+            self.refresh_farms()
+            success_msg = SuccessMessage(self, f"Shed '{shed_name}' deleted successfully")
+            success_msg.show()
+        except Exception as e:
+            self.loading_overlay.hide()
+            QMessageBox.critical(self, "Delete Failed", f"Failed to delete shed: {str(e)}")

@@ -11,7 +11,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class PurchaseManager:
-    """Manage material purchases"""
+    """
+    Manage material purchases
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
@@ -22,6 +28,16 @@ class PurchaseManager:
                        exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
         """Record material purchase and post to ledger"""
         try:
+            # Input validation
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than 0")
+            if rate_afg < 0:
+                raise ValueError("Rate (AFG) cannot be negative")
+            if rate_usd < 0:
+                raise ValueError("Rate (USD) cannot be negative")
+            if exchange_rate_used <= 0:
+                raise ValueError("Exchange rate must be greater than 0")
+            
             if date is None:
                 date = datetime.utcnow()
             
@@ -116,7 +132,14 @@ class PurchaseManager:
             }
         except Exception as e:
             logger.error(f"Error getting purchases summary: {e}")
-            return None
+            return {
+                'total_purchases': 0,
+                'total_quantity': 0,
+                'total_afg': 0,
+                'total_usd': 0,
+                'average_rate_afg': 0,
+                'average_rate_usd': 0
+            }
     
     def close_session(self):
         """Close database session"""

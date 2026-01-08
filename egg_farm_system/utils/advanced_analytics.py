@@ -346,8 +346,9 @@ class InventoryAnalytics:
                 return {}
             
             # Get purchase history
+            from egg_farm_system.database.models import RawMaterial
             purchases = self.session.query(Purchase).filter(
-                Purchase.material_name == material.name
+                Purchase.material_id == material.id
             ).order_by(Purchase.date.desc()).limit(10).all()
             
             if not purchases:

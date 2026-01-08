@@ -10,7 +10,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExpenseManager:
-    """Manage farm expenses"""
+    """
+    Manage farm expenses
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
@@ -19,6 +25,16 @@ class ExpenseManager:
                       party_id=None, exchange_rate_used=78.0, date=None, description=None, payment_method="Cash"):
         """Record farm expense"""
         try:
+            # Input validation
+            if amount_afg < 0:
+                raise ValueError("Amount (AFG) cannot be negative")
+            if amount_usd < 0:
+                raise ValueError("Amount (USD) cannot be negative")
+            if exchange_rate_used <= 0:
+                raise ValueError("Exchange rate must be greater than 0")
+            if not category or not category.strip():
+                raise ValueError("Category is required")
+            
             if date is None:
                 date = datetime.utcnow()
             
@@ -106,11 +122,22 @@ class ExpenseManager:
             }
         except Exception as e:
             logger.error(f"Error getting expenses summary: {e}")
-            return None
+            return {
+                'total_expenses': 0,
+                'total_afg': 0,
+                'total_usd': 0,
+                'by_category': {}
+            }
 
 
 class PaymentManager:
-    """Manage payments to/from parties"""
+    """
+    Manage payments to/from parties
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
@@ -120,11 +147,18 @@ class PaymentManager:
                       date=None, notes=None):
         """Record payment and post to ledger"""
         try:
-            if date is None:
-                date = datetime.utcnow()
-            
+            # Input validation
+            if amount_afg < 0:
+                raise ValueError("Amount (AFG) cannot be negative")
+            if amount_usd < 0:
+                raise ValueError("Amount (USD) cannot be negative")
+            if exchange_rate_used <= 0:
+                raise ValueError("Exchange rate must be greater than 0")
             if payment_type not in ["Received", "Paid"]:
                 raise ValueError("Payment type must be 'Received' or 'Paid'")
+            
+            if date is None:
+                date = datetime.utcnow()
             
             payment = Payment(
                 party_id=party_id,

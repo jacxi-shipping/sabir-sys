@@ -405,7 +405,18 @@ class ReportViewerWidget(QWidget):
                     path = result
                 
                 if path:
-                    self.report_table.export_pdf(path)
+                    # Get report title and subtitle
+                    report_title = self.current_report_type.replace('_', ' ').title() if self.current_report_type else "Report"
+                    subtitle = None
+                    if self.current_report_data:
+                        if 'farm' in self.current_report_data:
+                            subtitle = f"Farm: {self.current_report_data.get('farm', '')}"
+                        if 'start_date' in self.current_report_data and 'end_date' in self.current_report_data:
+                            subtitle = f"Period: {self.current_report_data.get('start_date', '')} to {self.current_report_data.get('end_date', '')}"
+                        elif 'month' in self.current_report_data and 'year' in self.current_report_data:
+                            subtitle = f"Month: {self.current_report_data.get('month', '')}/{self.current_report_data.get('year', '')}"
+                    
+                    self.report_table.export_pdf(path, title=report_title, subtitle=subtitle)
                     QMessageBox.information(self, 'Success', f'Exported to {path}')
             else:
                 # Fallback to HTML-based PDF

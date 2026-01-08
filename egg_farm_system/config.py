@@ -54,3 +54,8 @@ EGG_GRADES = ["Small", "Medium", "Large", "Broken"]
 # Logging
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Company/Farm Information for PDF exports
+COMPANY_NAME = "Egg Farm Management System"  # Can be customized
+COMPANY_ADDRESS = ""  # Can be customized
+COMPANY_PHONE = ""  # Can be customized

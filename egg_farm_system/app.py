@@ -41,8 +41,8 @@ def main():
             if qss_path.exists():
                 with open(qss_path, 'r', encoding='utf-8') as f:
                     app.setStyleSheet(f.read())
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to load stylesheet: {e}")
         
         # Initialize database
         DatabaseManager.initialize()

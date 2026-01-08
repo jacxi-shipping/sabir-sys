@@ -11,7 +11,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SalesManager:
-    """Manage egg sales"""
+    """
+    Manage egg sales
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
@@ -21,6 +27,16 @@ class SalesManager:
                     exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
         """Record egg sale and post to ledger"""
         try:
+            # Input validation
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than 0")
+            if rate_afg < 0:
+                raise ValueError("Rate (AFG) cannot be negative")
+            if rate_usd < 0:
+                raise ValueError("Rate (USD) cannot be negative")
+            if exchange_rate_used <= 0:
+                raise ValueError("Exchange rate must be greater than 0")
+            
             if date is None:
                 date = datetime.utcnow()
             
@@ -69,6 +85,22 @@ class SalesManager:
                             exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
         """Record advanced egg sale with carton and expense tracking"""
         try:
+            # Input validation
+            if eggs <= 0:
+                raise ValueError("Egg quantity must be greater than 0")
+            if cartons < 0:
+                raise ValueError("Cartons cannot be negative")
+            if rate_afg < 0:
+                raise ValueError("Rate (AFG) cannot be negative")
+            if rate_usd < 0:
+                raise ValueError("Rate (USD) cannot be negative")
+            if tray_expense_afg < 0:
+                raise ValueError("Tray expense cannot be negative")
+            if carton_expense_afg < 0:
+                raise ValueError("Carton expense cannot be negative")
+            if exchange_rate_used <= 0:
+                raise ValueError("Exchange rate must be greater than 0")
+            
             if date is None:
                 date = datetime.utcnow()
             
@@ -156,7 +188,14 @@ class SalesManager:
             }
         except Exception as e:
             logger.error(f"Error getting sales summary: {e}")
-            return None
+            return {
+                'total_sales': 0,
+                'total_quantity': 0,
+                'total_afg': 0,
+                'total_usd': 0,
+                'average_rate_afg': 0,
+                'average_rate_usd': 0
+            }
     
     def close_session(self):
         """Close database session"""

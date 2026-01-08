@@ -6,10 +6,14 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QMessageBox, QDialog, QFormLayout, QDoubleSpinBox, QDateTimeEdit, QComboBox, QSpinBox, QSizePolicy
 )
-from PySide6.QtCore import Qt, QDateTime, QSize
+from PySide6.QtCore import Qt, QDateTime, QSize, QTimer
 from PySide6.QtGui import QFont, QIcon
 from pathlib import Path
 from egg_farm_system.ui.widgets.datatable import DataTableWidget
+from egg_farm_system.ui.widgets.loading_overlay import LoadingOverlay
+from egg_farm_system.ui.widgets.success_message import SuccessMessage
+from egg_farm_system.ui.widgets.keyboard_shortcuts import KeyboardShortcuts
+from egg_farm_system.utils.error_handler import ErrorHandler
 from PySide6.QtWidgets import QToolButton
 
 from egg_farm_system.modules.sales import SalesManager
@@ -35,6 +39,7 @@ class TransactionFormWidget(QWidget):
         self.expense_manager = ExpenseManager()
         self.party_manager = PartyManager()
         self.inventory_manager = InventoryManager()
+        self.loading_overlay = LoadingOverlay(self)
         
         self.init_ui()
         self.refresh_data()
@@ -64,7 +69,14 @@ class TransactionFormWidget(QWidget):
         header_hbox.addStretch()
         new_btn = QPushButton(f"New {title_text.split()[0]}")
         new_btn.clicked.connect(self.add_transaction)
+        new_btn.setToolTip(f"Add new {self.transaction_type} (Ctrl+N)")
         header_hbox.addWidget(new_btn)
+        
+        # Add keyboard shortcuts
+        KeyboardShortcuts.add_standard_shortcuts(self, {
+            'new': self.add_transaction,
+            'refresh': self.refresh_data
+        })
         layout.addLayout(header_hbox)
         
         # Transactions table
@@ -84,6 +96,12 @@ class TransactionFormWidget(QWidget):
     
     def refresh_data(self):
         """Refresh transaction data"""
+        self.loading_overlay.set_message("Loading transactions...")
+        self.loading_overlay.show()
+        QTimer.singleShot(50, self._do_refresh_data)
+    
+    def _do_refresh_data(self):
+        """Perform the actual refresh"""
         try:
             rows = []
             action_items = []
@@ -178,8 +196,11 @@ class TransactionFormWidget(QWidget):
                 l.addWidget(delete_btn)
                 l.addStretch()
                 self.table.set_cell_widget(row_idx, self.table.model.columnCount()-1, container)
+            
+            self.loading_overlay.hide()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load data: {e}")
+            self.loading_overlay.hide()
+            QMessageBox.critical(self, "Error", f"Failed to load transactions: {str(e)}")
     
     def create_action_buttons(self, transaction, trans_type):
         """Create action buttons for transaction"""
@@ -222,34 +243,101 @@ class TransactionFormWidget(QWidget):
             # Use advanced sales dialog
             dialog = AdvancedSalesDialog(self, None, farm_id=self.farm_id)
             dialog.sale_saved.connect(self.refresh_data)
-            dialog.exec()
+            if dialog.exec():
+                success_msg = SuccessMessage(self, "Sale added successfully")
+                success_msg.show()
         elif self.transaction_type == 'purchases':
             dialog = PurchaseDialog(self, None, self.purchase_manager, self.party_manager, self.inventory_manager)
             if dialog.exec():
                 self.refresh_data()
+                success_msg = SuccessMessage(self, "Purchase added successfully")
+                success_msg.show()
         else:
             dialog = ExpenseDialog(self, None, self.expense_manager, self.party_manager, farm_id=self.farm_id)
             if dialog.exec():
                 self.refresh_data()
+                success_msg = SuccessMessage(self, "Expense added successfully")
+                success_msg.show()
     
     def delete_transaction(self, transaction, trans_type):
-        """Delete transaction"""
-        reply = QMessageBox.question(self, "Confirm Delete", "Delete this transaction?")
-        if reply == QMessageBox.Yes:
+        """Delete transaction with detailed confirmation"""
+        # Get transaction details for confirmation
+        if trans_type == 'sale':
+            party = self.party_manager.get_party_by_id(transaction.party_id)
+            qty_display = f"{transaction.cartons:.2f} cartons" if transaction.cartons else f"{transaction.quantity} eggs"
+            details = (
+                f"Date: {transaction.date.strftime('%Y-%m-%d')}\n"
+                f"Party: {party.name if party else 'N/A'}\n"
+                f"Quantity: {qty_display}\n"
+                f"Total: {transaction.total_afg:,.2f} AFG"
+            )
+            title = "Delete Sale"
+        elif trans_type == 'purchase':
+            party = self.party_manager.get_party_by_id(transaction.party_id)
+            session = DatabaseManager.get_session()
             try:
-                session = DatabaseManager.get_session()
-                try:
-                    if trans_type == 'sale':
-                        obj = session.query(Sale).filter(Sale.id == transaction.id).first()
-                    elif trans_type == 'purchase':
-                        obj = session.query(Purchase).filter(Purchase.id == transaction.id).first()
-                    else:
-                        obj = session.query(Expense).filter(Expense.id == transaction.id).first()
+                material = session.query(RawMaterial).filter(RawMaterial.id == transaction.material_id).first()
+            finally:
+                session.close()
+            details = (
+                f"Date: {transaction.date.strftime('%Y-%m-%d')}\n"
+                f"Party: {party.name if party else 'N/A'}\n"
+                f"Material: {material.name if material else 'N/A'}\n"
+                f"Quantity: {transaction.quantity:.2f}\n"
+                f"Total: {transaction.total_afg:,.2f} AFG"
+            )
+            title = "Delete Purchase"
+        else:  # expense
+            party = self.party_manager.get_party_by_id(transaction.party_id) if transaction.party_id else None
+            details = (
+                f"Date: {transaction.date.strftime('%Y-%m-%d')}\n"
+                f"Category: {transaction.category}\n"
+                f"Party: {party.name if party else 'N/A'}\n"
+                f"Amount: {transaction.amount_afg:,.2f} AFG"
+            )
+            title = "Delete Expense"
+        
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Confirm Delete")
+        msg.setText(f"Are you sure you want to delete this {trans_type}?")
+        msg.setInformativeText(f"{details}\n\nThis action cannot be undone.")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                self.loading_overlay.set_message("Deleting transaction...")
+                self.loading_overlay.show()
+                QTimer.singleShot(50, lambda: self._do_delete_transaction(transaction, trans_type))
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(self, "Delete Failed", f"Failed to delete transaction: {str(e)}")
+    
+    def _do_delete_transaction(self, transaction, trans_type):
+        """Perform the actual delete"""
+        try:
+            session = DatabaseManager.get_session()
+            try:
+                if trans_type == 'sale':
+                    obj = session.query(Sale).filter(Sale.id == transaction.id).first()
+                elif trans_type == 'purchase':
+                    obj = session.query(Purchase).filter(Purchase.id == transaction.id).first()
+                else:
+                    obj = session.query(Expense).filter(Expense.id == transaction.id).first()
 
-                    if obj:
-                        session.delete(obj)
-                        session.commit()
-                        QMessageBox.information(self, "Success", "Transaction deleted")
+                if obj:
+                    session.delete(obj)
+                    session.commit()
+                    self.loading_overlay.hide()
+                    self.refresh_data()
+                    success_msg = SuccessMessage(self, f"{trans_type.title()} deleted successfully")
+                    success_msg.show()
+                else:
+                    self.loading_overlay.hide()
+                    QMessageBox.warning(self, "Not Found", "Transaction not found")
+            finally:
+                session.close()
                         self.refresh_data()
                     else:
                         QMessageBox.warning(self, "Warning", "Transaction not found")
@@ -303,6 +391,8 @@ class SalesDialog(QDialog):
         
         self.date_edit = QDateTimeEdit()
         self.date_edit.setDateTime(QDateTime.currentDateTime())
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
         
         self.party_combo = QComboBox()
         for party in party_manager.get_all_parties():
@@ -310,9 +400,12 @@ class SalesDialog(QDialog):
         
         self.quantity_spin = QSpinBox()
         self.quantity_spin.setMaximum(10000)
+        self.quantity_spin.setSuffix(" eggs")
         
         self.rate_afg_spin = QDoubleSpinBox()
+        self.rate_afg_spin.setSuffix(" AFG")
         self.rate_usd_spin = QDoubleSpinBox()
+        self.rate_usd_spin.setSuffix(" USD")
         
         self.payment_method_combo = QComboBox()
         self.payment_method_combo.addItems(["Cash", "Credit"])
@@ -378,6 +471,8 @@ class PurchaseDialog(QDialog):
         
         self.date_edit = QDateTimeEdit()
         self.date_edit.setDateTime(QDateTime.currentDateTime())
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
         
         self.party_combo = QComboBox()
         for party in party_manager.get_all_parties():
@@ -398,21 +493,50 @@ class PurchaseDialog(QDialog):
         
         self.quantity_spin = QDoubleSpinBox()
         self.quantity_spin.setMaximum(10000)
+        self.quantity_spin.setSuffix(" units")
         
         self.rate_afg_spin = QDoubleSpinBox()
+        self.rate_afg_spin.setSuffix(" AFG")
         self.rate_usd_spin = QDoubleSpinBox()
+        self.rate_usd_spin.setSuffix(" USD")
         
         self.payment_method_combo = QComboBox()
         self.payment_method_combo.addItems(["Cash", "Credit"])
         self.payment_method_combo.setCurrentText("Cash")
         
-        layout.addRow("Date:", self.date_edit)
-        layout.addRow("Party:", self.party_combo)
-        layout.addRow("Material:", self.material_combo)
-        layout.addRow("Quantity:", self.quantity_spin)
-        layout.addRow("Rate (AFG):", self.rate_afg_spin)
-        layout.addRow("Rate (USD):", self.rate_usd_spin)
-        layout.addRow("Payment Method:", self.payment_method_combo)
+        # Add tooltips and required field indicators
+        self.date_edit.setToolTip("Select the purchase date (required)\nFormat: YYYY-MM-DD HH:MM")
+        self.party_combo.setToolTip("Select the supplier/party (required)")
+        self.material_combo.setToolTip("Select the raw material being purchased (required)")
+        self.quantity_spin.setToolTip("Enter the quantity purchased (required, must be > 0)")
+        self.quantity_spin.setPlaceholderText("0.00")
+        self.rate_afg_spin.setToolTip("Enter the rate per unit in AFG (required, must be >= 0)")
+        self.rate_afg_spin.setPlaceholderText("0.00")
+        self.rate_usd_spin.setToolTip("Enter the rate per unit in USD (optional)")
+        self.rate_usd_spin.setPlaceholderText("0.00")
+        self.payment_method_combo.setToolTip("Select payment method (required)")
+        
+        date_label = QLabel("Date: <span style='color: red;'>*</span>")
+        date_label.setTextFormat(Qt.RichText)
+        party_label = QLabel("Party: <span style='color: red;'>*</span>")
+        party_label.setTextFormat(Qt.RichText)
+        material_label = QLabel("Material: <span style='color: red;'>*</span>")
+        material_label.setTextFormat(Qt.RichText)
+        quantity_label = QLabel("Quantity: <span style='color: red;'>*</span>")
+        quantity_label.setTextFormat(Qt.RichText)
+        rate_afg_label = QLabel("Rate (AFG): <span style='color: red;'>*</span>")
+        rate_afg_label.setTextFormat(Qt.RichText)
+        rate_usd_label = QLabel("Rate (USD):")
+        payment_label = QLabel("Payment Method: <span style='color: red;'>*</span>")
+        payment_label.setTextFormat(Qt.RichText)
+        
+        layout.addRow(date_label, self.date_edit)
+        layout.addRow(party_label, self.party_combo)
+        layout.addRow(material_label, self.material_combo)
+        layout.addRow(quantity_label, self.quantity_spin)
+        layout.addRow(rate_afg_label, self.rate_afg_spin)
+        layout.addRow(rate_usd_label, self.rate_usd_spin)
+        layout.addRow(payment_label, self.payment_method_combo)
         
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
@@ -432,6 +556,11 @@ class PurchaseDialog(QDialog):
         layout.addRow(btn_layout)
         
         self.setLayout(layout)
+        
+        # Add keyboard shortcuts
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.SAVE, self.save_purchase)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.CLOSE, self.reject)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.ESCAPE, self.reject)
         
         # Load existing purchase data if editing
         if self.purchase:
@@ -473,21 +602,34 @@ class PurchaseDialog(QDialog):
             logging.getLogger(__name__).error(f"Error loading purchase data: {e}")
     
     def save_purchase(self):
-        """Save purchase"""
-        try:
-            # Validation
-            if self.party_combo.currentData() is None:
-                QMessageBox.warning(self, "Validation Error", "Please select a party.")
-                return
-            
-            if self.material_combo.currentData() is None:
-                QMessageBox.warning(self, "Validation Error", "Please select a material.")
-                return
-            
+        """Save purchase with loading indicator and success feedback"""
+        # Validation
+        if self.party_combo.currentData() is None:
+            QMessageBox.warning(self, "Validation Error", "Please select a party. Party is required.")
+            return
+        
+        if self.material_combo.currentData() is None:
+            QMessageBox.warning(self, "Validation Error", "Please select a material. Material is required.")
+            return
+        
             if self.quantity_spin.value() <= 0:
                 QMessageBox.warning(self, "Validation Error", "Quantity must be greater than 0.")
                 return
             
+            if self.rate_afg_spin.value() < 0:
+                QMessageBox.warning(self, "Validation Error", "Rate (AFG) cannot be negative.")
+                return
+            
+            # Show loading overlay
+            loading = LoadingOverlay(self, "Saving purchase...")
+            loading.show()
+            QTimer.singleShot(50, lambda: self._do_save_purchase(loading))
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save purchase: {str(e)}")
+    
+    def _do_save_purchase(self, loading):
+        """Perform the actual save"""
+        try:
             if self.purchase:
                 # Update existing purchase
                 from egg_farm_system.database.db import DatabaseManager
@@ -505,8 +647,7 @@ class PurchaseDialog(QDialog):
                         purchase.total_usd = purchase.quantity * purchase.rate_usd
                         purchase.payment_method = self.payment_method_combo.currentText()
                         session.commit()
-                        QMessageBox.information(self, "Success", "Purchase updated successfully")
-                        self.accept()
+                        message = "Purchase updated successfully."
                 finally:
                     session.close()
             else:
@@ -520,10 +661,27 @@ class PurchaseDialog(QDialog):
                     date=self.date_edit.dateTime().toPython(),
                     payment_method=self.payment_method_combo.currentText()
                 )
-                QMessageBox.information(self, "Success", "Purchase recorded successfully")
-                self.accept()
+                message = "Purchase recorded successfully."
+            
+            loading.hide()
+            loading.deleteLater()
+            
+            # Show success message
+            success_msg = SuccessMessage(self, message)
+            success_msg.show()
+            QTimer.singleShot(100, lambda: self.accept())
+        except ValueError as e:
+            loading.hide()
+            loading.deleteLater()
+            QMessageBox.warning(self, "Validation Error", f"Invalid input: {str(e)}")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to record purchase: {e}")
+            loading.hide()
+            loading.deleteLater()
+            QMessageBox.critical(
+                self, 
+                "Save Failed", 
+                f"Failed to save purchase.\n\nError: {str(e)}\n\nPlease check your input and try again."
+            )
 
 
 class ExpenseDialog(QDialog):
@@ -543,13 +701,17 @@ class ExpenseDialog(QDialog):
         
         self.date_edit = QDateTimeEdit()
         self.date_edit.setDateTime(QDateTime.currentDateTime())
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
         
         self.category_combo = QComboBox()
         for category in EXPENSE_CATEGORIES:
             self.category_combo.addItem(category)
         
         self.amount_afg_spin = QDoubleSpinBox()
+        self.amount_afg_spin.setSuffix(" AFG")
         self.amount_usd_spin = QDoubleSpinBox()
+        self.amount_usd_spin.setSuffix(" USD")
         
         self.party_combo = QComboBox()
         self.party_combo.addItem("No Party", None)
@@ -560,12 +722,33 @@ class ExpenseDialog(QDialog):
         self.payment_method_combo.addItems(["Cash", "Credit"])
         self.payment_method_combo.setCurrentText("Cash")
         
-        layout.addRow("Date:", self.date_edit)
-        layout.addRow("Category:", self.category_combo)
-        layout.addRow("Amount (AFG):", self.amount_afg_spin)
-        layout.addRow("Amount (USD):", self.amount_usd_spin)
-        layout.addRow("Party:", self.party_combo)
-        layout.addRow("Payment Method:", self.payment_method_combo)
+        # Add tooltips and required field indicators
+        self.date_edit.setToolTip("Select the expense date (required)\nFormat: YYYY-MM-DD HH:MM")
+        self.category_combo.setToolTip("Select the expense category (required)")
+        self.amount_afg_spin.setToolTip("Enter the amount in AFG (required, must be >= 0)")
+        self.amount_afg_spin.setPlaceholderText("0.00")
+        self.amount_usd_spin.setToolTip("Enter the amount in USD (optional)")
+        self.amount_usd_spin.setPlaceholderText("0.00")
+        self.party_combo.setToolTip("Select the party if this expense is related to a specific party (optional)")
+        self.payment_method_combo.setToolTip("Select payment method (required)")
+        
+        date_label = QLabel("Date: <span style='color: red;'>*</span>")
+        date_label.setTextFormat(Qt.RichText)
+        category_label = QLabel("Category: <span style='color: red;'>*</span>")
+        category_label.setTextFormat(Qt.RichText)
+        amount_afg_label = QLabel("Amount (AFG): <span style='color: red;'>*</span>")
+        amount_afg_label.setTextFormat(Qt.RichText)
+        amount_usd_label = QLabel("Amount (USD):")
+        party_label = QLabel("Party:")
+        payment_label = QLabel("Payment Method: <span style='color: red;'>*</span>")
+        payment_label.setTextFormat(Qt.RichText)
+        
+        layout.addRow(date_label, self.date_edit)
+        layout.addRow(category_label, self.category_combo)
+        layout.addRow(amount_afg_label, self.amount_afg_spin)
+        layout.addRow(amount_usd_label, self.amount_usd_spin)
+        layout.addRow(party_label, self.party_combo)
+        layout.addRow(payment_label, self.payment_method_combo)
         
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
@@ -585,6 +768,11 @@ class ExpenseDialog(QDialog):
         layout.addRow(btn_layout)
         
         self.setLayout(layout)
+        
+        # Add keyboard shortcuts
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.SAVE, self.save_expense)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.CLOSE, self.reject)
+        KeyboardShortcuts.create_shortcut(self, KeyboardShortcuts.ESCAPE, self.reject)
         
         # Load existing expense data if editing
         if self.expense:
@@ -625,13 +813,24 @@ class ExpenseDialog(QDialog):
             logging.getLogger(__name__).error(f"Error loading expense data: {e}")
     
     def save_expense(self):
-        """Save expense"""
+        """Save expense with loading indicator and success feedback"""
+        farm_id = self.farm_id or (self.parent().farm_id if hasattr(self.parent(), 'farm_id') else None)
+        if not farm_id:
+            QMessageBox.warning(self, "Validation Error", "Farm ID is required. Please select a farm.")
+            return
+        
+        if self.amount_afg_spin.value() < 0:
+            QMessageBox.warning(self, "Validation Error", "Amount (AFG) cannot be negative.")
+            return
+        
+        # Show loading overlay
+        loading = LoadingOverlay(self, "Saving expense...")
+        loading.show()
+        QTimer.singleShot(50, lambda: self._do_save_expense(loading, farm_id))
+    
+    def _do_save_expense(self, loading, farm_id):
+        """Perform the actual save"""
         try:
-            farm_id = self.farm_id or (self.parent().farm_id if hasattr(self.parent(), 'farm_id') else None)
-            if not farm_id:
-                QMessageBox.warning(self, "Warning", "Farm ID is required")
-                return
-            
             if self.expense:
                 # Update existing expense
                 from egg_farm_system.database.db import DatabaseManager
@@ -647,8 +846,7 @@ class ExpenseDialog(QDialog):
                         expense.date = self.date_edit.dateTime().toPython()
                         expense.payment_method = self.payment_method_combo.currentText()
                         session.commit()
-                        QMessageBox.information(self, "Success", "Expense updated successfully")
-                        self.accept()
+                        message = "Expense updated successfully."
                 finally:
                     session.close()
             else:
@@ -662,7 +860,24 @@ class ExpenseDialog(QDialog):
                     date=self.date_edit.dateTime().toPython(),
                     payment_method=self.payment_method_combo.currentText()
                 )
-                QMessageBox.information(self, "Success", "Expense recorded successfully")
-                self.accept()
+                message = "Expense recorded successfully."
+            
+            loading.hide()
+            loading.deleteLater()
+            
+            # Show success message
+            success_msg = SuccessMessage(self, message)
+            success_msg.show()
+            QTimer.singleShot(100, lambda: self.accept())
+        except ValueError as e:
+            loading.hide()
+            loading.deleteLater()
+            QMessageBox.warning(self, "Validation Error", f"Invalid input: {str(e)}")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to record expense: {e}")
+            loading.hide()
+            loading.deleteLater()
+            QMessageBox.critical(
+                self, 
+                "Save Failed", 
+                f"Failed to save expense.\n\nError: {str(e)}\n\nPlease check your input and try again."
+            )

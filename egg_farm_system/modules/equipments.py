@@ -9,7 +9,13 @@ from egg_farm_system.database.models import Equipment, EquipmentStatus
 logger = logging.getLogger(__name__)
 
 class EquipmentManager:
-    """Manages CRUD operations for Equipment."""
+    """
+    Manages CRUD operations for Equipment.
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
 
     def __init__(self):
         self.session = DatabaseManager.get_session()

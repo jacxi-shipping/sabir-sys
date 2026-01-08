@@ -9,7 +9,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FarmManager:
-    """Manage farm operations"""
+    """
+    Manage farm operations
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
