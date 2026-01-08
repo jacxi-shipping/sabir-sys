@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QCheckBox, QMenu, QHeaderView, QMessageBox
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel, Signal
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPainter, QAction
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPainter, QAction, QColor
 from PySide6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,9 @@ class DataTableWidget(QWidget):
         self.view.selectionModel().selectionChanged.connect(self._on_selection_changed)
         # Set consistent column stretching
         self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # Set minimum row height to accommodate action buttons
+        # Set row height to accommodate action buttons
         self.view.verticalHeader().setMinimumSectionSize(40)
+        self.view.verticalHeader().setDefaultSectionSize(40)
         self.view.setMinimumHeight(200)
 
         # Controls
@@ -330,10 +331,9 @@ class DataTableWidget(QWidget):
                 # Check if user cancelled or path is invalid
                 if not path or not isinstance(path, str) or path == '':
                     return
-            # Ensure path is a string
+            # Ensure path is a string (user may have cancelled)
             if not isinstance(path, str) or path == '':
-                logger.error(f"Invalid path type for PDF export: {type(path)}")
-                QMessageBox.warning(self, "Export Error", "Please provide a valid file path")
+                logger.debug(f"PDF export cancelled or invalid path")
                 return
             
             # Create printer and painter
@@ -343,13 +343,13 @@ class DataTableWidget(QWidget):
 
             painter = QPainter(printer)
 
-            # Page geometry and margins
-            page_rect = printer.pageRect()
+            # Page geometry and margins - PySide6 requires units argument
+            page_rect = printer.pageRect(QPrinter.DevicePixel)
             margin = 40  # device units
-            x = page_rect.x() + margin
-            y = page_rect.y() + margin
-            w = page_rect.width() - 2 * margin
-            h = page_rect.height() - 2 * margin
+            x = int(page_rect.x() + margin)
+            y = int(page_rect.y() + margin)
+            w = int(page_rect.width() - 2 * margin)
+            h = int(page_rect.height() - 2 * margin)
 
             # Prepare font metrics for layout
             font = painter.font()
@@ -400,7 +400,7 @@ class DataTableWidget(QWidget):
                 painter.translate(x, y)
 
                 # Draw table header background
-                painter.fillRect(0, 0, sum(col_widths), header_h, Qt.lightGray)
+                painter.fillRect(0, 0, sum(col_widths), header_h, QColor(Qt.lightGray))
                 cx = 0
                 for i, wcol in enumerate(col_widths):
                     painter.drawRect(cx, 0, wcol, header_h)
@@ -415,9 +415,9 @@ class DataTableWidget(QWidget):
                     cx = 0
                     # alternate background
                     if pr % 2 == 0:
-                        painter.fillRect(0, ry, sum(col_widths), row_h, Qt.white)
+                        painter.fillRect(0, ry, sum(col_widths), row_h, QColor(Qt.white))
                     else:
-                        painter.fillRect(0, ry, sum(col_widths), row_h, Qt.lightGray.lighter(120))
+                        painter.fillRect(0, ry, sum(col_widths), row_h, QColor(Qt.lightGray).lighter(120))
 
                     for i, wcol in enumerate(col_widths):
                         painter.drawRect(cx, ry, wcol, row_h)
@@ -454,10 +454,9 @@ class DataTableWidget(QWidget):
                 # Check if user cancelled or path is invalid
                 if not path or not isinstance(path, str) or path == '':
                     return
-            # Ensure path is a string
+            # Ensure path is a string (user may have cancelled)
             if not isinstance(path, str) or path == '':
-                logger.error(f"Invalid path type for CSV export: {type(path)}")
-                QMessageBox.warning(self, "Export Error", "Please provide a valid file path")
+                logger.debug(f"CSV export cancelled or invalid path")
                 return
             
             # Get visible columns only
@@ -515,10 +514,9 @@ class DataTableWidget(QWidget):
             # Check if user cancelled or path is invalid
             if not path or not isinstance(path, str) or path == '':
                 return
-        # Ensure path is a string
+        # Ensure path is a string (user may have cancelled)
         if not isinstance(path, str) or path == '':
-            logger.error(f"Invalid path type for Excel export: {type(path)}")
-            QMessageBox.warning(self, "Export Error", "Please provide a valid file path")
+            logger.debug(f"Excel export cancelled or invalid path")
             return
         
         # Get visible columns only

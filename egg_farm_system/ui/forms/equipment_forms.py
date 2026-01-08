@@ -90,6 +90,8 @@ class EquipmentFormWidget(QWidget):
         self.table.setColumnCount(6); self.table.setHorizontalHeaderLabels(["ID", "Name", "Description", "Purchase Date", "Price", "Status"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers); self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
+        self.table.verticalHeader().setMinimumSectionSize(40)
+        self.table.verticalHeader().setDefaultSectionSize(40)
         layout.addWidget(self.table)
 
     def set_farm_id(self, farm_id):

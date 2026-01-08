@@ -94,6 +94,8 @@ class AnalyticsDashboardWidget(QWidget):
         self.anomaly_table.setHorizontalHeaderLabels([
             "Date", "Value", "Expected", "Deviation", "Type", "Severity"
         ])
+        self.anomaly_table.verticalHeader().setMinimumSectionSize(40)
+        self.anomaly_table.verticalHeader().setDefaultSectionSize(40)
         layout.addWidget(self.anomaly_table)
         
         return widget

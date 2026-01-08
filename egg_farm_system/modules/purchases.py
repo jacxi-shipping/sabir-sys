@@ -4,8 +4,8 @@ Purchase module with auto ledger posting
 from datetime import datetime
 from egg_farm_system.database.models import Purchase, RawMaterial
 from egg_farm_system.database.db import DatabaseManager
-from modules.ledger import LedgerManager
-from utils.currency import CurrencyConverter
+from egg_farm_system.modules.ledger import LedgerManager
+from egg_farm_system.utils.currency import CurrencyConverter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,8 @@ class PurchaseManager:
                 credit_usd=total_usd,
                 exchange_rate_used=exchange_rate_used,
                 reference_type="Purchase",
-                reference_id=purchase.id
+                reference_id=purchase.id,
+                session=self.session  # Pass session for transactional consistency
             )
             
             self.session.commit()

@@ -4,7 +4,7 @@ Expenses and payments module
 from datetime import datetime
 from egg_farm_system.database.models import Expense, Payment
 from egg_farm_system.database.db import DatabaseManager
-from modules.ledger import LedgerManager
+from egg_farm_system.modules.ledger import LedgerManager
 import logging
 
 logger = logging.getLogger(__name__)

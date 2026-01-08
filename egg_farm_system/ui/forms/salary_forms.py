@@ -63,6 +63,8 @@ class SalaryPaymentWidget(QWidget):
         self.payments_table.setHorizontalHeaderLabels(["Payment Date", "Amount (AFN)", "Period Start", "Period End", "Notes"])
         self.payments_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.payments_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.payments_table.verticalHeader().setMinimumSectionSize(40)
+        self.payments_table.verticalHeader().setDefaultSectionSize(40)
         
         main_layout.addWidget(self.payments_table)
 

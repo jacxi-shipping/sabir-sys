@@ -23,8 +23,6 @@ from egg_farm_system.ui.forms.inventory_forms import InventoryFormWidget
 from egg_farm_system.ui.forms.party_forms import PartyFormWidget
 from egg_farm_system.ui.forms.transaction_forms import TransactionFormWidget
 from egg_farm_system.ui.reports.report_viewer import ReportViewerWidget
-from pathlib import Path
-from PySide6.QtGui import QIcon
 from egg_farm_system.ui.forms.settings_form import SettingsForm
 from egg_farm_system.ui.forms.user_forms import UserManagementForm
 from egg_farm_system.ui.forms.employee_forms import EmployeeManagementWidget

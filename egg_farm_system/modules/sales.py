@@ -4,8 +4,8 @@ Sales module with auto ledger posting
 from datetime import datetime
 from egg_farm_system.database.models import Sale, EggProduction
 from egg_farm_system.database.db import DatabaseManager
-from modules.ledger import LedgerManager
-from utils.currency import CurrencyConverter
+from egg_farm_system.modules.ledger import LedgerManager
+from egg_farm_system.utils.currency import CurrencyConverter
 import logging
 
 logger = logging.getLogger(__name__)

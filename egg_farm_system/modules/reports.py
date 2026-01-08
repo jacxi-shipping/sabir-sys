@@ -10,7 +10,7 @@ from egg_farm_system.database.models import (
     Farm, Shed, EggProduction, FeedIssue, Sale, Purchase, 
     Expense, Payment, Party
 )
-from utils.calculations import EggCalculations, FeedCalculations, FinancialCalculations
+from egg_farm_system.utils.calculations import EggCalculations, FeedCalculations, FinancialCalculations
 import logging
 
 logger = logging.getLogger(__name__)

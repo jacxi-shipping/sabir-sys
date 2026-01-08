@@ -178,8 +178,10 @@ class FarmFormWidget(QWidget):
         layout.addWidget(edit_btn)
         layout.addWidget(delete_btn)
         layout.addStretch()
-        # Last column is assumed to be actions
-        table.view.setIndexWidget(table.model.index(row, table.model.columnCount() - 1), container)
+        # Last column is assumed to be actions - use proxy index for correct mapping
+        source_idx = table.model.index(row, table.model.columnCount() - 1)
+        proxy_idx = table.proxy.mapFromSource(source_idx)
+        table.view.setIndexWidget(proxy_idx, container)
 
     def add_farm(self):
         dialog = FarmDialog(self, None)

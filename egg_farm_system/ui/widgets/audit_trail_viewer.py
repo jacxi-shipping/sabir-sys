@@ -85,6 +85,8 @@ class AuditTrailViewerWidget(QWidget):
         ])
         self.logs_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.logs_table.doubleClicked.connect(self.show_details)
+        self.logs_table.verticalHeader().setMinimumSectionSize(40)
+        self.logs_table.verticalHeader().setDefaultSectionSize(40)
         layout.addWidget(self.logs_table)
     
     def refresh_logs(self):

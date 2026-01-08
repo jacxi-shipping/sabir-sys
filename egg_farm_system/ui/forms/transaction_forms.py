@@ -9,15 +9,15 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDateTime, QSize
 from PySide6.QtGui import QFont, QIcon
 from pathlib import Path
-from ui.widgets.datatable import DataTableWidget
+from egg_farm_system.ui.widgets.datatable import DataTableWidget
 from PySide6.QtWidgets import QToolButton
 
-from modules.sales import SalesManager
-from modules.purchases import PurchaseManager
-from modules.expenses import ExpenseManager, PaymentManager
-from modules.parties import PartyManager
-from modules.inventory import InventoryManager
-from modules.feed_mill import RawMaterialManager
+from egg_farm_system.modules.sales import SalesManager
+from egg_farm_system.modules.purchases import PurchaseManager
+from egg_farm_system.modules.expenses import ExpenseManager, PaymentManager
+from egg_farm_system.modules.parties import PartyManager
+from egg_farm_system.modules.inventory import InventoryManager
+from egg_farm_system.modules.feed_mill import RawMaterialManager
 from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES

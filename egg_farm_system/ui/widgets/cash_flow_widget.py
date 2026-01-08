@@ -111,6 +111,8 @@ class CashFlowWidget(QWidget):
         self.cash_flow_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.cash_flow_table.setAlternatingRowColors(True)
         self.cash_flow_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.cash_flow_table.verticalHeader().setMinimumSectionSize(40)
+        self.cash_flow_table.verticalHeader().setDefaultSectionSize(40)
         table_layout.addWidget(self.cash_flow_table)
         
         layout.addWidget(table_group)

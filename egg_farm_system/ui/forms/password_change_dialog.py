@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QPushButton, QMessageBox
-from modules.users import UserManager
+from egg_farm_system.modules.users import UserManager
 
 
 class PasswordChangeDialog(QDialog):

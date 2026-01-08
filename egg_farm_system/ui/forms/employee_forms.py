@@ -84,6 +84,8 @@ class EmployeesTab(QWidget):
         self.table.setColumnCount(6); self.table.setHorizontalHeaderLabels(["ID", "Name", "Job Title", "Salary (AFN)", "Period", "Status"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers); self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
+        self.table.verticalHeader().setMinimumSectionSize(40)
+        self.table.verticalHeader().setDefaultSectionSize(40)
         layout.addWidget(self.table)
 
     def load_employees(self):

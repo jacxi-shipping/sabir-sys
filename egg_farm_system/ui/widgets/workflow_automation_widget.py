@@ -116,6 +116,8 @@ class WorkflowAutomationWidget(QWidget):
             "Task ID", "Name", "Frequency", "Enabled", "Last Run", "Next Run"
         ])
         self.tasks_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tasks_table.verticalHeader().setMinimumSectionSize(40)
+        self.tasks_table.verticalHeader().setDefaultSectionSize(40)
         tasks_layout.addWidget(self.tasks_table)
         
         # Action buttons

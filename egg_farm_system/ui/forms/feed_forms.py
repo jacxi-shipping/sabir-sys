@@ -69,6 +69,8 @@ class RawMaterialsTab(QWidget):
         self.table.setColumnCount(5); self.table.setHorizontalHeaderLabels(["ID", "Name", "Current Stock (kg)", "Cost (AFG)", "Low Stock Alert"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers); self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
+        self.table.verticalHeader().setMinimumSectionSize(40)
+        self.table.verticalHeader().setDefaultSectionSize(40)
         layout.addWidget(self.table)
 
     def load_materials(self):
@@ -187,6 +189,7 @@ class FormulasTab(QWidget):
         self.formulas_table = QTableWidget(); self.formulas_table.setColumnCount(3); self.formulas_table.setHorizontalHeaderLabels(["ID", "Name", "Type"])
         self.formulas_table.setSelectionBehavior(QTableWidget.SelectRows); self.formulas_table.setColumnHidden(0, True)
         self.formulas_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.formulas_table.selectionModel().selectionChanged.connect(self.load_ingredients)
+        self.formulas_table.verticalHeader().setMinimumSectionSize(40); self.formulas_table.verticalHeader().setDefaultSectionSize(40)
         formulas_layout.addWidget(self.formulas_table); splitter.addWidget(formulas_widget)
         ingredients_widget = QWidget(); ingredients_layout = QVBoxLayout(ingredients_widget)
         ing_buttons = QHBoxLayout(); add_i = QPushButton("Add"); add_i.clicked.connect(self.add_ingredient)
@@ -195,6 +198,7 @@ class FormulasTab(QWidget):
         ingredients_layout.addLayout(ing_buttons)
         self.ingredients_table = QTableWidget(); self.ingredients_table.setColumnCount(3); self.ingredients_table.setHorizontalHeaderLabels(["ID", "Ingredient", "%"])
         self.ingredients_table.setColumnHidden(0, True); self.ingredients_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.ingredients_table.verticalHeader().setMinimumSectionSize(40); self.ingredients_table.verticalHeader().setDefaultSectionSize(40)
         ingredients_layout.addWidget(self.ingredients_table); self.validation_label = QLabel("Validation: N/A")
         ingredients_layout.addWidget(self.validation_label); splitter.addWidget(ingredients_widget)
         splitter.setSizes([250, 450]); layout.addWidget(splitter)

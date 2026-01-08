@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-from modules.inventory import InventoryManager
+from egg_farm_system.modules.inventory import InventoryManager
 
 class InventoryFormWidget(QWidget):
     """Inventory management widget"""
@@ -65,6 +65,9 @@ class InventoryFormWidget(QWidget):
             table.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
         table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         table.setAlternatingRowColors(True)
+        # Set row height
+        table.verticalHeader().setMinimumSectionSize(40)
+        table.verticalHeader().setDefaultSectionSize(40)
         return table
     
     def refresh_data(self):

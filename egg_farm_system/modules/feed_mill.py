@@ -6,7 +6,7 @@ from egg_farm_system.database.models import (
     RawMaterial, FeedFormula, FeedFormulation, FeedBatch, FinishedFeed, FeedIssue
 )
 from egg_farm_system.database.db import DatabaseManager
-from utils.currency import CurrencyConverter
+from egg_farm_system.utils.currency import CurrencyConverter
 import logging
 
 logger = logging.getLogger(__name__)

@@ -9,10 +9,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QIcon
 from pathlib import Path
-from ui.widgets.datatable import DataTableWidget
+from egg_farm_system.ui.widgets.datatable import DataTableWidget
 
-from modules.parties import PartyManager
-from modules.ledger import LedgerManager
+from egg_farm_system.modules.parties import PartyManager
+from egg_farm_system.modules.ledger import LedgerManager
 
 class PartyFormWidget(QWidget):
     """Party management widget"""

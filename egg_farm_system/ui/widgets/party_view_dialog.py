@@ -159,6 +159,8 @@ class PartyViewDialog(QDialog):
         ])
         self.ledger_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.ledger_table.setAlternatingRowColors(True)
+        self.ledger_table.verticalHeader().setMinimumSectionSize(40)
+        self.ledger_table.verticalHeader().setDefaultSectionSize(40)
         self.ledger_table.setSelectionBehavior(QTableWidget.SelectRows)
         ledger_layout.addWidget(self.ledger_table)
         

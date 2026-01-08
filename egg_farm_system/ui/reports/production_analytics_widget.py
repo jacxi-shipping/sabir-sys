@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate
 from egg_farm_system.database.models import Flock
-from utils.calculations import FeedCalculations, EggCalculations, MortalityCalculations
+from egg_farm_system.utils.calculations import FeedCalculations, EggCalculations, MortalityCalculations
 
 class ProductionAnalyticsWidget(QWidget):
     def __init__(self, session):

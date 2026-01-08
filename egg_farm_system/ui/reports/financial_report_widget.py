@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QDate
 from PySide6.QtGui import QFont
 from egg_farm_system.database.db import DatabaseManager
-from modules.financial_reports import FinancialReportGenerator
+from egg_farm_system.modules.financial_reports import FinancialReportGenerator
 
 class FinancialReportWidget(QWidget):
     def __init__(self, farm_id=None):

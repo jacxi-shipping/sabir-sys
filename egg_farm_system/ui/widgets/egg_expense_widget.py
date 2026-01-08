@@ -52,6 +52,7 @@ class EggExpenseWidget(QWidget):
         expense_layout = QFormLayout()
         expense_layout.setSpacing(12)
         expense_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        expense_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         
         # Tray expense
         self.tray_expense_spin = QDoubleSpinBox()
@@ -60,7 +61,7 @@ class EggExpenseWidget(QWidget):
         self.tray_expense_spin.setDecimals(2)
         self.tray_expense_spin.setSuffix(" AFG per tray")
         self.tray_expense_spin.setSingleStep(1.0)
-        self.tray_expense_spin.setMinimumWidth(250)
+        self.tray_expense_spin.setMinimumWidth(300)
         self.tray_expense_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         expense_layout.addRow("Tray Expense:", self.tray_expense_spin)
         
@@ -71,7 +72,7 @@ class EggExpenseWidget(QWidget):
         self.carton_expense_spin.setDecimals(2)
         self.carton_expense_spin.setSuffix(" AFG per carton")
         self.carton_expense_spin.setSingleStep(1.0)
-        self.carton_expense_spin.setMinimumWidth(250)
+        self.carton_expense_spin.setMinimumWidth(300)
         self.carton_expense_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         expense_layout.addRow("Carton Expense:", self.carton_expense_spin)
         

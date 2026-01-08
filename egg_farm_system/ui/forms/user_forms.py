@@ -2,8 +2,8 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, QLineEdit,
     QLabel, QMessageBox, QDialog, QFormLayout
 )
-from modules.users import UserManager
-from ui.forms.password_change_dialog import PasswordChangeDialog
+from egg_farm_system.modules.users import UserManager
+from egg_farm_system.ui.forms.password_change_dialog import PasswordChangeDialog
 
 
 class NewUserDialog(QDialog):

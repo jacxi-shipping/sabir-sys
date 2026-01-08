@@ -9,13 +9,13 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDateTime, QSize
 from PySide6.QtGui import QFont, QIcon
 from pathlib import Path
-from ui.widgets.datatable import DataTableWidget
+from egg_farm_system.ui.widgets.datatable import DataTableWidget
 from PySide6.QtWidgets import QToolButton
 
-from modules.farms import FarmManager
-from modules.sheds import ShedManager
-from modules.flocks import FlockManager
-from modules.egg_production import EggProductionManager
+from egg_farm_system.modules.farms import FarmManager
+from egg_farm_system.modules.sheds import ShedManager
+from egg_farm_system.modules.flocks import FlockManager
+from egg_farm_system.modules.egg_production import EggProductionManager
 from egg_farm_system.utils.egg_management import EggManagementSystem
 from PySide6.QtWidgets import QGroupBox, QGridLayout
 
@@ -101,7 +101,6 @@ class ProductionFormWidget(QWidget):
             end_date = datetime.utcnow()
             
             productions = self.egg_manager.get_daily_production(shed_id, start_date, end_date)
-            self.table.setRowCount(len(productions))
             
             rows = []
             action_widgets = []
