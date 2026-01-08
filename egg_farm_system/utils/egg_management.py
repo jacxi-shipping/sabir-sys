@@ -17,9 +17,9 @@ class EggManagementSystem:
     """Advanced egg management with tray/carton system"""
     
     # Constants
-    EGGS_PER_TRAY = 15
+    EGGS_PER_TRAY = 30
     EGGS_PER_CARTON = 180
-    TRAYS_PER_CARTON = 12  # 180 / 15
+    TRAYS_PER_CARTON = 6  # 180 / 30
     TRAYS_EXPENSE_PER_CARTON = 7  # Packaging trays used per carton
     
     def __init__(self):
@@ -163,7 +163,7 @@ class EggManagementSystem:
             shed_ids = [s.id for s in sheds]
             
             if not shed_ids:
-                return {'small': 0, 'medium': 0, 'large': 0, 'broken': 0, 'total': 0}
+                return {'small': 0, 'medium': 0, 'large': 0, 'broken': 0, 'total': 0, 'usable': 0}
             
             productions = self.session.query(EggProduction).filter(
                 EggProduction.shed_id.in_(shed_ids)

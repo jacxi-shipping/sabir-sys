@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, 
     QListWidget, QMessageBox, QTabWidget, QGroupBox, QFormLayout, 
-    QDoubleSpinBox, QTextEdit
+    QDoubleSpinBox, QTextEdit, QSizePolicy
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -78,6 +78,7 @@ class SettingsForm(QWidget):
         expense_group = QGroupBox("Egg Packaging Expenses")
         expense_layout = QFormLayout()
         expense_layout.setSpacing(12)
+        expense_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         self.tray_expense_spin = QDoubleSpinBox()
         self.tray_expense_spin.setMinimum(0)
@@ -85,6 +86,8 @@ class SettingsForm(QWidget):
         self.tray_expense_spin.setDecimals(2)
         self.tray_expense_spin.setSuffix(" AFG per tray")
         self.tray_expense_spin.setSingleStep(1.0)
+        self.tray_expense_spin.setMinimumWidth(250)
+        self.tray_expense_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         expense_layout.addRow("Tray Expense:", self.tray_expense_spin)
         
         self.carton_expense_spin = QDoubleSpinBox()
@@ -93,6 +96,8 @@ class SettingsForm(QWidget):
         self.carton_expense_spin.setDecimals(2)
         self.carton_expense_spin.setSuffix(" AFG per carton")
         self.carton_expense_spin.setSingleStep(1.0)
+        self.carton_expense_spin.setMinimumWidth(250)
+        self.carton_expense_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         expense_layout.addRow("Carton Expense:", self.carton_expense_spin)
         
         expense_group.setLayout(expense_layout)
@@ -105,8 +110,8 @@ class SettingsForm(QWidget):
         
         conversion_info = QLabel(
             f"<b>Egg Conversion:</b><br>"
-            f"• 15 eggs = 1 tray<br>"
-            f"• 180 eggs = 1 carton (12 trays)<br>"
+            f"• 30 eggs = 1 tray<br>"
+            f"• 180 eggs = 1 carton (6 trays)<br>"
             f"• 1 carton uses 7 trays for packaging<br><br>"
             f"<b>Expense Calculation:</b><br>"
             f"• Tray expense = (Cartons × 7) × Tray Expense<br>"

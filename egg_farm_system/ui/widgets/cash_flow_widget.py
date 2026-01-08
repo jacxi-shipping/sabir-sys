@@ -172,7 +172,11 @@ class CashFlowWidget(QWidget):
             try:
                 start_date = self.start_date.date().toPython()
                 end_date = self.end_date.date().toPython()
-                end_date = datetime.combine(end_date.date(), datetime.max.time())
+                # end_date is already a date object, combine with max time
+                if isinstance(end_date, datetime):
+                    end_date = datetime.combine(end_date.date(), datetime.max.time())
+                else:
+                    end_date = datetime.combine(end_date, datetime.max.time())
                 
                 # Get all cash transactions
                 transactions = []

@@ -327,11 +327,13 @@ class DataTableWidget(QWidget):
                     path, _ = result
                 else:
                     path = result
-                if not path:
+                # Check if user cancelled or path is invalid
+                if not path or not isinstance(path, str) or path == '':
                     return
             # Ensure path is a string
-            if not isinstance(path, str):
+            if not isinstance(path, str) or path == '':
                 logger.error(f"Invalid path type for PDF export: {type(path)}")
+                QMessageBox.warning(self, "Export Error", "Please provide a valid file path")
                 return
             
             # Create printer and painter
@@ -449,11 +451,13 @@ class DataTableWidget(QWidget):
                     path, _ = result
                 else:
                     path = result
-                if not path:
+                # Check if user cancelled or path is invalid
+                if not path or not isinstance(path, str) or path == '':
                     return
             # Ensure path is a string
-            if not isinstance(path, str):
+            if not isinstance(path, str) or path == '':
                 logger.error(f"Invalid path type for CSV export: {type(path)}")
+                QMessageBox.warning(self, "Export Error", "Please provide a valid file path")
                 return
             
             # Get visible columns only
@@ -500,15 +504,21 @@ class DataTableWidget(QWidget):
             return
         
         if path is None:
-            path, _ = QFileDialog.getSaveFileName(
+            result = QFileDialog.getSaveFileName(
                 self, "Export Excel", str(Path.cwd() / 'table.xlsx'), 
                 "Excel Files (*.xlsx);;All Files (*.*)"
             )
-            if not path or not isinstance(path, str):
+            if isinstance(result, tuple):
+                path, _ = result
+            else:
+                path = result
+            # Check if user cancelled or path is invalid
+            if not path or not isinstance(path, str) or path == '':
                 return
         # Ensure path is a string
-        if not isinstance(path, str):
+        if not isinstance(path, str) or path == '':
             logger.error(f"Invalid path type for Excel export: {type(path)}")
+            QMessageBox.warning(self, "Export Error", "Please provide a valid file path")
             return
         
         # Get visible columns only
