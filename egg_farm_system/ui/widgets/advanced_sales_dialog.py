@@ -83,14 +83,18 @@ class AdvancedSalesDialog(QDialog):
         # Basic Information Group
         basic_group = QGroupBox("Sale Information")
         basic_layout = QFormLayout()
-        basic_layout.setSpacing(8)
+        basic_layout.setSpacing(10)
+        basic_layout.setContentsMargins(12, 12, 12, 12)
+        basic_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         self.date_edit = QDateTimeEdit()
         self.date_edit.setDateTime(QDateTime.currentDateTime())
         self.date_edit.setCalendarPopup(True)
+        self.date_edit.setMinimumWidth(200)
         
         self.party_combo = QComboBox()
         self.party_combo.setEditable(False)
+        self.party_combo.setMinimumWidth(200)
         parties = self.party_manager.get_all_parties()
         for party in parties:
             self.party_combo.addItem(party.name, party.id)
@@ -98,6 +102,7 @@ class AdvancedSalesDialog(QDialog):
         self.payment_method_combo = QComboBox()
         self.payment_method_combo.addItems(["Cash", "Credit"])
         self.payment_method_combo.setCurrentText("Cash")
+        self.payment_method_combo.setMinimumWidth(200)
         
         basic_layout.addRow("Date:", self.date_edit)
         basic_layout.addRow("Customer:", self.party_combo)
@@ -108,10 +113,13 @@ class AdvancedSalesDialog(QDialog):
         # Carton & Grade Information Group
         carton_group = QGroupBox("Carton & Grade Details")
         carton_layout = QGridLayout()
-        carton_layout.setSpacing(8)
+        carton_layout.setSpacing(10)
+        carton_layout.setContentsMargins(12, 12, 12, 12)
         
         # Carton quantity
-        carton_layout.addWidget(QLabel("Cartons:"), 0, 0)
+        carton_label = QLabel("Cartons:")
+        carton_label.setMinimumWidth(100)
+        carton_layout.addWidget(carton_label, 0, 0)
         self.carton_spin = QDoubleSpinBox()
         self.carton_spin.setMinimum(0)
         self.carton_spin.setMaximum(10000)
@@ -119,12 +127,16 @@ class AdvancedSalesDialog(QDialog):
         self.carton_spin.setSuffix(" cartons")
         self.carton_spin.setKeyboardTracking(True)
         self.carton_spin.setReadOnly(False)
+        self.carton_spin.setMinimumWidth(150)
         carton_layout.addWidget(self.carton_spin, 0, 1)
         
         # Egg grade
-        carton_layout.addWidget(QLabel("Egg Grade:"), 0, 2)
+        grade_label = QLabel("Egg Grade:")
+        grade_label.setMinimumWidth(100)
+        carton_layout.addWidget(grade_label, 0, 2)
         self.grade_combo = QComboBox()
         self.grade_combo.addItems(["Small", "Medium", "Large", "Broken", "Mixed"])
+        self.grade_combo.setMinimumWidth(150)
         carton_layout.addWidget(self.grade_combo, 0, 3)
         
         # Calculated eggs display
@@ -132,19 +144,25 @@ class AdvancedSalesDialog(QDialog):
         eggs_font = QFont()
         eggs_font.setBold(True)
         self.eggs_label.setFont(eggs_font)
+        self.eggs_label.setMinimumWidth(100)
         carton_layout.addWidget(self.eggs_label, 1, 0, 1, 2)
         
         # Tray conversion display
         self.tray_label = QLabel("= 0 trays")
+        self.tray_label.setMinimumWidth(100)
         carton_layout.addWidget(self.tray_label, 1, 2, 1, 2)
         
+        carton_layout.setColumnStretch(1, 1)
+        carton_layout.setColumnStretch(3, 1)
         carton_group.setLayout(carton_layout)
         layout.addWidget(carton_group)
         
         # Pricing Group
         pricing_group = QGroupBox("Pricing")
         pricing_layout = QFormLayout()
-        pricing_layout.setSpacing(8)
+        pricing_layout.setSpacing(10)
+        pricing_layout.setContentsMargins(12, 12, 12, 12)
+        pricing_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         self.rate_per_egg_afg = QDoubleSpinBox()
         self.rate_per_egg_afg.setMinimum(0)
@@ -153,6 +171,7 @@ class AdvancedSalesDialog(QDialog):
         self.rate_per_egg_afg.setSuffix(" AFG/egg")
         self.rate_per_egg_afg.setKeyboardTracking(True)
         self.rate_per_egg_afg.setReadOnly(False)
+        self.rate_per_egg_afg.setMinimumWidth(150)
         
         self.rate_per_egg_usd = QDoubleSpinBox()
         self.rate_per_egg_usd.setMinimum(0)
@@ -161,6 +180,7 @@ class AdvancedSalesDialog(QDialog):
         self.rate_per_egg_usd.setSuffix(" USD/egg")
         self.rate_per_egg_usd.setKeyboardTracking(True)
         self.rate_per_egg_usd.setReadOnly(False)
+        self.rate_per_egg_usd.setMinimumWidth(150)
         
         pricing_layout.addRow("Rate per Egg (AFG):", self.rate_per_egg_afg)
         pricing_layout.addRow("Rate per Egg (USD):", self.rate_per_egg_usd)
@@ -170,14 +190,18 @@ class AdvancedSalesDialog(QDialog):
         # Expenses Group
         expense_group = QGroupBox("Expenses")
         expense_layout = QFormLayout()
-        expense_layout.setSpacing(8)
+        expense_layout.setSpacing(10)
+        expense_layout.setContentsMargins(12, 12, 12, 12)
+        expense_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         # Tray expense (auto-calculated)
         self.tray_expense_label = QLabel("0.00 AFG")
+        self.tray_expense_label.setMinimumWidth(150)
         expense_layout.addRow("Tray Expense:", self.tray_expense_label)
         
         # Carton expense (auto-calculated)
         self.carton_expense_label = QLabel("0.00 AFG")
+        self.carton_expense_label.setMinimumWidth(150)
         expense_layout.addRow("Carton Expense:", self.carton_expense_label)
         
         # Total expense
@@ -185,6 +209,7 @@ class AdvancedSalesDialog(QDialog):
         expense_font = QFont()
         expense_font.setBold(True)
         self.total_expense_label.setFont(expense_font)
+        self.total_expense_label.setMinimumWidth(150)
         expense_layout.addRow("Total Expense:", self.total_expense_label)
         
         expense_group.setLayout(expense_layout)
@@ -193,9 +218,12 @@ class AdvancedSalesDialog(QDialog):
         # Cost Summary Group
         summary_group = QGroupBox("Cost Summary")
         summary_layout = QFormLayout()
-        summary_layout.setSpacing(8)
+        summary_layout.setSpacing(10)
+        summary_layout.setContentsMargins(12, 12, 12, 12)
+        summary_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         self.egg_cost_label = QLabel("0.00 AFG")
+        self.egg_cost_label.setMinimumWidth(150)
         summary_layout.addRow("Egg Cost:", self.egg_cost_label)
         
         self.total_cost_label = QLabel("0.00 AFG")
@@ -203,6 +231,7 @@ class AdvancedSalesDialog(QDialog):
         cost_font.setBold(True)
         cost_font.setPointSize(11)
         self.total_cost_label.setFont(cost_font)
+        self.total_cost_label.setMinimumWidth(150)
         summary_layout.addRow("Total Cost (Eggs + Expenses):", self.total_cost_label)
         
         self.selling_price_label = QLabel("0.00 AFG")
@@ -211,6 +240,7 @@ class AdvancedSalesDialog(QDialog):
         selling_font.setPointSize(11)
         self.selling_price_label.setFont(selling_font)
         self.selling_price_label.setStyleSheet("color: green;")
+        self.selling_price_label.setMinimumWidth(150)
         summary_layout.addRow("Selling Price:", self.selling_price_label)
         
         self.profit_label = QLabel("0.00 AFG")
@@ -218,6 +248,7 @@ class AdvancedSalesDialog(QDialog):
         profit_font.setBold(True)
         profit_font.setPointSize(11)
         self.profit_label.setFont(profit_font)
+        self.profit_label.setMinimumWidth(150)
         summary_layout.addRow("Profit:", self.profit_label)
         
         summary_group.setLayout(summary_layout)
