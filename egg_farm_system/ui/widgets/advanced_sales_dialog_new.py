@@ -34,9 +34,7 @@ class AdvancedSalesDialogNew(QDialog):
         self.farm_manager = FarmManager()
         
         self.setWindowTitle("Advanced Egg Sale" if not sale else "Edit Sale")
-        self.setMinimumWidth(800)
-        self.setMinimumHeight(700)
-        self.resize(800, 900)
+        self.setMinimumSize(750, 650)
         self.setModal(True)
         
         self.init_ui()
@@ -46,75 +44,107 @@ class AdvancedSalesDialogNew(QDialog):
     def init_ui(self):
         """Initialize UI"""
         main_layout = QVBoxLayout()
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(24, 24, 24, 24)
         
         # Title
+        title_container = QWidget()
+        title_layout = QHBoxLayout(title_container)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        
         title = QLabel("Egg Sale - Carton Based")
         title_font = QFont()
-        title_font.setPointSize(16)
+        title_font.setPointSize(18)
         title_font.setBold(True)
         title.setFont(title_font)
-        main_layout.addWidget(title)
+        title.setStyleSheet("color: #2c3e50;")
+        title_layout.addWidget(title)
+        
+        main_layout.addWidget(title_container)
         
         # Create scroll area for content
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; }")
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setStyleSheet("""
+            QScrollArea { background: transparent; }
+            QWidget { background: transparent; }
+            QGroupBox {
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 24px;
+                font-weight: bold;
+                background-color: white;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                padding: 0 5px;
+                background-color: white;
+                color: #546e7a;
+            }
+            QLineEdit, QComboBox, QDoubleSpinBox, QDateTimeEdit {
+                padding: 8px;
+                border: 1px solid #cfd8dc;
+                border-radius: 4px;
+                background-color: #ffffff;
+                min-height: 20px;
+            }
+            QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QDateTimeEdit:focus {
+                border: 1px solid #2196f3;
+                background-color: #f5f9ff;
+            }
+        """)
         
         # Content widget
         content_widget = QWidget()
         layout = QVBoxLayout()
-        layout.setSpacing(15)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(20)
+        layout.setContentsMargins(4, 4, 16, 4)  # Extra right margin for scrollbar
         
         # ===== SALE INFORMATION GROUP =====
         basic_group = QGroupBox("Sale Information")
-        basic_group.setMinimumHeight(120)
-        basic_layout = QFormLayout()
-        basic_layout.setSpacing(12)
-        basic_layout.setContentsMargins(15, 15, 15, 15)
+        basic_layout = QGridLayout()
+        basic_layout.setVerticalSpacing(16)
+        basic_layout.setHorizontalSpacing(24)
+        basic_layout.setContentsMargins(16, 16, 16, 16)
         
         # Date field
+        basic_layout.addWidget(QLabel("Date:"), 0, 0)
         self.date_edit = QDateTimeEdit()
         self.date_edit.setDateTime(QDateTime.currentDateTime())
         self.date_edit.setCalendarPopup(True)
-        self.date_edit.setMinimumWidth(300)
-        self.date_edit.setMinimumHeight(35)
-        basic_layout.addRow("Date:", self.date_edit)
+        basic_layout.addWidget(self.date_edit, 0, 1)
         
         # Party field
+        basic_layout.addWidget(QLabel("Customer:"), 1, 0)
         self.party_combo = QComboBox()
-        self.party_combo.setMinimumWidth(300)
-        self.party_combo.setMinimumHeight(35)
         parties = self.party_manager.get_all_parties()
         for party in parties:
             self.party_combo.addItem(party.name, party.id)
-        basic_layout.addRow("Customer:", self.party_combo)
+        basic_layout.addWidget(self.party_combo, 1, 1)
         
         # Payment method field
+        basic_layout.addWidget(QLabel("Payment Method:"), 2, 0)
         self.payment_method_combo = QComboBox()
         self.payment_method_combo.addItems(["Cash", "Credit"])
         self.payment_method_combo.setCurrentText("Cash")
-        self.payment_method_combo.setMinimumWidth(300)
-        self.payment_method_combo.setMinimumHeight(35)
-        basic_layout.addRow("Payment Method:", self.payment_method_combo)
+        basic_layout.addWidget(self.payment_method_combo, 2, 1)
         
         basic_group.setLayout(basic_layout)
         layout.addWidget(basic_group)
         
         # ===== CARTON & GRADE GROUP =====
         carton_group = QGroupBox("Carton & Grade Details")
-        carton_group.setMinimumHeight(140)
         carton_layout = QGridLayout()
-        carton_layout.setSpacing(12)
-        carton_layout.setContentsMargins(15, 15, 15, 15)
+        carton_layout.setVerticalSpacing(16)
+        carton_layout.setHorizontalSpacing(24)
+        carton_layout.setContentsMargins(16, 16, 16, 16)
         
-        # Carton quantity spinbox - ROW 0
-        carton_label = QLabel("Number of Cartons:")
-        carton_label.setMinimumWidth(150)
-        carton_layout.addWidget(carton_label, 0, 0)
-        
+        # Carton quantity spinbox
+        carton_layout.addWidget(QLabel("Number of Cartons:"), 0, 0)
         self.carton_spin = QDoubleSpinBox()
         self.carton_spin.setMinimum(0.0)
         self.carton_spin.setMaximum(10000.0)
@@ -122,48 +152,33 @@ class AdvancedSalesDialogNew(QDialog):
         self.carton_spin.setDecimals(2)
         self.carton_spin.setSingleStep(0.5)
         self.carton_spin.setSuffix(" cartons")
-        self.carton_spin.setMinimumWidth(200)
-        self.carton_spin.setMinimumHeight(35)
         self.carton_spin.setFocusPolicy(Qt.StrongFocus)
         carton_layout.addWidget(self.carton_spin, 0, 1)
         
-        # Grade combo - ROW 0
-        grade_label = QLabel("Egg Grade:")
-        grade_label.setMinimumWidth(150)
-        carton_layout.addWidget(grade_label, 0, 2)
-        
+        # Grade combo
+        carton_layout.addWidget(QLabel("Egg Grade:"), 0, 2)
         self.grade_combo = QComboBox()
         self.grade_combo.addItems(["Small", "Medium", "Large", "Broken", "Mixed"])
         self.grade_combo.setCurrentText("Medium")
-        self.grade_combo.setMinimumWidth(200)
-        self.grade_combo.setMinimumHeight(35)
         carton_layout.addWidget(self.grade_combo, 0, 3)
         
-        # Display calculated eggs - ROW 1
-        eggs_display_label = QLabel("Total Eggs:")
-        eggs_display_label.setMinimumWidth(150)
-        carton_layout.addWidget(eggs_display_label, 1, 0)
-        
+        # Display calculated eggs
+        carton_layout.addWidget(QLabel("Total Eggs:"), 1, 0)
         self.eggs_label = QLabel("0 eggs")
         eggs_font = QFont()
         eggs_font.setBold(True)
-        eggs_font.setPointSize(11)
+        eggs_font.setPointSize(10)
         self.eggs_label.setFont(eggs_font)
-        self.eggs_label.setMinimumWidth(200)
-        self.eggs_label.setMinimumHeight(35)
+        self.eggs_label.setStyleSheet("color: #455a64;")
         carton_layout.addWidget(self.eggs_label, 1, 1)
         
-        # Display trays - ROW 1
-        trays_label = QLabel("Total Trays:")
-        trays_label.setMinimumWidth(150)
-        carton_layout.addWidget(trays_label, 1, 2)
-        
+        # Display trays
+        carton_layout.addWidget(QLabel("Total Trays:"), 1, 2)
         self.tray_label = QLabel("0 trays")
         tray_font = QFont()
         tray_font.setBold(True)
         self.tray_label.setFont(tray_font)
-        self.tray_label.setMinimumWidth(200)
-        self.tray_label.setMinimumHeight(35)
+        self.tray_label.setStyleSheet("color: #455a64;")
         carton_layout.addWidget(self.tray_label, 1, 3)
         
         carton_group.setLayout(carton_layout)
@@ -171,12 +186,13 @@ class AdvancedSalesDialogNew(QDialog):
         
         # ===== PRICING GROUP =====
         pricing_group = QGroupBox("Pricing")
-        pricing_group.setMinimumHeight(120)
-        pricing_layout = QFormLayout()
-        pricing_layout.setSpacing(12)
-        pricing_layout.setContentsMargins(15, 15, 15, 15)
+        pricing_layout = QGridLayout()
+        pricing_layout.setVerticalSpacing(16)
+        pricing_layout.setHorizontalSpacing(24)
+        pricing_layout.setContentsMargins(16, 16, 16, 16)
         
         # Rate per egg AFG
+        pricing_layout.addWidget(QLabel("Rate per Egg (AFG):"), 0, 0)
         self.rate_per_egg_afg = QDoubleSpinBox()
         self.rate_per_egg_afg.setMinimum(0.0)
         self.rate_per_egg_afg.setMaximum(1000.0)
@@ -184,12 +200,11 @@ class AdvancedSalesDialogNew(QDialog):
         self.rate_per_egg_afg.setDecimals(2)
         self.rate_per_egg_afg.setSingleStep(1.0)
         self.rate_per_egg_afg.setSuffix(" AFG/egg")
-        self.rate_per_egg_afg.setMinimumWidth(300)
-        self.rate_per_egg_afg.setMinimumHeight(35)
         self.rate_per_egg_afg.setFocusPolicy(Qt.StrongFocus)
-        pricing_layout.addRow("Rate per Egg (AFG):", self.rate_per_egg_afg)
+        pricing_layout.addWidget(self.rate_per_egg_afg, 0, 1)
         
         # Rate per egg USD
+        pricing_layout.addWidget(QLabel("Rate per Egg (USD):"), 1, 0)
         self.rate_per_egg_usd = QDoubleSpinBox()
         self.rate_per_egg_usd.setMinimum(0.0)
         self.rate_per_egg_usd.setMaximum(100.0)
@@ -197,101 +212,75 @@ class AdvancedSalesDialogNew(QDialog):
         self.rate_per_egg_usd.setDecimals(2)
         self.rate_per_egg_usd.setSingleStep(0.1)
         self.rate_per_egg_usd.setSuffix(" USD/egg")
-        self.rate_per_egg_usd.setMinimumWidth(300)
-        self.rate_per_egg_usd.setMinimumHeight(35)
         self.rate_per_egg_usd.setFocusPolicy(Qt.StrongFocus)
-        pricing_layout.addRow("Rate per Egg (USD):", self.rate_per_egg_usd)
+        pricing_layout.addWidget(self.rate_per_egg_usd, 1, 1)
         
         pricing_group.setLayout(pricing_layout)
         layout.addWidget(pricing_group)
         
+        # ===== EXPENSES & SUMMARY ROW =====
+        summary_row = QHBoxLayout()
+        summary_row.setSpacing(20)
+        
         # ===== EXPENSES GROUP =====
         expense_group = QGroupBox("Expenses (Auto-calculated)")
-        expense_group.setMinimumHeight(130)
         expense_layout = QFormLayout()
-        expense_layout.setSpacing(12)
-        expense_layout.setContentsMargins(15, 15, 15, 15)
+        expense_layout.setSpacing(10)
+        expense_layout.setContentsMargins(16, 16, 16, 16)
         
         self.tray_expense_label = QLabel("0.00 AFG")
-        tray_exp_font = QFont()
-        tray_exp_font.setBold(True)
-        self.tray_expense_label.setFont(tray_exp_font)
-        self.tray_expense_label.setMinimumHeight(35)
-        expense_layout.addRow("Tray Expense:", self.tray_expense_label)
-        
         self.carton_expense_label = QLabel("0.00 AFG")
-        carton_exp_font = QFont()
-        carton_exp_font.setBold(True)
-        self.carton_expense_label.setFont(carton_exp_font)
-        self.carton_expense_label.setMinimumHeight(35)
-        expense_layout.addRow("Carton Expense:", self.carton_expense_label)
-        
         self.total_expense_label = QLabel("0.00 AFG")
-        total_exp_font = QFont()
-        total_exp_font.setBold(True)
-        total_exp_font.setPointSize(11)
-        self.total_expense_label.setFont(total_exp_font)
-        self.total_expense_label.setMinimumHeight(35)
+        self.total_expense_label.setStyleSheet("font-weight: bold; color: #d32f2f;")
+        
+        expense_layout.addRow("Tray Expense:", self.tray_expense_label)
+        expense_layout.addRow("Carton Expense:", self.carton_expense_label)
         expense_layout.addRow("Total Expense:", self.total_expense_label)
         
         expense_group.setLayout(expense_layout)
-        layout.addWidget(expense_group)
+        summary_row.addWidget(expense_group)
         
         # ===== COST SUMMARY GROUP =====
-        summary_group = QGroupBox("Cost Summary")
-        summary_group.setMinimumHeight(160)
+        summary_group = QGroupBox("Financial Summary")
         summary_layout = QFormLayout()
-        summary_layout.setSpacing(12)
-        summary_layout.setContentsMargins(15, 15, 15, 15)
+        summary_layout.setSpacing(10)
+        summary_layout.setContentsMargins(16, 16, 16, 16)
         
         self.egg_cost_label = QLabel("0.00 AFG")
-        egg_cost_font = QFont()
-        egg_cost_font.setBold(True)
-        self.egg_cost_label.setFont(egg_cost_font)
-        self.egg_cost_label.setMinimumHeight(35)
-        summary_layout.addRow("Egg Cost:", self.egg_cost_label)
-        
         self.total_cost_label = QLabel("0.00 AFG")
-        total_cost_font = QFont()
-        total_cost_font.setBold(True)
-        total_cost_font.setPointSize(11)
-        self.total_cost_label.setFont(total_cost_font)
-        self.total_cost_label.setMinimumHeight(35)
-        summary_layout.addRow("Total Cost:", self.total_cost_label)
-        
         self.selling_price_label = QLabel("0.00 AFG")
-        selling_font = QFont()
-        selling_font.setBold(True)
-        selling_font.setPointSize(11)
-        self.selling_price_label.setFont(selling_font)
-        self.selling_price_label.setStyleSheet("color: green;")
-        self.selling_price_label.setMinimumHeight(35)
-        summary_layout.addRow("Selling Price:", self.selling_price_label)
+        self.selling_price_label.setStyleSheet("font-weight: bold; color: #1976d2; font-size: 11pt;")
         
         self.profit_label = QLabel("0.00 AFG")
-        profit_font = QFont()
-        profit_font.setBold(True)
-        profit_font.setPointSize(11)
-        self.profit_label.setFont(profit_font)
-        self.profit_label.setMinimumHeight(35)
-        summary_layout.addRow("Profit:", self.profit_label)
+        self.profit_label.setStyleSheet("font-weight: bold; font-size: 12pt; padding: 4px; border-radius: 4px;")
+        
+        summary_layout.addRow("Egg Cost:", self.egg_cost_label)
+        summary_layout.addRow("Total Cost (w/ Exp):", self.total_cost_label)
+        summary_layout.addRow("Total Sales:", self.selling_price_label)
+        summary_layout.addRow("Net Profit:", self.profit_label)
         
         summary_group.setLayout(summary_layout)
-        layout.addWidget(summary_group)
+        summary_row.addWidget(summary_group)
+        
+        layout.addLayout(summary_row)
         
         # ===== NOTES =====
-        notes_label = QLabel("Notes:")
-        notes_font = QFont()
-        notes_font.setBold(True)
-        notes_label.setFont(notes_font)
-        layout.addWidget(notes_label)
+        notes_group = QWidget()
+        notes_layout = QVBoxLayout(notes_group)
+        notes_layout.setContentsMargins(0, 0, 0, 0)
+        notes_layout.setSpacing(8)
+        
+        notes_label = QLabel("Notes / Comments")
+        notes_label.setStyleSheet("font-weight: bold; color: #546e7a;")
+        notes_layout.addWidget(notes_label)
         
         self.notes_edit = QTextEdit()
         self.notes_edit.setMaximumHeight(80)
         self.notes_edit.setMinimumHeight(60)
-        self.notes_edit.setMinimumWidth(300)
-        layout.addWidget(self.notes_edit)
+        self.notes_edit.setPlaceholderText("Add any additional notes here...")
+        notes_layout.addWidget(self.notes_edit)
         
+        layout.addWidget(notes_group)
         layout.addStretch()
         
         content_widget.setLayout(layout)
@@ -299,23 +288,49 @@ class AdvancedSalesDialogNew(QDialog):
         main_layout.addWidget(scroll, 1)
         
         # ===== BUTTONS =====
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(10)
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 16, 0, 0)
+        button_layout.setSpacing(12)
         button_layout.addStretch()
         
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setFixedWidth(120)
+        self.cancel_btn.setMinimumHeight(38)
+        self.cancel_btn.setCursor(Qt.PointingHandCursor)
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: white;
+                border: 1px solid #cfd8dc;
+                color: #546e7a;
+                border-radius: 4px;
+                font-weight: 600;
+            }
+            QPushButton:hover { background-color: #eceff1; }
+        """)
+        self.cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_btn)
+
         self.save_btn = QPushButton("Save Sale")
-        self.save_btn.setMinimumWidth(150)
-        self.save_btn.setMinimumHeight(45)
+        self.save_btn.setFixedWidth(160)
+        self.save_btn.setMinimumHeight(38)
+        self.save_btn.setCursor(Qt.PointingHandCursor)
+        self.save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196f3;
+                border: none;
+                color: white;
+                border-radius: 4px;
+                font-weight: 600;
+                font-size: 10pt;
+            }
+            QPushButton:hover { background-color: #1e88e5; }
+            QPushButton:pressed { background-color: #1976d2; }
+        """)
         self.save_btn.clicked.connect(self.save_sale)
         button_layout.addWidget(self.save_btn)
         
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setMinimumWidth(150)
-        self.cancel_btn.setMinimumHeight(45)
-        self.cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_btn)
-        
-        main_layout.addLayout(button_layout)
+        main_layout.addWidget(button_container)
         
         self.setLayout(main_layout)
     
