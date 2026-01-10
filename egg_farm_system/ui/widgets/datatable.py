@@ -85,7 +85,7 @@ class DataTableWidget(QWidget):
         self.export_excel_btn.setEnabled(True)
         self.export_pdf_btn.setEnabled(True)
 
-        self.export_pdf_btn.clicked.connect(self.export_pdf)
+        self.export_pdf_btn.clicked.connect(lambda: self.export_pdf())
         self.export_csv_btn.clicked.connect(self.export_csv)
         self.export_excel_btn.clicked.connect(self.export_excel)
 

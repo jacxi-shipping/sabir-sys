@@ -112,7 +112,8 @@ egg_farm_system/
 
 ## Notes
 
-- Single user application (no login system)
+- Multi-user application with role-based access control (Admin/User)
+- Secure login system with password hashing
 - Fully offline - no internet required
 - Windows desktop application
 - Ready for PyInstaller conversion to .exe
@@ -121,6 +122,5 @@ egg_farm_system/
 
 - Advanced charting and analytics
 - Backup and restore functionality
-- Multi-user support with roles
 - Cloud sync capability
 - Mobile companion app

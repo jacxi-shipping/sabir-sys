@@ -1,27 +1,91 @@
 """
-Professional PDF exporter for tables and reports
+Professional PDF exporter for tables and reports using ReportLab
 """
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Any, Tuple
+
 from PySide6.QtWidgets import QFileDialog, QMessageBox
-from PySide6.QtCore import Qt, QMarginsF
-from PySide6.QtGui import QPainter, QFont, QColor, QFontMetrics, QPageSize, QPageLayout
-from PySide6.QtPrintSupport import QPrinter
+from PySide6.QtCore import QStandardPaths
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape, portrait
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm, inch
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+)
+from reportlab.pdfgen import canvas
 
 logger = logging.getLogger(__name__)
 
 
 class ProfessionalPDFExporter:
-    """Professional PDF exporter with headers, footers, and styling"""
-    
+    """Professional PDF exporter using ReportLab"""
+
     def __init__(self):
-        self.header_height = 80
-        self.footer_height = 40
-        self.margin = 20
-        self.table_margin = 10
+        self.styles = getSampleStyleSheet()
+        self.header_color = colors.HexColor("#2980b9")  # Professional blue
+        self.table_header_color = colors.HexColor("#3498db")  # Lighter blue
+        self.row_even_color = colors.white
+        self.row_odd_color = colors.HexColor("#f5f5f5")
         
+        # Custom styles
+        self.styles.add(ParagraphStyle(
+            name='HeaderTitle',
+            parent=self.styles['Heading1'],
+            fontSize=16,
+            textColor=colors.white,
+            alignment=TA_RIGHT,
+            spaceAfter=0
+        ))
+        
+        self.styles.add(ParagraphStyle(
+            name='HeaderSubtitle',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            textColor=colors.white,
+            alignment=TA_RIGHT
+        ))
+        
+        self.styles.add(ParagraphStyle(
+            name='CompanyName',
+            parent=self.styles['Heading2'],
+            fontSize=18,
+            textColor=colors.white,
+            alignment=TA_LEFT,
+            spaceAfter=2
+        ))
+        
+        self.styles.add(ParagraphStyle(
+            name='CompanyDetail',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            textColor=colors.white,
+            alignment=TA_LEFT,
+            leading=11
+        ))
+
+        self.styles.add(ParagraphStyle(
+            name='CellText',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            alignment=TA_LEFT,
+            leading=11
+        ))
+        
+        self.styles.add(ParagraphStyle(
+            name='CellHeader',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            fontName='Helvetica-Bold',
+            textColor=colors.white,
+            alignment=TA_LEFT
+        ))
+
     def export_table(self, headers: List[str], rows: List[List[Any]], 
                     path: Optional[str] = None, title: str = "Report",
                     subtitle: Optional[str] = None,
@@ -32,28 +96,22 @@ class ProfessionalPDFExporter:
                     totals_row: Optional[List[Any]] = None,
                     parent=None) -> bool:
         """
-        Export table data to professional PDF
-        
-        Args:
-            headers: Column headers
-            rows: Table rows (list of lists)
-            path: Output file path (if None, shows save dialog)
-            title: Document title
-            subtitle: Document subtitle
-            company_name: Company/farm name for header
-            company_address: Company address
-            company_phone: Company phone
-            show_totals: Whether to show totals row
-            totals_row: Totals row data
-            
-        Returns:
-            True if export successful, False otherwise
+        Export table data to professional PDF using ReportLab
         """
+        # Defensive check for invalid path types (e.g. boolean from Qt signals)
+        if isinstance(path, bool) or (isinstance(path, str) and not path.strip()):
+            path = None
+
         try:
+            # 1. Handle File Path
             if path is None:
+                default_name = f"{title.lower().replace(' ', '_')}.pdf"
+                documents_path = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+                default_path = os.path.join(documents_path, default_name)
+                
                 result = QFileDialog.getSaveFileName(
                     parent, "Export PDF", 
-                    str(Path.cwd() / f"{title.lower().replace(' ', '_')}.pdf"), 
+                    default_path, 
                     "PDF Files (*.pdf)"
                 )
                 if isinstance(result, tuple):
@@ -63,309 +121,171 @@ class ProfessionalPDFExporter:
                 
                 if not path or not isinstance(path, str) or path == '':
                     return False
+
+            # Ensure .pdf extension
+            if not path.lower().endswith('.pdf'):
+                path += '.pdf'
+
+            # 2. Prepare Data for Table
+            # Convert all data to Paragraphs for wrapping
+            table_data = []
             
-            # Create printer
-            printer = QPrinter(QPrinter.HighResolution)
-            printer.setOutputFormat(QPrinter.PdfFormat)
-            printer.setOutputFileName(str(path))
-            printer.setPageSize(QPageSize.A4)
-            printer.setPageMargins(QMarginsF(10, 10, 10, 10), QPageLayout.Millimeter)
+            # Header Row
+            header_row = [Paragraph(str(h), self.styles['CellHeader']) for h in headers]
+            table_data.append(header_row)
             
-            painter = QPainter(printer)
+            # Data Rows
+            for row in rows:
+                processed_row = []
+                for cell in row:
+                    # Handle None values
+                    text = str(cell) if cell is not None else ""
+                    processed_row.append(Paragraph(text, self.styles['CellText']))
+                table_data.append(processed_row)
             
-            # Get page dimensions
-            page_rect = printer.pageRect(QPrinter.DevicePixel)
-            page_width = page_rect.width()
-            page_height = page_rect.height()
+            # Totals Row
+            if show_totals and totals_row:
+                total_processed = []
+                for cell in totals_row:
+                    text = str(cell) if cell is not None else ""
+                    # Use bold for totals
+                    p = Paragraph(f"<b>{text}</b>", self.styles['CellText'])
+                    total_processed.append(p)
+                table_data.append(total_processed)
+
+            # 3. Setup Document
+            # Determine orientation based on column count/width
+            # Simple heuristic: > 6 columns -> Landscape
+            page_size = landscape(A4) if len(headers) > 6 else A4
             
-            # Calculate content area
-            content_y = self.header_height
-            content_height = page_height - self.header_height - self.footer_height
+            doc = SimpleDocTemplate(
+                path,
+                pagesize=page_size,
+                leftMargin=15*mm,
+                rightMargin=15*mm,
+                topMargin=35*mm,  # Space for header
+                bottomMargin=20*mm
+            )
+
+            # 4. Create Table
+            # Calculate available width
+            avail_width = doc.width
+            col_widths = [avail_width / len(headers)] * len(headers)
             
-            # Draw pages
-            row_start = 0
-            page_num = 1
-            total_pages = self._calculate_total_pages(len(rows), content_height)
+            table = Table(table_data, colWidths=col_widths, repeatRows=1)
             
-            while row_start < len(rows):
-                # Draw header
-                self._draw_header(painter, page_rect, title, subtitle, 
-                                company_name, company_address, company_phone, 
-                                page_num, total_pages)
+            # Table Styling
+            style_cmds = [
+                ('BACKGROUND', (0, 0), (-1, 0), self.table_header_color),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+            
+            # Alternating row colors
+            for i in range(1, len(table_data)):
+                bg_color = self.row_odd_color if i % 2 == 1 else self.row_even_color
+                style_cmds.append(('BACKGROUND', (0, i), (-1, i), bg_color))
+            
+            # Style for totals row if present
+            if show_totals and totals_row:
+                style_cmds.append(('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey))
+                style_cmds.append(('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'))
+
+            table.setStyle(TableStyle(style_cmds))
+            
+            elements = [table]
+
+            # 5. Define Header and Footer Callback
+            def draw_header_footer(canvas, doc):
+                canvas.saveState()
                 
-                # Draw table
-                row_start = self._draw_table(painter, page_rect, headers, rows, 
-                                           row_start, content_y, content_height,
-                                           show_totals and row_start + self._rows_per_page(len(rows), content_height) >= len(rows),
-                                           totals_row if row_start + self._rows_per_page(len(rows), content_height) >= len(rows) else None)
+                # --- Header ---
+                header_height = 25 * mm
+                page_width, page_height = doc.pagesize
                 
-                # Draw footer
-                self._draw_footer(painter, page_rect, page_num, total_pages,
-                                company_name, company_phone)
+                # Blue background for header
+                canvas.setFillColor(self.header_color)
+                canvas.rect(0, page_height - header_height, page_width, header_height, fill=1, stroke=0)
                 
-                page_num += 1
-                if row_start < len(rows):
-                    printer.newPage()
-            
-            painter.end()
+                # Company Info (Left)
+                text_x = 15 * mm
+                text_y = page_height - 10 * mm
+                
+                # We use Paragraphs drawn on canvas for rich text
+                p = Paragraph(company_name or "Company Name", self.styles['CompanyName'])
+                w, h = p.wrap(page_width/2, header_height)
+                p.drawOn(canvas, text_x, text_y - h)
+                
+                current_y = text_y - h - 2*mm
+                if company_address:
+                    p = Paragraph(company_address, self.styles['CompanyDetail'])
+                    w, h = p.wrap(page_width/2, header_height)
+                    p.drawOn(canvas, text_x, current_y - h)
+                    current_y -= (h + 1*mm)
+                    
+                if company_phone:
+                    p = Paragraph(f"Phone: {company_phone}", self.styles['CompanyDetail'])
+                    w, h = p.wrap(page_width/2, header_height)
+                    p.drawOn(canvas, text_x, current_y - h)
+
+                # Report Title (Right)
+                right_margin = 15 * mm
+                title_width = page_width/2
+                
+                p = Paragraph(title, self.styles['HeaderTitle'])
+                w, h = p.wrap(title_width, header_height)
+                p.drawOn(canvas, page_width - right_margin - w, page_height - 12 * mm - h)
+                
+                if subtitle:
+                    p = Paragraph(subtitle, self.styles['HeaderSubtitle'])
+                    w, h = p.wrap(title_width, header_height)
+                    p.drawOn(canvas, page_width - right_margin - w, page_height - 12 * mm - h - 6*mm)
+
+                # Date (Bottom Right of Header)
+                date_str = datetime.now().strftime("%B %d, %Y")
+                canvas.setFont("Helvetica", 9)
+                canvas.setFillColor(colors.white)
+                canvas.drawRightString(page_width - right_margin, page_height - header_height + 3*mm, date_str)
+
+                # --- Footer ---
+                footer_height = 10 * mm
+                canvas.setFillColor(colors.HexColor("#ecf0f1")) # Light gray footer bg
+                canvas.rect(0, 0, page_width, footer_height, fill=1, stroke=0)
+                
+                canvas.setStrokeColor(colors.lightgrey)
+                canvas.line(15*mm, footer_height, page_width - 15*mm, footer_height)
+                
+                canvas.setFont("Helvetica", 8)
+                canvas.setFillColor(colors.grey)
+                
+                # Left Footer
+                if company_name:
+                    canvas.drawString(15*mm, 4*mm, company_name)
+                
+                # Center Footer
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                canvas.drawCentredString(page_width/2, 4*mm, f"Generated: {timestamp}")
+                
+                # Right Footer (Page Number)
+                page_num = f"Page {doc.page}"
+                canvas.drawRightString(page_width - 15*mm, 4*mm, page_num)
+                
+                canvas.restoreState()
+
+            # 6. Build
+            doc.build(elements, onFirstPage=draw_header_footer, onLaterPages=draw_header_footer)
             
             if parent:
                 QMessageBox.information(parent, "Success", f"PDF exported successfully to:\n{path}")
             return True
-            
+
         except Exception as e:
             logger.exception(f"Error exporting PDF: {e}")
             if parent:
                 QMessageBox.critical(parent, "Export Error", f"Failed to export PDF:\n{str(e)}")
             return False
-    
-    def _draw_header(self, painter: QPainter, page_rect, title: str, 
-                    subtitle: Optional[str], company_name: Optional[str],
-                    company_address: Optional[str], company_phone: Optional[str],
-                    page_num: int, total_pages: int):
-        """Draw professional header"""
-        painter.save()
-        
-        # Header background
-        header_color = QColor(41, 128, 185)  # Professional blue
-        painter.fillRect(0, 0, page_rect.width(), self.header_height, header_color)
-        
-        # Company/Farm name (large, white, bold)
-        if company_name:
-            company_font = QFont("Arial", 20, QFont.Bold)
-            painter.setFont(company_font)
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(30, 20, company_name)
-        
-        # Company details (smaller, white)
-        if company_address or company_phone:
-            detail_font = QFont("Arial", 10)
-            painter.setFont(detail_font)
-            y_offset = 45
-            if company_address:
-                painter.drawText(30, y_offset, company_address)
-                y_offset += 15
-            if company_phone:
-                painter.drawText(30, y_offset, f"Phone: {company_phone}")
-        
-        # Title (right side, large, white)
-        title_font = QFont("Arial", 16, QFont.Bold)
-        painter.setFont(title_font)
-        fm = QFontMetrics(title_font)
-        title_width = fm.horizontalAdvance(title)
-        painter.drawText(page_rect.width() - title_width - 40, 35, title)
-        
-        # Subtitle (right side, smaller, light)
-        if subtitle:
-            subtitle_font = QFont("Arial", 10)
-            painter.setFont(subtitle_font)
-            fm = QFontMetrics(subtitle_font)
-            subtitle_width = fm.horizontalAdvance(subtitle)
-            painter.drawText(page_rect.width() - subtitle_width - 40, 60, subtitle)
-        
-        # Date (right side, bottom of header)
-        date_str = datetime.now().strftime("%B %d, %Y")
-        date_font = QFont("Arial", 9)
-        painter.setFont(date_font)
-        fm = QFontMetrics(date_font)
-        date_width = fm.horizontalAdvance(date_str)
-        painter.drawText(page_rect.width() - date_width - 40, self.header_height - 15, date_str)
-        
-        # Page number in header
-        page_str = f"Page {page_num} of {total_pages}"
-        page_width = fm.horizontalAdvance(page_str)
-        painter.drawText(page_rect.width() - page_width - 40, 20, page_str)
-        
-        painter.restore()
-    
-    def _draw_table(self, painter: QPainter, page_rect, headers: List[str], 
-                   rows: List[List[Any]], row_start: int, content_y: int,
-                   content_height: int, show_totals: bool, 
-                   totals_row: Optional[List[Any]]) -> int:
-        """Draw table and return next row to start"""
-        painter.save()
-        # No translation - use absolute coordinates
-        # painter.translate(0, content_y)
-        
-        # Calculate column widths
-        col_widths = self._calculate_column_widths(painter, headers, rows, 
-                                                   page_rect.width() - 2 * self.margin)
-        
-        # Table dimensions
-        table_x = self.margin
-        table_width = sum(col_widths)
-        row_height = 30
-        header_height = 35
-        
-        # Draw table header
-        header_color = QColor(52, 152, 219)  # Lighter blue
-        painter.fillRect(table_x, content_y, table_width, header_height, header_color)
-        
-        # Header text
-        header_font = QFont("Arial", 11, QFont.Bold)
-        painter.setFont(header_font)
-        painter.setPen(QColor(255, 255, 255))
-        
-        x_offset = table_x + 8
-        for i, header in enumerate(headers):
-            painter.drawText(x_offset, content_y + 8, col_widths[i] - 16, header_height,
-                           Qt.AlignLeft | Qt.AlignVCenter, str(header))
-            # Draw border
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawRect(x_offset, content_y, col_widths[i], header_height)
-            x_offset += col_widths[i]
-        
-        # Draw rows
-        painter.setPen(QColor(0, 0, 0))
-        row_font = QFont("Arial", 10)
-        painter.setFont(row_font)
-        
-        y_offset = content_y + header_height
-        rows_to_draw = min(self._rows_per_page(len(rows), content_height), 
-                          len(rows) - row_start)
-        
-        for i in range(rows_to_draw):
-            row_idx = row_start + i
-            if row_idx >= len(rows):
-                break
-            
-            row = rows[row_idx]
-            
-            # Alternate row colors
-            if i % 2 == 0:
-                painter.fillRect(table_x, y_offset, table_width, row_height, 
-                               QColor(245, 245, 245))
-            else:
-                painter.fillRect(table_x, y_offset, table_width, row_height, 
-                               QColor(255, 255, 255))
-            
-            # Draw row data
-            x_offset = table_x + 8
-            for j, cell_value in enumerate(row):
-                if j < len(col_widths):
-                    painter.drawText(x_offset, y_offset + 8, col_widths[j] - 16, row_height,
-                                   Qt.AlignLeft | Qt.AlignVCenter, str(cell_value))
-                    # Draw border
-                    painter.setPen(QColor(200, 200, 200))
-                    painter.drawRect(x_offset - 8, y_offset, col_widths[j], row_height)
-                    painter.setPen(QColor(0, 0, 0))
-                    x_offset += col_widths[j]
-            
-            y_offset += row_height
-        
-        # Draw totals row if needed
-        if show_totals and totals_row:
-            totals_y = y_offset + row_height
-            totals_height = row_height
-            
-            # Totals background
-            painter.fillRect(table_x, totals_y, table_width, totals_height,
-                           QColor(220, 220, 220))
-            
-            # Totals text (bold)
-            totals_font = QFont("Arial", 10, QFont.Bold)
-            painter.setFont(totals_font)
-            
-            x_offset = table_x + 8
-            for j, cell_value in enumerate(totals_row):
-                if j < len(col_widths):
-                    painter.drawText(x_offset, totals_y + 8, col_widths[j] - 16, totals_height,
-                                   Qt.AlignLeft | Qt.AlignVCenter, str(cell_value))
-                    painter.setPen(QColor(100, 100, 100))
-                    painter.drawRect(x_offset - 8, totals_y, col_widths[j], totals_height)
-                    painter.setPen(QColor(0, 0, 0))
-                    x_offset += col_widths[j]
-        
-        painter.restore()
-        return row_start + rows_to_draw
-    
-    def _draw_footer(self, painter: QPainter, page_rect, page_num: int, 
-                    total_pages: int, company_name: Optional[str],
-                    company_phone: Optional[str]):
-        """Draw professional footer"""
-        painter.save()
-        
-        footer_y = page_rect.height() - self.footer_height
-        
-        # Footer background
-        footer_color = QColor(236, 240, 241)  # Light gray
-        painter.fillRect(0, footer_y, page_rect.width(), self.footer_height, footer_color)
-        
-        # Footer line
-        painter.setPen(QColor(189, 195, 199))
-        painter.drawLine(30, footer_y, page_rect.width() - 30, footer_y)
-        
-        # Footer text
-        footer_font = QFont("Arial", 9)
-        painter.setFont(footer_font)
-        painter.setPen(QColor(127, 140, 141))
-        
-        # Left side - Company info
-        if company_name:
-            painter.drawText(30, footer_y + 15, company_name)
-        if company_phone:
-            painter.drawText(30, footer_y + 28, f"Phone: {company_phone}")
-        
-        # Center - Generated info
-        generated_text = f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"
-        fm = QFontMetrics(footer_font)
-        text_width = fm.horizontalAdvance(generated_text)
-        painter.drawText((page_rect.width() - text_width) // 2, footer_y + 22, generated_text)
-        
-        # Right side - Page info
-        page_text = f"Page {page_num} of {total_pages}"
-        page_width = fm.horizontalAdvance(page_text)
-        painter.drawText(page_rect.width() - page_width - 30, footer_y + 22, page_text)
-        
-        painter.restore()
-    
-    def _calculate_column_widths(self, painter: QPainter, headers: List[str], 
-                                 rows: List[List[Any]], available_width: int) -> List[int]:
-        """Calculate optimal column widths"""
-        # Sample some rows to determine content width
-        sample_rows = rows[:min(10, len(rows))]
-        
-        col_widths = []
-        for i, header in enumerate(headers):
-            # Start with header width
-            header_font = QFont("Arial", 11, QFont.Bold)
-            painter.setFont(header_font)
-            fm = QFontMetrics(header_font)
-            max_width = fm.horizontalAdvance(str(header))
-            
-            # Check sample row data
-            row_font = QFont("Arial", 10)
-            painter.setFont(row_font)
-            fm = QFontMetrics(row_font)
-            for row in sample_rows:
-                if i < len(row):
-                    cell_width = fm.horizontalAdvance(str(row[i]))
-                    max_width = max(max_width, cell_width)
-            
-            col_widths.append(max_width + 30)  # Add padding
-        
-        # Scale to fit available width, but maintain minimum width per column
-        total_width = sum(col_widths)
-        if total_width > available_width:
-            scale = available_width / total_width
-            col_widths = [max(60, int(w * scale)) for w in col_widths]  # Minimum 60px per column
-            # Adjust to fit exactly
-            total_width = sum(col_widths)
-            if total_width > available_width:
-                scale = available_width / total_width
-                col_widths = [int(w * scale) for w in col_widths]
-        
-        return col_widths
-    
-    def _rows_per_page(self, total_rows: int, content_height: int) -> int:
-        """Calculate how many rows fit per page"""
-        row_height = 30
-        header_height = 35
-        available_height = content_height - header_height - 10
-        return max(1, int(available_height / row_height))
-    
-    def _calculate_total_pages(self, total_rows: int, content_height: int) -> int:
-        """Calculate total number of pages needed"""
-        rows_per_page = self._rows_per_page(total_rows, content_height)
-        return max(1, (total_rows + rows_per_page - 1) // rows_per_page)
 
