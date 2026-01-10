@@ -80,10 +80,10 @@ class PartyViewDialog(QDialog):
         balance_layout = QHBoxLayout()
         balance_layout.setSpacing(12)
         
-        self.balance_afg_card = self.create_balance_card("Balance (AFG)", "0.00", "#8B4513")
-        self.balance_usd_card = self.create_balance_card("Balance (USD)", "0.00", "#CD853F")
-        self.total_debit_card = self.create_balance_card("Total Debit", "0.00", "#6B8E23")
-        self.total_credit_card = self.create_balance_card("Total Credit", "0.00", "#9ACD32")
+        self.balance_afg_card, self.balance_afg_value = self.create_balance_card("Balance (AFG)", "0.00", "#8B4513")
+        self.balance_usd_card, self.balance_usd_value = self.create_balance_card("Balance (USD)", "0.00", "#CD853F")
+        self.total_debit_card, self.total_debit_value = self.create_balance_card("Total Debit", "0.00", "#6B8E23")
+        self.total_credit_card, self.total_credit_value = self.create_balance_card("Total Credit", "0.00", "#9ACD32")
         
         balance_layout.addWidget(self.balance_afg_card)
         balance_layout.addWidget(self.balance_usd_card)
@@ -199,45 +199,51 @@ class PartyViewDialog(QDialog):
         self.setLayout(layout)
     
     def create_balance_card(self, title, value, color):
-        """Create a balance card"""
+        """Create a balance card matching dashboard design - returns (card_widget, value_label)"""
         card = QFrame()
-        card.setFixedHeight(100)
-        darker = self._darken_color(color, 0.15)
+        card.setFrameShape(QFrame.NoFrame)
+        card.setFixedHeight(110)
+        card.setMinimumWidth(200)
+        
+        darker_color = self._darken_color(color, 0.15)
         card.setStyleSheet(f"""
             QFrame {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 {color},
-                    stop:1 {darker});
+                    stop:1 {darker_color});
                 border-radius: 12px;
-                padding: 14px;
+                border: none;
             }}
         """)
         
         layout = QVBoxLayout(card)
-        layout.setSpacing(6)
-        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(4)
+        layout.setContentsMargins(16, 14, 16, 14)
         
         title_label = QLabel(title)
-        title_label.setObjectName("card_title")
         title_label.setStyleSheet("""
-            color: rgba(255, 255, 255, 0.9);
+            color: rgba(255, 255, 255, 0.95);
             font-size: 10pt;
             font-weight: 600;
-            background: transparent;
+            letter-spacing: 0.2px;
         """)
+        title_label.setWordWrap(True)
+        title_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         layout.addWidget(title_label)
         
         value_label = QLabel(value)
-        value_label.setObjectName("balance_value")
         value_label.setStyleSheet("""
             color: white;
             font-size: 24pt;
             font-weight: 700;
-            background: transparent;
+            letter-spacing: -0.3px;
         """)
+        value_label.setWordWrap(False)
+        value_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        value_label.setMinimumHeight(35)
         layout.addWidget(value_label)
         
-        return card
+        return card, value_label
     
     def _darken_color(self, hex_color, factor):
         """Darken a hex color"""
@@ -258,75 +264,18 @@ class PartyViewDialog(QDialog):
             entries_usd = self.ledger_manager.get_balance_with_running(self.party.id, "USD")
             summary = self.ledger_manager.get_ledger_summary(self.party.id)
             
-                # Update balance cards
+            # Update balance cards with direct label references
             if summary:
                 balance_afg = summary['balance_afg']
                 balance_usd = summary['balance_usd']
                 total_debit_afg = summary['total_debit_afg']
                 total_credit_afg = summary['total_credit_afg']
                 
-                # Get value labels
-                balance_afg_value = self.balance_afg_card.findChild(QLabel, "balance_value")
-                balance_usd_value = self.balance_usd_card.findChild(QLabel, "balance_value")
-                total_debit_value = self.total_debit_card.findChild(QLabel, "balance_value")
-                total_credit_value = self.total_credit_card.findChild(QLabel, "balance_value")
-                
-                if balance_afg_value:
-                    balance_afg_value.setText(f"{balance_afg:,.2f}")
-                if balance_usd_value:
-                    balance_usd_value.setText(f"{balance_usd:,.2f}")
-                if total_debit_value:
-                    total_debit_value.setText(f"{total_debit_afg:,.2f}")
-                if total_credit_value:
-                    total_credit_value.setText(f"{total_credit_afg:,.2f}")
-                
-                # Color code balance - preserve label styles
-                darker_red = self._darken_color("#C62828", 0.15)
-                darker_green = self._darken_color("#6B8E23", 0.15)
-                
-                if balance_afg < 0:
-                    self.balance_afg_card.setStyleSheet(f"""
-                        QFrame {{
-                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                stop:0 #C62828,
-                                stop:1 {darker_red});
-                            border-radius: 12px;
-                            padding: 14px;
-                        }}
-                    """)
-                elif balance_afg > 0:
-                    self.balance_afg_card.setStyleSheet(f"""
-                        QFrame {{
-                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                stop:0 #6B8E23,
-                                stop:1 {darker_green});
-                            border-radius: 12px;
-                            padding: 14px;
-                        }}
-                    """)
-                
-                # Re-apply styles to all card labels to ensure text is visible
-                for card in [self.balance_afg_card, self.balance_usd_card, 
-                             self.total_debit_card, self.total_credit_card]:
-                    # Find and re-style the value label
-                    value_label = card.findChild(QLabel, "balance_value")
-                    if value_label:
-                        value_label.setStyleSheet("""
-                            color: white;
-                            font-size: 24pt;
-                            font-weight: 700;
-                            background: transparent;
-                        """)
-                    
-                    # Find and re-style the title label
-                    title_label = card.findChild(QLabel, "card_title")
-                    if title_label:
-                        title_label.setStyleSheet("""
-                            color: rgba(255, 255, 255, 0.9);
-                            font-size: 10pt;
-                            font-weight: 600;
-                            background: transparent;
-                        """)
+                # Update values directly
+                self.balance_afg_value.setText(f"{balance_afg:,.2f}")
+                self.balance_usd_value.setText(f"{balance_usd:,.2f}")
+                self.total_debit_value.setText(f"{total_debit_afg:,.2f}")
+                self.total_credit_value.setText(f"{total_credit_afg:,.2f}")
             
             # Load ledger entries
             all_entries = self.ledger_manager.get_party_ledger(self.party.id)

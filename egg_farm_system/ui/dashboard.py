@@ -14,6 +14,8 @@ from egg_farm_system.modules.sales import SalesManager
 from egg_farm_system.modules.inventory import InventoryManager
 from egg_farm_system.ui.widgets.charts import TimeSeriesChart
 from egg_farm_system.ui.widgets.forecasting import ForecastingWidget
+from egg_farm_system.utils.advanced_caching import dashboard_cache, CacheInvalidationManager
+from egg_farm_system.utils.performance_monitoring import measure_time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -360,53 +362,61 @@ class DashboardWidget(QWidget):
         return label
 
     def refresh_data(self):
-        """Refresh all dashboard data."""
+        """Refresh all dashboard data with caching."""
         logger.info(f"Refreshing dashboard for farm_id: {self.farm_id}")
         if not self.farm_id:
             logger.warning("No farm_id set, cannot refresh dashboard.")
             return
-            
-        # Refresh forecast
-        if hasattr(self, 'forecasting_widget'):
-            self.forecasting_widget.load_data()
         
-        try:
-            # Get today's date
-            today = datetime.now().date()
+        with measure_time(f"dashboard_refresh_farm_{self.farm_id}"):
+            # Refresh forecast
+            if hasattr(self, 'forecasting_widget'):
+                self.forecasting_widget.load_data()
             
-            # Today's metrics
-            self._update_today_metrics(today)
-            
-            # Get data for the chart
-            data = self.report_generator.get_daily_production_summary(self.farm_id, days=30)
-            
-            dates = data.get('dates', [])
-            egg_counts = data.get('egg_counts', [])
-
-            if dates and egg_counts:
-                # Update the chart
-                self.production_chart.plot(dates, egg_counts, pen='b', name="Total Eggs")
+            try:
+                # Get today's date
+                today = datetime.now().date()
                 
-                # Update summary labels
-                total_production = sum(egg_counts)
-                average_production = total_production / len(egg_counts) if egg_counts else 0
+                # Today's metrics
+                self._update_today_metrics(today)
                 
-                self.total_eggs_label.setText(f"Total Production: {total_production:,}")
-                self.avg_eggs_label.setText(f"Daily Average: {average_production:,.1f}")
-            else:
-                # Handle case with no data
-                self.production_chart.plot([], [], pen='b', name="Total Eggs")
-                self.total_eggs_label.setText("Total Production: 0")
-                self.avg_eggs_label.setText("Daily Average: 0")
-            
-            # Update sales summary
-            self._update_sales_summary()
-            
-            # Update low stock alerts
-            self._update_low_stock_alerts()
-            
-        except Exception as e:
-            logger.exception(f"Error refreshing dashboard data: {e}")
+                # Check dashboard cache for production summary (5-minute TTL)
+                today_str = today.isoformat()
+                data = dashboard_cache.get_production_summary(self.farm_id, today_str)
+                
+                if data is None:
+                    # Cache miss - fetch from database
+                    data = self.report_generator.get_daily_production_summary(self.farm_id, days=30)
+                    # Store in cache for 5 minutes
+                    dashboard_cache.set_production_summary(self.farm_id, today_str, data)
+                
+                dates = data.get('dates', [])
+                egg_counts = data.get('egg_counts', [])
+                
+                if dates and egg_counts:
+                    # Update the chart
+                    self.production_chart.plot(dates, egg_counts, pen='b', name="Total Eggs")
+                    
+                    # Update summary labels
+                    total_production = sum(egg_counts)
+                    average_production = total_production / len(egg_counts) if egg_counts else 0
+                    
+                    self.total_eggs_label.setText(f"Total Production: {total_production:,}")
+                    self.avg_eggs_label.setText(f"Daily Average: {average_production:,.1f}")
+                else:
+                    # Handle case with no data
+                    self.production_chart.plot([], [], pen='b', name="Total Eggs")
+                    self.total_eggs_label.setText("Total Production: 0")
+                    self.avg_eggs_label.setText("Daily Average: 0")
+                
+                # Update sales summary
+                self._update_sales_summary()
+                
+                # Update low stock alerts
+                self._update_low_stock_alerts()
+                
+            except Exception as e:
+                logger.exception(f"Error refreshing dashboard data: {e}")
     
     def _update_today_metrics(self, today):
         """Update today's metrics"""

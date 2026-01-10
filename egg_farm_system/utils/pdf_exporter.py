@@ -17,10 +17,10 @@ class ProfessionalPDFExporter:
     """Professional PDF exporter with headers, footers, and styling"""
     
     def __init__(self):
-        self.header_height = 120
-        self.footer_height = 60
-        self.margin = 40
-        self.table_margin = 20
+        self.header_height = 80
+        self.footer_height = 40
+        self.margin = 20
+        self.table_margin = 10
         
     def export_table(self, headers: List[str], rows: List[List[Any]], 
                     path: Optional[str] = None, title: str = "Report",
@@ -69,7 +69,7 @@ class ProfessionalPDFExporter:
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(str(path))
             printer.setPageSize(QPageSize.A4)
-            printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageLayout.Millimeter)
+            printer.setPageMargins(QMarginsF(10, 10, 10, 10), QPageLayout.Millimeter)
             
             painter = QPainter(printer)
             
@@ -132,21 +132,21 @@ class ProfessionalPDFExporter:
         
         # Company/Farm name (large, white, bold)
         if company_name:
-            company_font = QFont("Arial", 18, QFont.Bold)
+            company_font = QFont("Arial", 20, QFont.Bold)
             painter.setFont(company_font)
             painter.setPen(QColor(255, 255, 255))
-            painter.drawText(40, 30, company_name)
+            painter.drawText(30, 20, company_name)
         
         # Company details (smaller, white)
         if company_address or company_phone:
-            detail_font = QFont("Arial", 9)
+            detail_font = QFont("Arial", 10)
             painter.setFont(detail_font)
-            y_offset = 55
+            y_offset = 45
             if company_address:
-                painter.drawText(40, y_offset, company_address)
-                y_offset += 20
+                painter.drawText(30, y_offset, company_address)
+                y_offset += 15
             if company_phone:
-                painter.drawText(40, y_offset, f"Phone: {company_phone}")
+                painter.drawText(30, y_offset, f"Phone: {company_phone}")
         
         # Title (right side, large, white)
         title_font = QFont("Arial", 16, QFont.Bold)
@@ -184,7 +184,8 @@ class ProfessionalPDFExporter:
                    totals_row: Optional[List[Any]]) -> int:
         """Draw table and return next row to start"""
         painter.save()
-        painter.translate(0, content_y)
+        # No translation - use absolute coordinates
+        # painter.translate(0, content_y)
         
         # Calculate column widths
         col_widths = self._calculate_column_widths(painter, headers, rows, 
@@ -193,33 +194,33 @@ class ProfessionalPDFExporter:
         # Table dimensions
         table_x = self.margin
         table_width = sum(col_widths)
-        row_height = 25
-        header_height = 30
+        row_height = 30
+        header_height = 35
         
         # Draw table header
         header_color = QColor(52, 152, 219)  # Lighter blue
-        painter.fillRect(table_x, 0, table_width, header_height, header_color)
+        painter.fillRect(table_x, content_y, table_width, header_height, header_color)
         
         # Header text
-        header_font = QFont("Arial", 10, QFont.Bold)
+        header_font = QFont("Arial", 11, QFont.Bold)
         painter.setFont(header_font)
         painter.setPen(QColor(255, 255, 255))
         
         x_offset = table_x + 8
         for i, header in enumerate(headers):
-            painter.drawText(x_offset, 20, col_widths[i] - 16, header_height,
+            painter.drawText(x_offset, content_y + 8, col_widths[i] - 16, header_height,
                            Qt.AlignLeft | Qt.AlignVCenter, str(header))
             # Draw border
             painter.setPen(QColor(255, 255, 255))
-            painter.drawRect(x_offset, 0, col_widths[i], header_height)
+            painter.drawRect(x_offset, content_y, col_widths[i], header_height)
             x_offset += col_widths[i]
         
         # Draw rows
         painter.setPen(QColor(0, 0, 0))
-        row_font = QFont("Arial", 9)
+        row_font = QFont("Arial", 10)
         painter.setFont(row_font)
         
-        y_offset = header_height
+        y_offset = content_y + header_height
         rows_to_draw = min(self._rows_per_page(len(rows), content_height), 
                           len(rows) - row_start)
         
@@ -242,11 +243,11 @@ class ProfessionalPDFExporter:
             x_offset = table_x + 8
             for j, cell_value in enumerate(row):
                 if j < len(col_widths):
-                    painter.drawText(x_offset, y_offset, col_widths[j] - 16, row_height,
+                    painter.drawText(x_offset, y_offset + 8, col_widths[j] - 16, row_height,
                                    Qt.AlignLeft | Qt.AlignVCenter, str(cell_value))
                     # Draw border
                     painter.setPen(QColor(200, 200, 200))
-                    painter.drawRect(x_offset, y_offset, col_widths[j], row_height)
+                    painter.drawRect(x_offset - 8, y_offset, col_widths[j], row_height)
                     painter.setPen(QColor(0, 0, 0))
                     x_offset += col_widths[j]
             
@@ -254,24 +255,24 @@ class ProfessionalPDFExporter:
         
         # Draw totals row if needed
         if show_totals and totals_row:
-            totals_y = y_offset + 5
-            totals_height = row_height + 5
+            totals_y = y_offset + row_height
+            totals_height = row_height
             
             # Totals background
             painter.fillRect(table_x, totals_y, table_width, totals_height,
                            QColor(220, 220, 220))
             
             # Totals text (bold)
-            totals_font = QFont("Arial", 9, QFont.Bold)
+            totals_font = QFont("Arial", 10, QFont.Bold)
             painter.setFont(totals_font)
             
             x_offset = table_x + 8
             for j, cell_value in enumerate(totals_row):
                 if j < len(col_widths):
-                    painter.drawText(x_offset, totals_y, col_widths[j] - 16, totals_height,
+                    painter.drawText(x_offset, totals_y + 8, col_widths[j] - 16, totals_height,
                                    Qt.AlignLeft | Qt.AlignVCenter, str(cell_value))
                     painter.setPen(QColor(100, 100, 100))
-                    painter.drawRect(x_offset, totals_y, col_widths[j], totals_height)
+                    painter.drawRect(x_offset - 8, totals_y, col_widths[j], totals_height)
                     painter.setPen(QColor(0, 0, 0))
                     x_offset += col_widths[j]
         
@@ -292,29 +293,29 @@ class ProfessionalPDFExporter:
         
         # Footer line
         painter.setPen(QColor(189, 195, 199))
-        painter.drawLine(40, footer_y, page_rect.width() - 40, footer_y)
+        painter.drawLine(30, footer_y, page_rect.width() - 30, footer_y)
         
         # Footer text
-        footer_font = QFont("Arial", 8)
+        footer_font = QFont("Arial", 9)
         painter.setFont(footer_font)
         painter.setPen(QColor(127, 140, 141))
         
         # Left side - Company info
         if company_name:
-            painter.drawText(40, footer_y + 20, company_name)
+            painter.drawText(30, footer_y + 15, company_name)
         if company_phone:
-            painter.drawText(40, footer_y + 35, f"Phone: {company_phone}")
+            painter.drawText(30, footer_y + 28, f"Phone: {company_phone}")
         
         # Center - Generated info
         generated_text = f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"
         fm = QFontMetrics(footer_font)
         text_width = fm.horizontalAdvance(generated_text)
-        painter.drawText((page_rect.width() - text_width) // 2, footer_y + 25, generated_text)
+        painter.drawText((page_rect.width() - text_width) // 2, footer_y + 22, generated_text)
         
         # Right side - Page info
         page_text = f"Page {page_num} of {total_pages}"
         page_width = fm.horizontalAdvance(page_text)
-        painter.drawText(page_rect.width() - page_width - 40, footer_y + 25, page_text)
+        painter.drawText(page_rect.width() - page_width - 30, footer_y + 22, page_text)
         
         painter.restore()
     
@@ -327,13 +328,13 @@ class ProfessionalPDFExporter:
         col_widths = []
         for i, header in enumerate(headers):
             # Start with header width
-            header_font = QFont("Arial", 10, QFont.Bold)
+            header_font = QFont("Arial", 11, QFont.Bold)
             painter.setFont(header_font)
             fm = QFontMetrics(header_font)
             max_width = fm.horizontalAdvance(str(header))
             
             # Check sample row data
-            row_font = QFont("Arial", 9)
+            row_font = QFont("Arial", 10)
             painter.setFont(row_font)
             fm = QFontMetrics(row_font)
             for row in sample_rows:
@@ -341,20 +342,25 @@ class ProfessionalPDFExporter:
                     cell_width = fm.horizontalAdvance(str(row[i]))
                     max_width = max(max_width, cell_width)
             
-            col_widths.append(max_width + 20)  # Add padding
+            col_widths.append(max_width + 30)  # Add padding
         
-        # Scale to fit available width
+        # Scale to fit available width, but maintain minimum width per column
         total_width = sum(col_widths)
         if total_width > available_width:
             scale = available_width / total_width
-            col_widths = [int(w * scale) for w in col_widths]
+            col_widths = [max(60, int(w * scale)) for w in col_widths]  # Minimum 60px per column
+            # Adjust to fit exactly
+            total_width = sum(col_widths)
+            if total_width > available_width:
+                scale = available_width / total_width
+                col_widths = [int(w * scale) for w in col_widths]
         
         return col_widths
     
     def _rows_per_page(self, total_rows: int, content_height: int) -> int:
         """Calculate how many rows fit per page"""
-        row_height = 25
-        header_height = 30
+        row_height = 30
+        header_height = 35
         available_height = content_height - header_height - 10
         return max(1, int(available_height / row_height))
     

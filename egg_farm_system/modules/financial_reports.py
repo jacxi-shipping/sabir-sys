@@ -5,6 +5,12 @@ from sqlalchemy import func
 from egg_farm_system.database.models import (
     Sale, Expense, FeedIssue, Payment, Purchase, Shed, RawMaterial, FinishedFeed, FeedFormula
 )
+from egg_farm_system.utils.advanced_caching import report_cache, CacheInvalidationManager
+from egg_farm_system.utils.query_optimizer import AggregationHelper
+from egg_farm_system.utils.performance_monitoring import measure_time
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FinancialReportGenerator:
     """
@@ -35,52 +41,62 @@ class FinancialReportGenerator:
     def generate_pnl_statement(self, start_date, end_date, farm_id=None):
         """
         Generates a Profit and Loss (P&L) statement for a given period.
+        Uses caching for financial reports (30-minute TTL).
         """
-        
-        # 1. Calculate Total Revenue from Sales
-        revenue_query = self.session.query(func.sum(Sale.total_afg)).filter(
-            Sale.date >= start_date,
-            Sale.date <= end_date
-        )
-        # TODO: Add farm_id filtering for sales if possible
-        total_revenue = revenue_query.scalar() or 0
+        with measure_time(f"pnl_statement_{farm_id}_{start_date}_{end_date}"):
+            # Check cache first
+            cache_key = f"pnl_{farm_id}_{start_date}_{end_date}"
+            cached = report_cache.get_report("pnl", {'farm_id': farm_id, 'start': start_date, 'end': end_date})
+            if cached is not None:
+                logger.info(f"PnL report cache hit for farm {farm_id}")
+                return cached
+            
+            # 1. Calculate Total Revenue from Sales
+            revenue_query = self.session.query(func.sum(Sale.total_afg)).filter(
+                Sale.date >= start_date,
+                Sale.date <= end_date
+            )
+            # TODO: Add farm_id filtering for sales if possible
+            total_revenue = revenue_query.scalar() or 0
 
-        # 2. Calculate Cost of Goods Sold (COGS) - primarily feed cost for now
-        cogs_query = self.session.query(func.sum(FeedIssue.cost_afg)).join(FeedIssue.shed).filter(
-            FeedIssue.date >= start_date,
-            FeedIssue.date <= end_date
-        )
-        if farm_id:
-            cogs_query = cogs_query.filter(Shed.farm_id == farm_id)
-        total_cogs = cogs_query.scalar() or 0
-        
-        # 3. Calculate Gross Profit
-        gross_profit = total_revenue - total_cogs
+            # 2. Calculate Cost of Goods Sold (COGS) - primarily feed cost for now
+            cogs_query = self.session.query(func.sum(FeedIssue.cost_afg)).join(FeedIssue.shed).filter(
+                FeedIssue.date >= start_date,
+                FeedIssue.date <= end_date
+            )
+            if farm_id:
+                cogs_query = cogs_query.filter(Shed.farm_id == farm_id)
+            total_cogs = cogs_query.scalar() or 0
+            
+            # 3. Calculate Gross Profit
+            gross_profit = total_revenue - total_cogs
 
-        # 4. Calculate Operating Expenses
-        expenses_query = self.session.query(func.sum(Expense.amount_afg)).filter(
-            Expense.date >= start_date,
-            Expense.date <= end_date
-        )
-        if farm_id:
-            expenses_query = expenses_query.filter(Expense.farm_id == farm_id)
-        total_expenses = expenses_query.scalar() or 0
+            # 4. Calculate Operating Expenses
+            expenses_query = self.session.query(func.sum(Expense.amount_afg)).filter(
+                Expense.date >= start_date,
+                Expense.date <= end_date
+            )
+            if farm_id:
+                expenses_query = expenses_query.filter(Expense.farm_id == farm_id)
+            total_expenses = expenses_query.scalar() or 0
 
-        # 5. Calculate Net Profit
-        net_profit = gross_profit - total_expenses
+            # 5. Calculate Net Profit
+            net_profit = gross_profit - total_expenses
 
-        pnl_data = {
-            "start_date": start_date,
-            "end_date": end_date,
-            "farm_id": farm_id,
-            "total_revenue": total_revenue,
-            "total_cogs": total_cogs,
-            "gross_profit": gross_profit,
-            "total_expenses": total_expenses,
-            "net_profit": net_profit
-        }
-
-        return pnl_data
+            pnl_data = {
+                "start_date": start_date,
+                "end_date": end_date,
+                "farm_id": farm_id,
+                "total_revenue": total_revenue,
+                "total_cogs": total_cogs,
+                "gross_profit": gross_profit,
+                "total_expenses": total_expenses,
+                "net_profit": net_profit
+            }
+            
+            # Cache the report for 30 minutes
+            report_cache.set_report("pnl", {'farm_id': farm_id, 'start': start_date, 'end': end_date}, pnl_data, ttl=1800)
+            return pnl_data
 
     def generate_cash_flow_statement(self, start_date, end_date, farm_id=None):
         """

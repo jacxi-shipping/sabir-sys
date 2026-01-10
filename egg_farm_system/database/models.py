@@ -1,7 +1,7 @@
 """
 SQLAlchemy models for Egg Farm Management System
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey, Enum, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -54,7 +54,7 @@ class Shed(Base):
     __tablename__ = "sheds"
     
     id = Column(Integer, primary_key=True)
-    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     capacity = Column(Integer, nullable=False)  # Maximum bird capacity
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -66,6 +66,10 @@ class Shed(Base):
     egg_productions = relationship("EggProduction", back_populates="shed", cascade="all, delete-orphan")
     feed_issues = relationship("FeedIssue", back_populates="shed", cascade="all, delete-orphan")
     
+    __table_args__ = (
+        Index('idx_shed_farm_id', 'farm_id'),
+    )
+    
     def __repr__(self):
         return f"<Shed {self.name}>"
 
@@ -75,7 +79,7 @@ class Flock(Base):
     __tablename__ = "flocks"
     
     id = Column(Integer, primary_key=True)
-    shed_id = Column(Integer, ForeignKey("sheds.id"), nullable=False)
+    shed_id = Column(Integer, ForeignKey("sheds.id"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     start_date = Column(DateTime, nullable=False)
     initial_count = Column(Integer, nullable=False)
@@ -85,6 +89,10 @@ class Flock(Base):
     # Relationships
     shed = relationship("Shed", back_populates="flocks")
     mortalities = relationship("Mortality", back_populates="flock", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index('idx_flock_shed_id', 'shed_id'),
+    )
     
     def get_live_count(self, as_of_date=None):
         """Calculate live bird count"""
@@ -121,14 +129,19 @@ class Mortality(Base):
     __tablename__ = "mortalities"
     
     id = Column(Integer, primary_key=True)
-    flock_id = Column(Integer, ForeignKey("flocks.id"), nullable=False)
-    date = Column(DateTime, nullable=False)
+    flock_id = Column(Integer, ForeignKey("flocks.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
     count = Column(Integer, nullable=False)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     flock = relationship("Flock", back_populates="mortalities")
+    
+    __table_args__ = (
+        Index('idx_mortality_flock_id', 'flock_id'),
+        Index('idx_mortality_date', 'date'),
+    )
     
     def __repr__(self):
         return f"<Mortality {self.flock_id} - {self.date}>"
@@ -139,8 +152,8 @@ class EggProduction(Base):
     __tablename__ = "egg_productions"
     
     id = Column(Integer, primary_key=True)
-    shed_id = Column(Integer, ForeignKey("sheds.id"), nullable=False)
-    date = Column(DateTime, nullable=False)
+    shed_id = Column(Integer, ForeignKey("sheds.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
     small_count = Column(Integer, default=0)
     medium_count = Column(Integer, default=0)
     large_count = Column(Integer, default=0)
@@ -151,6 +164,11 @@ class EggProduction(Base):
     
     # Relationships
     shed = relationship("Shed", back_populates="egg_productions")
+    
+    __table_args__ = (
+        Index('idx_egg_prod_shed_id', 'shed_id'),
+        Index('idx_egg_prod_date', 'date'),
+    )
     
     @property
     def total_eggs(self):
@@ -176,7 +194,7 @@ class RawMaterial(Base):
     current_stock = Column(Float, default=0)
     cost_afg = Column(Float, nullable=False)  # Cost per unit in AFG
     cost_usd = Column(Float, nullable=False)  # Cost per unit in USD
-    supplier_id = Column(Integer, ForeignKey("parties.id"))
+    supplier_id = Column(Integer, ForeignKey("parties.id"), index=True)
     low_stock_alert = Column(Float, default=50)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -184,6 +202,10 @@ class RawMaterial(Base):
     # Relationships
     supplier = relationship("Party", back_populates="raw_materials")
     formulations = relationship("FeedFormulation", back_populates="material")
+    
+    __table_args__ = (
+        Index('idx_raw_material_supplier_id', 'supplier_id'),
+    )
     
     def __repr__(self):
         return f"<RawMaterial {self.name}>"
@@ -224,14 +246,19 @@ class FeedFormulation(Base):
     __tablename__ = "feed_formulations"
     
     id = Column(Integer, primary_key=True)
-    formula_id = Column(Integer, ForeignKey("feed_formulas.id"), nullable=False)
-    material_id = Column(Integer, ForeignKey("raw_materials.id"), nullable=False)
+    formula_id = Column(Integer, ForeignKey("feed_formulas.id"), nullable=False, index=True)
+    material_id = Column(Integer, ForeignKey("raw_materials.id"), nullable=False, index=True)
     percentage = Column(Float, nullable=False)  # Percentage by weight
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     formula = relationship("FeedFormula", back_populates="ingredients")
     material = relationship("RawMaterial", back_populates="formulations")
+    
+    __table_args__ = (
+        Index('idx_feed_formula_formula_id', 'formula_id'),
+        Index('idx_feed_formula_material_id', 'material_id'),
+    )
     
     def __repr__(self):
         return f"<FeedFormulation {self.formula_id}-{self.material_id}>"
@@ -242,8 +269,8 @@ class FeedBatch(Base):
     __tablename__ = "feed_batches"
     
     id = Column(Integer, primary_key=True)
-    formula_id = Column(Integer, ForeignKey("feed_formulas.id"), nullable=False)
-    batch_date = Column(DateTime, nullable=False)
+    formula_id = Column(Integer, ForeignKey("feed_formulas.id"), nullable=False, index=True)
+    batch_date = Column(DateTime, nullable=False, index=True)
     quantity_kg = Column(Float, nullable=False)
     cost_afg = Column(Float, nullable=False)
     cost_usd = Column(Float, nullable=False)
@@ -253,6 +280,11 @@ class FeedBatch(Base):
     
     # Relationships
     formula = relationship("FeedFormula", back_populates="batches")
+    
+    __table_args__ = (
+        Index('idx_feed_batch_formula_id', 'formula_id'),
+        Index('idx_feed_batch_date', 'batch_date'),
+    )
     
     @property
     def cost_per_kg_afg(self):
@@ -288,9 +320,9 @@ class FeedIssue(Base):
     __tablename__ = "feed_issues"
     
     id = Column(Integer, primary_key=True)
-    shed_id = Column(Integer, ForeignKey("sheds.id"), nullable=False)
-    feed_id = Column(Integer, ForeignKey("finished_feeds.id"), nullable=False)
-    date = Column(DateTime, nullable=False)
+    shed_id = Column(Integer, ForeignKey("sheds.id"), nullable=False, index=True)
+    feed_id = Column(Integer, ForeignKey("finished_feeds.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
     quantity_kg = Column(Float, nullable=False)
     cost_afg = Column(Float, nullable=False)
     cost_usd = Column(Float, nullable=False)
@@ -300,6 +332,12 @@ class FeedIssue(Base):
     # Relationships
     shed = relationship("Shed", back_populates="feed_issues")
     feed = relationship("FinishedFeed", back_populates="feed_issues")
+    
+    __table_args__ = (
+        Index('idx_feed_issue_shed_id', 'shed_id'),
+        Index('idx_feed_issue_feed_id', 'feed_id'),
+        Index('idx_feed_issue_date', 'date'),
+    )
     
     def __repr__(self):
         return f"<FeedIssue {self.shed_id} - {self.date}>"
@@ -344,8 +382,8 @@ class Ledger(Base):
     __tablename__ = "ledgers"
     
     id = Column(Integer, primary_key=True)
-    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False)
-    date = Column(DateTime, nullable=False)
+    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
     description = Column(String(255), nullable=False)
     debit_afg = Column(Float, default=0)
     credit_afg = Column(Float, default=0)
@@ -359,6 +397,12 @@ class Ledger(Base):
     # Relationships
     party = relationship("Party", back_populates="ledger_entries")
     
+    __table_args__ = (
+        Index('idx_ledger_party_id', 'party_id'),
+        Index('idx_ledger_date', 'date'),
+        Index('idx_ledger_reference', 'reference_type', 'reference_id'),
+    )
+    
     def __repr__(self):
         return f"<Ledger {self.party_id} - {self.date}>"
 
@@ -368,8 +412,8 @@ class Sale(Base):
     __tablename__ = "sales"
     
     id = Column(Integer, primary_key=True)
-    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False)
-    date = Column(DateTime, nullable=False)
+    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
     quantity = Column(Integer, nullable=False)  # Number of eggs
     rate_afg = Column(Float, nullable=False)  # Price per egg in AFG
     rate_usd = Column(Float, nullable=False)  # Price per egg in USD
@@ -390,6 +434,11 @@ class Sale(Base):
     # Relationships
     party = relationship("Party", back_populates="sales")
     
+    __table_args__ = (
+        Index('idx_sale_party_id', 'party_id'),
+        Index('idx_sale_date', 'date'),
+    )
+    
     def __repr__(self):
         return f"<Sale {self.party_id} - {self.date}>"
 
@@ -399,9 +448,9 @@ class Purchase(Base):
     __tablename__ = "purchases"
     
     id = Column(Integer, primary_key=True)
-    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False)
-    material_id = Column(Integer, ForeignKey("raw_materials.id"))
-    date = Column(DateTime, nullable=False)
+    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    material_id = Column(Integer, ForeignKey("raw_materials.id"), index=True)
+    date = Column(DateTime, nullable=False, index=True)
     quantity = Column(Float, nullable=False)  # in kg
     rate_afg = Column(Float, nullable=False)  # Price per unit in AFG
     rate_usd = Column(Float, nullable=False)  # Price per unit in USD
@@ -415,6 +464,12 @@ class Purchase(Base):
     # Relationships
     party = relationship("Party", back_populates="purchases")
     
+    __table_args__ = (
+        Index('idx_purchase_party_id', 'party_id'),
+        Index('idx_purchase_material_id', 'material_id'),
+        Index('idx_purchase_date', 'date'),
+    )
+    
     def __repr__(self):
         return f"<Purchase {self.party_id} - {self.date}>"
 
@@ -424,8 +479,8 @@ class Payment(Base):
     __tablename__ = "payments"
     
     id = Column(Integer, primary_key=True)
-    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False)
-    date = Column(DateTime, nullable=False)
+    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
     amount_afg = Column(Float, nullable=False)
     amount_usd = Column(Float, nullable=False)
     payment_type = Column(String(50))  # Received, Paid
@@ -438,6 +493,11 @@ class Payment(Base):
     # Relationships
     party = relationship("Party", back_populates="payments")
     
+    __table_args__ = (
+        Index('idx_payment_party_id', 'party_id'),
+        Index('idx_payment_date', 'date'),
+    )
+    
     def __repr__(self):
         return f"<Payment {self.party_id} - {self.date}>"
 
@@ -447,9 +507,9 @@ class Expense(Base):
     __tablename__ = "expenses"
     
     id = Column(Integer, primary_key=True)
-    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False)
-    party_id = Column(Integer, ForeignKey("parties.id"))  # Optional
-    date = Column(DateTime, nullable=False)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False, index=True)
+    party_id = Column(Integer, ForeignKey("parties.id"), index=True)  # Optional
+    date = Column(DateTime, nullable=False, index=True)
     category = Column(String(50), nullable=False)
     description = Column(Text)
     amount_afg = Column(Float, nullable=False)
@@ -461,6 +521,12 @@ class Expense(Base):
     # Relationships
     farm = relationship("Farm", back_populates="expenses")
     party = relationship("Party", back_populates="expenses")
+    
+    __table_args__ = (
+        Index('idx_expense_farm_id', 'farm_id'),
+        Index('idx_expense_party_id', 'party_id'),
+        Index('idx_expense_date', 'date'),
+    )
     
     def __repr__(self):
         return f"<Expense {self.farm_id} - {self.date}>"

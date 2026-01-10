@@ -185,42 +185,71 @@ class FarmFormWidget(QWidget):
         self.refresh_farms()
 
     def init_ui(self):
-        main_layout = QVBoxLayout(self); splitter = QSplitter(Qt.Vertical)
-        farms_widget = QWidget(); layout = QVBoxLayout(farms_widget)
-        header_hbox = QHBoxLayout(); title = QLabel("Farms"); title.setFont(QFont("Arial", 14, QFont.Bold))
-        header_hbox.addWidget(title); header_hbox.addStretch()
-        new_farm_btn = QPushButton("Add New Farm"); new_farm_btn.clicked.connect(self.add_farm)
+        main_layout = QVBoxLayout(self)
+        splitter = QSplitter(Qt.Vertical)
+        
+        # Farms section
+        farms_widget = QWidget()
+        layout = QVBoxLayout(farms_widget)
+        
+        header_hbox = QHBoxLayout()
+        title = QLabel("Farms")
+        title.setFont(QFont("Arial", 14, QFont.Bold))
+        header_hbox.addWidget(title)
+        header_hbox.addStretch()
+        
+        new_farm_btn = QPushButton("Add New Farm")
+        new_farm_btn.clicked.connect(self.add_farm)
         new_farm_btn.setToolTip("Add a new farm (Ctrl+N)")
-        header_hbox.addWidget(new_farm_btn); layout.addLayout(header_hbox)
+        header_hbox.addWidget(new_farm_btn)
+        layout.addLayout(header_hbox)
         
         # Add keyboard shortcuts
         KeyboardShortcuts.add_standard_shortcuts(self, {
             'new': self.add_farm,
             'refresh': self.refresh_farms
         })
+        
         self.farms_table = DataTableWidget()
         self.farms_table.set_headers(["ID", "Name", "Location", "Sheds", "Actions"])
         self.farms_table.view.setColumnHidden(0, True)
         self.farms_table.view.selectionModel().selectionChanged.connect(self.farm_selected)
-        layout.addWidget(self.farms_table); splitter.addWidget(farms_widget)
-        sheds_widget = QWidget(); sheds_layout = QVBoxLayout(sheds_widget)
-        shed_header_hbox = QHBoxLayout(); self.sheds_title = QLabel("Sheds"); self.sheds_title.setFont(QFont("Arial", 14, QFont.Bold))
-        shed_header_hbox.addWidget(self.sheds_title); shed_header_hbox.addStretch()
-        self.add_shed_btn = QPushButton("Add Shed"); self.add_shed_btn.clicked.connect(self.add_shed)
+        layout.addWidget(self.farms_table)
+        splitter.addWidget(farms_widget)
+        
+        # Sheds section
+        sheds_widget = QWidget()
+        sheds_layout = QVBoxLayout(sheds_widget)
+        
+        shed_header_hbox = QHBoxLayout()
+        self.sheds_title = QLabel("Sheds")
+        self.sheds_title.setFont(QFont("Arial", 14, QFont.Bold))
+        shed_header_hbox.addWidget(self.sheds_title)
+        shed_header_hbox.addStretch()
+        
+        self.add_shed_btn = QPushButton("Add Shed")
+        self.add_shed_btn.clicked.connect(self.add_shed)
         self.add_shed_btn.setEnabled(False)
         self.add_shed_btn.setToolTip("Add a new shed to the selected farm (Ctrl+N)")
-        shed_header_hbox.addWidget(self.add_shed_btn); sheds_layout.addLayout(shed_header_hbox)
+        shed_header_hbox.addWidget(self.add_shed_btn)
+        sheds_layout.addLayout(shed_header_hbox)
+        
         self.sheds_table = DataTableWidget()
         self.sheds_table.set_headers(["ID", "Name", "Capacity", "Actions"])
         self.sheds_table.view.setColumnHidden(0, True)
-        sheds_layout.addWidget(self.sheds_table); splitter.addWidget(sheds_widget)
-        main_layout.addWidget(splitter); self.setLayout(main_layout)
+        sheds_layout.addWidget(self.sheds_table)
+        splitter.addWidget(sheds_widget)
+        
+        main_layout.addWidget(splitter)
+        self.setLayout(main_layout)
 
     def farm_selected(self):
         selected_indexes = self.farms_table.view.selectionModel().selectedRows()
         if not selected_indexes:
-            self.selected_farm_id = None; self.sheds_table.model.setRowCount(0)
-            self.sheds_title.setText("Sheds"); self.add_shed_btn.setEnabled(False)
+            self.selected_farm_id = None
+            self.sheds_table.model.setRowCount(0)
+            self.sheds_title.setText("Sheds")
+            self.add_shed_btn.setEnabled(False)
             return
         
         source_index = self.farms_table.proxy.mapToSource(selected_indexes[0])

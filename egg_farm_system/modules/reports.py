@@ -1,5 +1,5 @@
 """
-Reports generation and export module
+Reports generation and export module with performance optimizations
 """
 import csv
 from datetime import datetime, timedelta
@@ -11,6 +11,9 @@ from egg_farm_system.database.models import (
     Expense, Payment, Party
 )
 from egg_farm_system.utils.calculations import EggCalculations, FeedCalculations, FinancialCalculations
+from egg_farm_system.utils.advanced_caching import report_cache, CacheInvalidationManager
+from egg_farm_system.utils.query_optimizer import QueryOptimizer, AggregationHelper
+from egg_farm_system.utils.performance_monitoring import measure_time, profile_operation
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,49 +27,47 @@ class ReportGenerator:
     def get_daily_production_summary(self, farm_id, days=30):
         """
         Get daily egg production summary for the last N days for the dashboard.
+        Uses caching for better performance.
         """
+        # Check cache first
+        cache_key = f"{farm_id}_{days}_{datetime.utcnow().date()}"
+        cached = report_cache.get_report("daily_production", {'farm_id': farm_id, 'days': days})
+        if cached:
+            return cached
+        
         try:
-            end_date = datetime.utcnow().date()
-            start_date = end_date - timedelta(days=days - 1)
+            with measure_time(f"production_summary_farm_{farm_id}"):
+                end_date = datetime.utcnow().date()
+                start_date = end_date - timedelta(days=days - 1)
 
-            # Get all sheds for the farm
-            sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
-            shed_ids = [s.id for s in sheds]
+                # Get all sheds for the farm using optimized query
+                sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
+                shed_ids = [s.id for s in sheds]
 
-            if not shed_ids:
-                return {'dates': [], 'egg_counts': []}
+                if not shed_ids:
+                    return {'dates': [], 'egg_counts': []}
 
-            # Query to get total eggs per day
-            daily_data = self.session.query(
-                func.date(EggProduction.date),
-                func.sum(
-                    EggProduction.small_count + 
-                    EggProduction.medium_count + 
-                    EggProduction.large_count + 
-                    EggProduction.broken_count
+                # Use database aggregation for better performance
+                daily_data = AggregationHelper.get_daily_production_aggregate(
+                    self.session, farm_id, start_date, end_date
                 )
-            ).filter(
-                EggProduction.shed_id.in_(shed_ids),
-                func.date(EggProduction.date) >= start_date,
-                func.date(EggProduction.date) <= end_date
-            ).group_by(
-                func.date(EggProduction.date)
-            ).order_by(
-                func.date(EggProduction.date)
-            ).all()
 
-            # Create a dictionary for quick lookup
-            data_map = {date: count for date, count in daily_data}
+                # Create a dictionary for quick lookup
+                data_map = {r[0]: r[1] for r in daily_data}
 
-            # Fill in dates with no production
-            all_dates = [start_date + timedelta(days=i) for i in range(days)]
-            egg_counts = [data_map.get(date, 0) for date in all_dates]
-            
-            return {'dates': all_dates, 'egg_counts': egg_counts}
-
+                # Fill in dates with no production
+                all_dates = [start_date + timedelta(days=i) for i in range(days)]
+                egg_counts = [data_map.get(date, 0) for date in all_dates]
+                
+                result = {'dates': all_dates, 'egg_counts': egg_counts}
+        
         except Exception as e:
             logger.error(f"Error getting daily production summary: {e}")
-            return {'dates': [], 'egg_counts': []}
+            result = {'dates': [], 'egg_counts': []}
+        
+        # Cache the result
+        report_cache.set_report("daily_production", {'farm_id': farm_id, 'days': days}, result)
+        return result
     
     def daily_egg_production_report(self, farm_id, date):
         """Generate daily egg production report"""

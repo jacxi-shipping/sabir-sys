@@ -3,6 +3,8 @@ Inventory management module
 """
 from egg_farm_system.database.models import RawMaterial, FinishedFeed
 from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.utils.advanced_caching import dashboard_cache, CacheInvalidationManager
+from egg_farm_system.utils.performance_monitoring import measure_time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,68 +13,86 @@ class InventoryManager:
     """Manage inventory operations"""
     
     def get_raw_materials_inventory(self):
-        """Get all raw materials with inventory"""
-        session = DatabaseManager.get_session()
-        try:
-            materials = session.query(RawMaterial).all()
-            inventory = []
+        """Get all raw materials with inventory (cached for 5 minutes)"""
+        with measure_time("get_raw_materials_inventory"):
+            # Check cache first
+            cached = dashboard_cache.get_daily_metrics(farm_id=1)
+            if cached and 'raw_materials' in cached:
+                logger.info("Raw materials inventory cache hit")
+                return cached['raw_materials']
             
-            for material in materials:
-                inventory_value_afg = material.current_stock * material.cost_afg
-                inventory_value_usd = material.current_stock * material.cost_usd
-                is_low = material.current_stock <= material.low_stock_alert
+            session = DatabaseManager.get_session()
+            try:
+                materials = session.query(RawMaterial).all()
+                inventory = []
                 
-                inventory.append({
-                    'id': material.id,
-                    'name': material.name,
-                    'stock': material.current_stock,
-                    'unit': material.unit,
-                    'cost_afg': material.cost_afg,
-                    'cost_usd': material.cost_usd,
-                    'inventory_value_afg': inventory_value_afg,
-                    'inventory_value_usd': inventory_value_usd,
-                    'low_stock_alert': material.low_stock_alert,
-                    'is_low': is_low,
-                    'supplier_id': material.supplier_id
-                })
-            
-            return inventory
-        except Exception as e:
-            logger.error(f"Error getting raw materials inventory: {e}")
-            return []
-        finally:
-            session.close()
+                for material in materials:
+                    inventory_value_afg = material.current_stock * material.cost_afg
+                    inventory_value_usd = material.current_stock * material.cost_usd
+                    is_low = material.current_stock <= material.low_stock_alert
+                    
+                    inventory.append({
+                        'id': material.id,
+                        'name': material.name,
+                        'stock': material.current_stock,
+                        'unit': material.unit,
+                        'cost_afg': material.cost_afg,
+                        'cost_usd': material.cost_usd,
+                        'inventory_value_afg': inventory_value_afg,
+                        'inventory_value_usd': inventory_value_usd,
+                        'low_stock_alert': material.low_stock_alert,
+                        'is_low': is_low,
+                        'supplier_id': material.supplier_id
+                    })
+                
+                # Cache for 5 minutes
+                dashboard_cache.set_daily_metrics(farm_id=1, data={'raw_materials': inventory})
+                return inventory
+            except Exception as e:
+                logger.error(f"Error getting raw materials inventory: {e}")
+                return []
+            finally:
+                session.close()
     
     def get_finished_feed_inventory(self):
-        """Get finished feed inventory"""
-        session = DatabaseManager.get_session()
-        try:
-            feeds = session.query(FinishedFeed).all()
-            inventory = []
+        """Get finished feed inventory (cached for 5 minutes)"""
+        with measure_time("get_finished_feed_inventory"):
+            # Check cache first
+            cached = dashboard_cache.get_daily_metrics(farm_id=1)
+            if cached and 'finished_feed' in cached:
+                logger.info("Finished feed inventory cache hit")
+                return cached['finished_feed']
             
-            for feed in feeds:
-                inventory_value_afg = feed.current_stock * feed.cost_per_kg_afg
-                inventory_value_usd = feed.current_stock * feed.cost_per_kg_usd
-                is_low = feed.current_stock <= feed.low_stock_alert
+            session = DatabaseManager.get_session()
+            try:
+                feeds = session.query(FinishedFeed).all()
+                inventory = []
                 
-                inventory.append({
-                    'id': feed.id,
-                    'feed_type': feed.feed_type.value,
-                    'stock_kg': feed.current_stock,
-                    'cost_per_kg_afg': feed.cost_per_kg_afg,
-                    'cost_per_kg_usd': feed.cost_per_kg_usd,
-                    'inventory_value_afg': inventory_value_afg,
-                    'inventory_value_usd': inventory_value_usd,
-                    'low_stock_alert': feed.low_stock_alert,
-                    'is_low': is_low
-                })
-            
-            return inventory
-        except Exception as e:
-            logger.error(f"Error getting finished feed inventory: {e}")
-            return []
-        finally:
-            session.close()
+                for feed in feeds:
+                    inventory_value_afg = feed.current_stock * feed.cost_per_kg_afg
+                    inventory_value_usd = feed.current_stock * feed.cost_per_kg_usd
+                    is_low = feed.current_stock <= feed.low_stock_alert
+                    
+                    inventory.append({
+                        'id': feed.id,
+                        'feed_type': feed.feed_type.value,
+                        'stock_kg': feed.current_stock,
+                        'cost_per_kg_afg': feed.cost_per_kg_afg,
+                        'cost_per_kg_usd': feed.cost_per_kg_usd,
+                        'inventory_value_afg': inventory_value_afg,
+                        'inventory_value_usd': inventory_value_usd,
+                        'low_stock_alert': feed.low_stock_alert,
+                        'is_low': is_low
+                    })
+                
+                # Cache for 5 minutes
+                dashboard_cache.set_daily_metrics(farm_id=1, data={'finished_feed': inventory})
+                return inventory
+            except Exception as e:
+                logger.error(f"Error getting finished feed inventory: {e}")
+                return []
+            finally:
+                session.close()
     
     def get_total_inventory_value(self):
         """Get total inventory value"""

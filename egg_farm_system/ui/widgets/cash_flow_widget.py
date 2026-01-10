@@ -65,14 +65,15 @@ class CashFlowWidget(QWidget):
         header_layout.addLayout(date_layout)
         layout.addLayout(header_layout)
         
-        # Summary cards
+        # Summary cards - NEW SIMPLIFIED DESIGN
         summary_layout = QHBoxLayout()
         summary_layout.setSpacing(12)
         
-        self.cash_inflow_card = self.create_summary_card("Cash Inflow", "0.00", "#6B8E23")
-        self.cash_outflow_card = self.create_summary_card("Cash Outflow", "0.00", "#C62828")
-        self.net_cash_flow_card = self.create_summary_card("Net Cash Flow", "0.00", "#8B4513")
-        self.cash_balance_card = self.create_summary_card("Cash Balance", "0.00", "#CD853F")
+        # Create cards with direct label references
+        self.cash_inflow_card, self.cash_inflow_value = self.create_simple_card("Cash Inflow", "0.00", "#6B8E23")
+        self.cash_outflow_card, self.cash_outflow_value = self.create_simple_card("Cash Outflow", "0.00", "#C62828")
+        self.net_cash_flow_card, self.net_cash_flow_value = self.create_simple_card("Net Cash Flow", "0.00", "#8B4513")
+        self.cash_balance_card, self.cash_balance_value = self.create_simple_card("Cash Balance", "0.00", "#CD853F")
         
         summary_layout.addWidget(self.cash_inflow_card)
         summary_layout.addWidget(self.cash_outflow_card)
@@ -119,46 +120,52 @@ class CashFlowWidget(QWidget):
         
         self.setLayout(layout)
     
-    def create_summary_card(self, title, value, color):
-        """Create summary card"""
+    def create_simple_card(self, title, value, color):
+        """Create a metric card matching dashboard design - returns (card_widget, value_label)"""
         card = QFrame()
-        card.setFixedHeight(100)
-        darker = self._darken_color(color, 0.15)
+        card.setFrameShape(QFrame.NoFrame)
+        card.setFixedHeight(110)
+        card.setMinimumWidth(200)
+        
+        darker_color = self._darken_color(color, 0.15)
         card.setStyleSheet(f"""
             QFrame {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 {color},
-                    stop:1 {darker});
+                    stop:1 {darker_color});
                 border-radius: 12px;
-                padding: 14px;
+                border: none;
             }}
         """)
         
         layout = QVBoxLayout(card)
-        layout.setSpacing(6)
-        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(4)
+        layout.setContentsMargins(16, 14, 16, 14)
         
         title_label = QLabel(title)
-        title_label.setObjectName("card_title")
         title_label.setStyleSheet("""
-            color: rgba(255, 255, 255, 0.9);
+            color: rgba(255, 255, 255, 0.95);
             font-size: 10pt;
             font-weight: 600;
-            background: transparent;
+            letter-spacing: 0.2px;
         """)
+        title_label.setWordWrap(True)
+        title_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         layout.addWidget(title_label)
         
         value_label = QLabel(value)
-        value_label.setObjectName("card_value")
         value_label.setStyleSheet("""
             color: white;
             font-size: 24pt;
             font-weight: 700;
-            background: transparent;
+            letter-spacing: -0.3px;
         """)
+        value_label.setWordWrap(False)
+        value_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        value_label.setMinimumHeight(35)
         layout.addWidget(value_label)
         
-        return card
+        return card, value_label
     
     def _darken_color(self, hex_color, factor):
         """Darken a hex color"""
@@ -266,70 +273,17 @@ class CashFlowWidget(QWidget):
                 # Get opening balance (all transactions before start date)
                 opening_balance_afg = self._get_opening_balance(start_date, session)
                 
-                # Update cards - store references to value labels
-                inflow_value = self.cash_inflow_card.findChild(QLabel, "card_value")
-                outflow_value = self.cash_outflow_card.findChild(QLabel, "card_value")
-                net_flow_value = self.net_cash_flow_card.findChild(QLabel, "card_value")
-                balance_value = self.cash_balance_card.findChild(QLabel, "card_value")
+                # Update cards with direct label references - NO FINDCHILD NEEDED
+                logger.info(f"Updating card values - inflow: {total_inflow_afg}, outflow: {total_outflow_afg}, net: {net_flow_afg}")
                 
-                if inflow_value:
-                    inflow_value.setText(f"Afs {total_inflow_afg:,.2f}")
-                if outflow_value:
-                    outflow_value.setText(f"Afs {total_outflow_afg:,.2f}")
-                if net_flow_value:
-                    net_flow_value.setText(f"Afs {net_flow_afg:,.2f}")
+                self.cash_inflow_value.setText(f"Afs {total_inflow_afg:,.2f}")
+                self.cash_outflow_value.setText(f"Afs {total_outflow_afg:,.2f}")
+                self.net_cash_flow_value.setText(f"Afs {net_flow_afg:,.2f}")
                 
-                # Color code net flow - preserve label styles
-                darker_red = self._darken_color("#C62828", 0.15)
-                darker_green = self._darken_color("#6B8E23", 0.15)
-                
-                if net_flow_afg < 0:
-                    self.net_cash_flow_card.setStyleSheet(f"""
-                        QFrame {{
-                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                stop:0 #C62828,
-                                stop:1 {darker_red});
-                            border-radius: 12px;
-                            padding: 14px;
-                        }}
-                    """)
-                else:
-                    self.net_cash_flow_card.setStyleSheet(f"""
-                        QFrame {{
-                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                stop:0 #6B8E23,
-                                stop:1 {darker_green});
-                            border-radius: 12px;
-                            padding: 14px;
-                        }}
-                    """)
-                
-                # Re-apply styles to all card labels to ensure text is visible
-                for card in [self.cash_inflow_card, self.cash_outflow_card, 
-                             self.net_cash_flow_card, self.cash_balance_card]:
-                    # Find and re-style the value label
-                    value_label = card.findChild(QLabel, "card_value")
-                    if value_label:
-                        value_label.setStyleSheet("""
-                            color: white;
-                            font-size: 24pt;
-                            font-weight: 700;
-                            background: transparent;
-                        """)
-                    
-                    # Find and re-style the title label
-                    title_label = card.findChild(QLabel, "card_title")
-                    if title_label:
-                        title_label.setStyleSheet("""
-                            color: rgba(255, 255, 255, 0.9);
-                            font-size: 10pt;
-                            font-weight: 600;
-                            background: transparent;
-                        """)
+                logger.info(f"Card values updated successfully")
                 
                 closing_balance_afg = opening_balance_afg + net_flow_afg
-                if balance_value:
-                    balance_value.setText(f"Afs {closing_balance_afg:,.2f}")
+                self.cash_balance_value.setText(f"Afs {closing_balance_afg:,.2f}")
                 
                 # Populate table
                 self.cash_flow_table.setRowCount(len(transactions))
