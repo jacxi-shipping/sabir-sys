@@ -30,11 +30,12 @@ from egg_farm_system.ui.widgets.advanced_sales_dialog import AdvancedSalesDialog
 class TransactionFormWidget(QWidget):
     """Transaction management widget (Sales, Purchases, Expenses)"""
 
-    def __init__(self, transaction_type, farm_id=None):
+    def __init__(self, transaction_type, farm_id=None, current_user=None):
         super().__init__()
         self.transaction_type = transaction_type
         self.farm_id = farm_id
-        self.sales_manager = SalesManager()
+        self.current_user = current_user
+        self.sales_manager = SalesManager(current_user=current_user)
         self.purchase_manager = PurchaseManager()
         self.expense_manager = ExpenseManager()
         self.party_manager = PartyManager()
@@ -241,7 +242,7 @@ class TransactionFormWidget(QWidget):
         """Add new transaction"""
         if self.transaction_type == 'sales':
             # Use advanced sales dialog
-            dialog = AdvancedSalesDialog(self, None, farm_id=self.farm_id)
+            dialog = AdvancedSalesDialog(self.window(), None, farm_id=self.farm_id)
             dialog.sale_saved.connect(self.refresh_data)
             if dialog.exec():
                 success_msg = SuccessMessage(self, "Sale added successfully")
@@ -344,7 +345,7 @@ class TransactionFormWidget(QWidget):
 
     def edit_sale(self, sale):
         """Edit sale using advanced dialog"""
-        dialog = AdvancedSalesDialog(self, sale, farm_id=self.farm_id)
+        dialog = AdvancedSalesDialog(self.window(), sale, farm_id=self.farm_id)
         dialog.sale_saved.connect(self.refresh_data)
         dialog.exec()
     

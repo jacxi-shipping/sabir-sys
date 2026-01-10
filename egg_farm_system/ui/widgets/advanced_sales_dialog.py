@@ -42,35 +42,30 @@ class AdvancedSalesDialog(QDialog):
         self.load_data()
         self.setup_connections()
         
-        # Ensure all inputs are enabled, focusable, and not read-only
-        self.carton_spin.setEnabled(True)
-        self.carton_spin.setFocusPolicy(Qt.StrongFocus)
+        # Ensure critical inputs are definitely enabled/writable
         self.carton_spin.setReadOnly(False)
-        self.rate_per_egg_afg.setEnabled(True)
-        self.rate_per_egg_afg.setFocusPolicy(Qt.StrongFocus)
         self.rate_per_egg_afg.setReadOnly(False)
-        self.rate_per_egg_usd.setEnabled(True)
-        self.rate_per_egg_usd.setFocusPolicy(Qt.StrongFocus)
         self.rate_per_egg_usd.setReadOnly(False)
-        self.grade_combo.setEnabled(True)
-        self.grade_combo.setFocusPolicy(Qt.StrongFocus)
-        self.party_combo.setEnabled(True)
-        self.party_combo.setFocusPolicy(Qt.StrongFocus)
-        self.date_edit.setEnabled(True)
-        self.date_edit.setFocusPolicy(Qt.StrongFocus)
         self.date_edit.setReadOnly(False)
-        self.payment_method_combo.setEnabled(True)
-        self.payment_method_combo.setFocusPolicy(Qt.StrongFocus)
-        self.notes_edit.setEnabled(True)
-        self.notes_edit.setFocusPolicy(Qt.StrongFocus)
         self.notes_edit.setReadOnly(False)
-        
-        # Set initial focus
-        self.carton_spin.setFocus()
-        
-        # Set initial focus to carton input
-        QTimer.singleShot(100, lambda: self.carton_spin.setFocus())
     
+    def showEvent(self, event):
+        """Ensure everything is enabled when shown"""
+        super().showEvent(event)
+        # Use a timer to ensure enabled state after the dialog is fully shown
+        # This handles cases where parent modality might initially affect state
+        QTimer.singleShot(10, self.ensure_enabled_and_focused)
+
+    def ensure_enabled_and_focused(self):
+        """Force enable the dialog and set initial focus"""
+        self.setEnabled(True)
+        # Ensure inputs are enabled
+        self.carton_spin.setEnabled(True)
+        self.party_combo.setEnabled(True)
+        
+        # Set focus
+        self.carton_spin.setFocus()
+
     def init_ui(self):
         """Initialize UI"""
         layout = QVBoxLayout()

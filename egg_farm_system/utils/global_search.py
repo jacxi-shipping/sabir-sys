@@ -2,9 +2,12 @@
 Global Search Manager for Egg Farm Management System
 """
 import logging
+import json
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from egg_farm_system.config import DATA_DIR
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import (
     Farm, Shed, Flock, EggProduction, Party, Sale, Purchase, Expense,
@@ -19,6 +22,7 @@ class GlobalSearchManager:
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
+        self.history_file = DATA_DIR / "search_history.json"
     
     def search(self, query: str, modules: Optional[List[str]] = None) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -33,6 +37,9 @@ class GlobalSearchManager:
         """
         if not query or len(query.strip()) < 2:
             return {}
+        
+        # Save search query to history
+        self.save_search(query)
         
         query_lower = query.lower().strip()
         results = {}
@@ -229,14 +236,41 @@ class GlobalSearchManager:
     
     def get_search_history(self, limit: int = 10) -> List[str]:
         """Get recent search history"""
-        # This would be stored in settings/database
-        # For now, return empty list
-        return []
+        try:
+            if not self.history_file.exists():
+                return []
+            
+            with open(self.history_file, 'r', encoding='utf-8') as f:
+                history = json.load(f)
+                return history[:limit]
+        except Exception as e:
+            logger.error(f"Error reading search history: {e}")
+            return []
     
     def save_search(self, query: str):
         """Save search to history"""
-        # This would save to settings/database
-        pass
+        if not query or len(query.strip()) < 2:
+            return
+            
+        try:
+            query = query.strip()
+            history = self.get_search_history(limit=50) # Get more to filter
+            
+            # Remove if exists (to move to top)
+            if query in history:
+                history.remove(query)
+            
+            # Add to top
+            history.insert(0, query)
+            
+            # Keep max 50
+            history = history[:50]
+            
+            with open(self.history_file, 'w', encoding='utf-8') as f:
+                json.dump(history, f, ensure_ascii=False)
+                
+        except Exception as e:
+            logger.error(f"Error saving search history: {e}")
     
     def close(self):
         """Close database session"""

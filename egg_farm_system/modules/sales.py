@@ -8,6 +8,7 @@ from egg_farm_system.modules.ledger import LedgerManager
 from egg_farm_system.utils.currency import CurrencyConverter
 from egg_farm_system.utils.advanced_caching import CacheInvalidationManager
 from egg_farm_system.utils.performance_monitoring import measure_time
+from egg_farm_system.utils.audit_trail import get_audit_trail, ActionType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,9 +22,10 @@ class SalesManager:
     be closed when the manager instance is garbage collected.
     """
     
-    def __init__(self):
+    def __init__(self, current_user=None):
         self.session = DatabaseManager.get_session()
         self.converter = CurrencyConverter()
+        self.current_user = current_user
     
     def record_sale(self, party_id, quantity, rate_afg, rate_usd, 
                     exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
@@ -79,6 +81,18 @@ class SalesManager:
                 
                 # Invalidate caches after successful save
                 CacheInvalidationManager.on_sale_created()
+                
+                # Log audit
+                user_id = self.current_user.id if self.current_user else None
+                username = self.current_user.username if self.current_user else None
+                get_audit_trail().log_action(
+                    user_id=user_id,
+                    username=username,
+                    action_type=ActionType.CREATE,
+                    entity_type="Sale",
+                    entity_id=sale.id,
+                    description=f"New sale: {quantity} eggs to Party {party_id}"
+                )
                 
                 logger.info(f"Sale recorded: {quantity} eggs to party {party_id}")
                 return sale
@@ -150,6 +164,19 @@ class SalesManager:
             )
             
             self.session.commit()
+            
+            # Log audit
+            user_id = self.current_user.id if self.current_user else None
+            username = self.current_user.username if self.current_user else None
+            get_audit_trail().log_action(
+                user_id=user_id,
+                username=username,
+                action_type=ActionType.CREATE,
+                entity_type="Sale",
+                entity_id=sale.id,
+                description=f"Advanced sale: {cartons} cartons to Party {party_id}"
+            )
+            
             logger.info(f"Advanced sale recorded: {cartons} cartons ({eggs} eggs) to party {party_id}")
             return sale
         except Exception as e:

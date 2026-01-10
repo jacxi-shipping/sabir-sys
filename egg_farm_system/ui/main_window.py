@@ -507,7 +507,7 @@ class MainWindow(QMainWindow):
     def load_sales(self):
         """Load sales widget"""
         self.clear_content()
-        sales_widget = TransactionFormWidget("sales", self.get_current_farm_id())
+        sales_widget = TransactionFormWidget("sales", self.get_current_farm_id(), current_user=self.current_user)
         sales_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(sales_widget)
         self._update_breadcrumbs("Sales", "sales")
@@ -516,7 +516,7 @@ class MainWindow(QMainWindow):
     def load_purchases(self):
         """Load purchases widget"""
         self.clear_content()
-        purchases_widget = TransactionFormWidget("purchases", self.get_current_farm_id())
+        purchases_widget = TransactionFormWidget("purchases", self.get_current_farm_id(), current_user=self.current_user)
         purchases_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(purchases_widget)
         self._update_breadcrumbs("Purchases", "purchases")
@@ -525,7 +525,7 @@ class MainWindow(QMainWindow):
     def load_expenses(self):
         """Load expenses widget"""
         self.clear_content()
-        expenses_widget = TransactionFormWidget("expenses", self.get_current_farm_id())
+        expenses_widget = TransactionFormWidget("expenses", self.get_current_farm_id(), current_user=self.current_user)
         expenses_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(expenses_widget)
         self._update_breadcrumbs("Expenses", "expenses")
