@@ -41,29 +41,25 @@ class AdvancedSalesDialog(QDialog):
         self.init_ui()
         self.load_data()
         self.setup_connections()
-        
-        # Ensure critical inputs are definitely enabled/writable
-        self.carton_spin.setReadOnly(False)
-        self.rate_per_egg_afg.setReadOnly(False)
-        self.rate_per_egg_usd.setReadOnly(False)
-        self.date_edit.setReadOnly(False)
-        self.notes_edit.setReadOnly(False)
     
     def showEvent(self, event):
         """Ensure everything is enabled when shown"""
         super().showEvent(event)
-        # Use a timer to ensure enabled state after the dialog is fully shown
-        # This handles cases where parent modality might initially affect state
-        QTimer.singleShot(10, self.ensure_enabled_and_focused)
+        # Enable all input fields
+        QTimer.singleShot(10, self.enable_all_inputs)
 
-    def ensure_enabled_and_focused(self):
-        """Force enable the dialog and set initial focus"""
-        self.setEnabled(True)
-        # Ensure inputs are enabled
-        self.carton_spin.setEnabled(True)
+    def enable_all_inputs(self):
+        """Enable all input fields"""
+        self.date_edit.setEnabled(True)
         self.party_combo.setEnabled(True)
+        self.payment_method_combo.setEnabled(True)
+        self.carton_spin.setEnabled(True)
+        self.grade_combo.setEnabled(True)
+        self.rate_per_egg_afg.setEnabled(True)
+        self.rate_per_egg_usd.setEnabled(True)
+        self.notes_edit.setEnabled(True)
         
-        # Set focus
+        # Set focus to carton field
         self.carton_spin.setFocus()
 
     def init_ui(self):
@@ -126,7 +122,6 @@ class AdvancedSalesDialog(QDialog):
         self.carton_spin.setDecimals(2)
         self.carton_spin.setSuffix(" cartons")
         self.carton_spin.setKeyboardTracking(True)
-        self.carton_spin.setReadOnly(False)
         self.carton_spin.setMinimumWidth(150)
         carton_layout.addWidget(self.carton_spin, 0, 1)
         
@@ -170,7 +165,6 @@ class AdvancedSalesDialog(QDialog):
         self.rate_per_egg_afg.setDecimals(2)
         self.rate_per_egg_afg.setSuffix(" AFG/egg")
         self.rate_per_egg_afg.setKeyboardTracking(True)
-        self.rate_per_egg_afg.setReadOnly(False)
         self.rate_per_egg_afg.setMinimumWidth(150)
         
         self.rate_per_egg_usd = QDoubleSpinBox()
@@ -179,7 +173,6 @@ class AdvancedSalesDialog(QDialog):
         self.rate_per_egg_usd.setDecimals(2)
         self.rate_per_egg_usd.setSuffix(" USD/egg")
         self.rate_per_egg_usd.setKeyboardTracking(True)
-        self.rate_per_egg_usd.setReadOnly(False)
         self.rate_per_egg_usd.setMinimumWidth(150)
         
         pricing_layout.addRow("Rate per Egg (AFG):", self.rate_per_egg_afg)

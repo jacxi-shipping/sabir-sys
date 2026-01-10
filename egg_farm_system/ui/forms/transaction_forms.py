@@ -25,7 +25,7 @@ from egg_farm_system.modules.feed_mill import RawMaterialManager
 from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES
-from egg_farm_system.ui.widgets.advanced_sales_dialog import AdvancedSalesDialog
+from egg_farm_system.ui.widgets.advanced_sales_dialog_new import AdvancedSalesDialogNew as AdvancedSalesDialog
 
 class TransactionFormWidget(QWidget):
     """Transaction management widget (Sales, Purchases, Expenses)"""
@@ -360,6 +360,28 @@ class TransactionFormWidget(QWidget):
         dialog = ExpenseDialog(self, expense, self.expense_manager, self.party_manager, farm_id=self.farm_id)
         if dialog.exec():
             self.refresh_data()
+    
+    def edit_transaction(self, transaction, trans_type):
+        """Edit transaction"""
+        if trans_type == 'sale':
+            # Use advanced sales dialog for editing
+            dialog = AdvancedSalesDialog(self.window(), transaction, farm_id=self.farm_id)
+            dialog.sale_saved.connect(self.refresh_data)
+            if dialog.exec():
+                success_msg = SuccessMessage(self, "Sale updated successfully")
+                success_msg.show()
+        elif trans_type == 'purchase':
+            dialog = PurchaseDialog(self, transaction, self.purchase_manager, self.party_manager, self.inventory_manager)
+            if dialog.exec():
+                self.refresh_data()
+                success_msg = SuccessMessage(self, "Purchase updated successfully")
+                success_msg.show()
+        else:  # expense
+            dialog = ExpenseDialog(self, transaction, self.expense_manager, self.party_manager, farm_id=self.farm_id)
+            if dialog.exec():
+                self.refresh_data()
+                success_msg = SuccessMessage(self, "Expense updated successfully")
+                success_msg.show()
     
     def set_farm_id(self, farm_id):
         """Set current farm id and refresh data"""
