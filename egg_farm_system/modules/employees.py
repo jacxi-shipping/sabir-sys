@@ -2,7 +2,7 @@
 Employee and Salary Management Module
 """
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import Employee, SalaryPayment, SalaryPeriod, Expense
 
@@ -93,13 +93,23 @@ class SalaryManager:
             if not employee:
                 raise ValueError("Employee not found.")
 
+            # Convert date objects to datetime if needed
+            if isinstance(period_start, date) and not isinstance(period_start, datetime):
+                period_start = datetime.combine(period_start, datetime.min.time())
+            if isinstance(period_end, date) and not isinstance(period_end, datetime):
+                period_end = datetime.combine(period_end, datetime.min.time())
+            if payment_date is None:
+                payment_date = datetime.utcnow()
+            elif isinstance(payment_date, date) and not isinstance(payment_date, datetime):
+                payment_date = datetime.combine(payment_date, datetime.min.time())
+
             # 1. Create the salary payment record
             payment = SalaryPayment(
                 employee_id=employee_id,
                 amount_paid=amount_paid,
                 period_start=period_start,
                 period_end=period_end,
-                payment_date=payment_date or datetime.utcnow(),
+                payment_date=payment_date,
                 notes=notes
             )
             session.add(payment)
@@ -107,14 +117,18 @@ class SalaryManager:
             # 2. Create a corresponding expense record
             # We assume salary is a general expense not tied to a specific farm.
             # You might want to associate it with a farm if needed.
+            # Format dates for description (handle both date and datetime)
+            period_start_str = period_start.strftime("%Y-%m-%d") if isinstance(period_start, datetime) else str(period_start)
+            period_end_str = period_end.strftime("%Y-%m-%d") if isinstance(period_end, datetime) else str(period_end)
+            
             expense = Expense(
                 farm_id=1, # Defaulting to farm 1, this could be improved
                 category="Salaries",
-                description=f"Salary for {employee.full_name} for period {period_start.date()} to {period_end.date()}",
+                description=f"Salary for {employee.full_name} for period {period_start_str} to {period_end_str}",
                 amount_afg=amount_paid,
                 amount_usd=0, # Assuming salary is paid in AFN
                 exchange_rate_used=1,
-                date=payment.payment_date
+                date=payment_date  # Use the converted datetime
             )
             session.add(expense)
             

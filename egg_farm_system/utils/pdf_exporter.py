@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 from PySide6.QtCore import Qt, QMarginsF
-from PySide6.QtGui import QPainter, QFont, QColor, QFontMetrics
-from PySide6.QtPrintSupport import QPrinter, QPageSize
+from PySide6.QtGui import QPainter, QFont, QColor, QFontMetrics, QPageSize, QPageLayout
+from PySide6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class ProfessionalPDFExporter:
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(str(path))
             printer.setPageSize(QPageSize.A4)
-            printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageSize.Millimeter)
+            printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageLayout.Millimeter)
             
             painter = QPainter(printer)
             

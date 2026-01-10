@@ -304,7 +304,6 @@ class ThemeManager:
             stop:0 {ThemeManager.FARM_WARM_BEIGE},
             stop:1 #F8E8D5);
           border-right: 1px solid rgba(101, 67, 33, 0.2);
-          box-shadow: 2px 0px 8px rgba(0, 0, 0, 0.08);
         }}
         
         QFrame#content_area {{
@@ -320,8 +319,6 @@ class ThemeManager:
           margin-top: 12px;
           padding: 20px;
           background-color: #FFFFFF;
-          box-shadow: 0px 2px 8px rgba(139, 69, 19, 0.08),
-                      0px 1px 3px rgba(0, 0, 0, 0.05);
         }}
 
         QGroupBox::title {{
@@ -345,31 +342,23 @@ class ThemeManager:
           font-weight: 600;
           font-size: 11pt;
           letter-spacing: 0.2px;
-          box-shadow: 0px 2px 6px rgba(139, 69, 19, 0.25),
-                      0px 1px 2px rgba(0, 0, 0, 0.1);
         }}
 
         QPushButton:hover {{
           background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
             stop:0 {ThemeManager.FARM_BARN_RED_HOVER},
             stop:1 #8B4A1A);
-          box-shadow: 0px 4px 12px rgba(139, 69, 19, 0.35),
-                      0px 2px 4px rgba(0, 0, 0, 0.15);
-          transform: translateY(-1px);
         }}
 
         QPushButton:pressed {{
           background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
             stop:0 #7A3A0F,
             stop:1 {ThemeManager.FARM_BARN_RED});
-          box-shadow: 0px 1px 3px rgba(139, 69, 19, 0.2);
-          transform: translateY(0px);
         }}
         
         QPushButton:disabled {{
           background: {ThemeManager.FARM_HAY_YELLOW};
           color: #999999;
-          box-shadow: none;
         }}
 
         /* Premium Sidebar Buttons */
@@ -383,7 +372,6 @@ class ThemeManager:
           font-weight: 500;
           font-size: 11pt;
           margin: 2px 8px;
-          transition: all 0.2s ease;
         }}
 
         QFrame#sidebar QPushButton:hover {{
@@ -393,7 +381,6 @@ class ThemeManager:
           color: {ThemeManager.FARM_BARN_RED};
           border-left: 4px solid {ThemeManager.FARM_BARN_RED};
           padding-left: 14px;
-          transform: translateX(2px);
         }}
         
         QFrame#sidebar QPushButton:checked {{
@@ -403,7 +390,6 @@ class ThemeManager:
           color: {ThemeManager.FARM_BARN_RED};
           font-weight: 600;
           border-left: 4px solid {ThemeManager.FARM_BARN_RED};
-          box-shadow: 2px 0px 6px rgba(139, 69, 19, 0.15);
         }}
 
         QFrame#sidebar QLabel {{
@@ -473,8 +459,6 @@ class ThemeManager:
         QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDateTimeEdit:focus, QDateEdit:focus, QDoubleSpinBox:focus, QTextEdit:focus {{
           border: 2px solid {ThemeManager.FARM_BARN_RED};
           background-color: #FFFEFB;
-          box-shadow: 0px 0px 0px 3px rgba(139, 69, 19, 0.1),
-                      0px 2px 4px rgba(139, 69, 19, 0.08);
         }}
 
         QComboBox::drop-down {{
@@ -505,8 +489,6 @@ class ThemeManager:
             border: none;
             border-radius: 12px;
             padding: 20px;
-            box-shadow: 0px 2px 12px rgba(139, 69, 19, 0.1),
-                        0px 1px 4px rgba(0, 0, 0, 0.06);
         }}
         
         /* Premium Success/Error/Warning Buttons */
@@ -514,42 +496,36 @@ class ThemeManager:
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
               stop:0 {ThemeManager.FARM_PASTURE_GREEN},
               stop:1 #5A7A1F);
-            box-shadow: 0px 2px 6px rgba(107, 142, 35, 0.25);
         }}
         
         QPushButton[class="success"]:hover {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
               stop:0 {ThemeManager.FARM_GRASS_GREEN},
               stop:1 #6B8E23);
-            box-shadow: 0px 4px 12px rgba(107, 142, 35, 0.35);
         }}
         
         QPushButton[class="warning"] {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
               stop:0 {ThemeManager.FARM_RUST_ORANGE},
               stop:1 #B8732F);
-            box-shadow: 0px 2px 6px rgba(205, 133, 63, 0.25);
         }}
         
         QPushButton[class="warning"]:hover {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
               stop:0 {ThemeManager.FARM_GOLDEN_WHEAT},
               stop:1 #E09A5A);
-            box-shadow: 0px 4px 12px rgba(205, 133, 63, 0.35);
         }}
         
         QPushButton[class="error"] {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
               stop:0 #C62828,
               stop:1 #A02020);
-            box-shadow: 0px 2px 6px rgba(198, 40, 40, 0.25);
         }}
         
         QPushButton[class="error"]:hover {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
               stop:0 #D32F2F,
               stop:1 #B02020);
-            box-shadow: 0px 4px 12px rgba(198, 40, 40, 0.35);
         }}
         
         /* Premium Scrollbars */
@@ -611,7 +587,6 @@ class ThemeManager:
             background-color: white;
             border-radius: 8px;
             top: -1px;
-            box-shadow: 0px 2px 8px rgba(139, 69, 19, 0.08);
         }}
         
         QTabBar::tab {{
@@ -633,7 +608,6 @@ class ThemeManager:
               stop:1 #7A3A0F);
             color: white;
             font-weight: 700;
-            box-shadow: 0px -2px 8px rgba(139, 69, 19, 0.2);
         }}
         
         QTabBar::tab:hover:!selected {{
@@ -651,7 +625,6 @@ class ThemeManager:
             border-radius: 6px;
             padding: 8px 12px;
             font-size: 10pt;
-            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
         }}
         
         /* Premium Checkboxes and Radio Buttons */

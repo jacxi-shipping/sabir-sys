@@ -7,7 +7,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog, QPrintPreviewDialog
-from PySide6.QtGui import QTextDocument, QPainter, QPageSize
+from PySide6.QtGui import QTextDocument, QPainter, QPageSize, QPageLayout
 from PySide6.QtCore import QMarginsF, Qt
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class PrintManager:
         """
         printer = QPrinter(QPrinter.HighResolution)
         printer.setPageSize(QPageSize.A4)
-        printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageSize.Millimeter)
+        printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageLayout.Millimeter)
         
         dialog = QPrintDialog(printer, parent)
         if dialog.exec() == QPrintDialog.Accepted:
@@ -49,7 +49,7 @@ class PrintManager:
         """
         printer = QPrinter(QPrinter.HighResolution)
         printer.setPageSize(QPageSize.A4)
-        printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageSize.Millimeter)
+        printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageLayout.Millimeter)
         
         def print_preview_func(printer):
             document = QTextDocument()
@@ -74,7 +74,7 @@ class PrintManager:
         printer.setOutputFormat(QPrinter.PdfFormat)
         printer.setOutputFileName(str(file_path))
         printer.setPageSize(QPageSize.A4)
-        printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageSize.Millimeter)
+        printer.setPageMargins(QMarginsF(20, 20, 20, 20), QPageLayout.Millimeter)
         
         document = QTextDocument()
         document.setHtml(text)

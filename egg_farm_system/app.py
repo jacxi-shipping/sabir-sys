@@ -37,7 +37,14 @@ def main():
         app.setApplicationVersion(APP_VERSION)
         # Load global stylesheet if present
         try:
-            qss_path = Path(__file__).parent / "styles.qss"
+            # Handle both development and PyInstaller executable modes
+            if getattr(sys, 'frozen', False):
+                # Running as compiled executable
+                qss_path = Path(sys.executable).parent / "egg_farm_system" / "styles.qss"
+            else:
+                # Running as script
+                qss_path = Path(__file__).parent / "styles.qss"
+            
             if qss_path.exists():
                 with open(qss_path, 'r', encoding='utf-8') as f:
                     app.setStyleSheet(f.read())

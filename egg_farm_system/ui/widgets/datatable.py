@@ -79,6 +79,11 @@ class DataTableWidget(QWidget):
         self.export_csv_btn.setText('Export CSV')
         self.export_excel_btn = QPushButton()
         self.export_excel_btn.setText('Export Excel')
+        
+        # Ensure buttons are enabled
+        self.export_csv_btn.setEnabled(True)
+        self.export_excel_btn.setEnabled(True)
+        self.export_pdf_btn.setEnabled(True)
 
         self.export_pdf_btn.clicked.connect(self.export_pdf)
         self.export_csv_btn.clicked.connect(self.export_csv)
@@ -428,6 +433,13 @@ class DataTableWidget(QWidget):
         """Export to CSV with options for filtered/selected data"""
         import csv
         try:
+            logger.info("CSV export button clicked")
+            # Check if there's any data to export
+            if self.model.rowCount() == 0:
+                logger.warning("No data to export")
+                QMessageBox.warning(self, "No Data", "There is no data to export.")
+                return
+            
             if path is None:
                 result = QFileDialog.getSaveFileName(self, "Export CSV", str(Path.cwd() / 'table.csv'), "CSV Files (*.csv)")
                 if isinstance(result, tuple):
@@ -444,6 +456,10 @@ class DataTableWidget(QWidget):
             
             # Get visible columns only
             visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
+            if not visible_cols:
+                QMessageBox.warning(self, "No Columns", "No visible columns to export.")
+                return
+            
             headers = [self.model.headerData(i, Qt.Horizontal) or f"Column {i+1}" for i in visible_cols]
             
             with open(path, 'w', newline='', encoding='utf-8') as f:
@@ -463,9 +479,10 @@ class DataTableWidget(QWidget):
                 else:
                     # Export all visible rows (respecting filter)
                     for r in range(self.proxy.rowCount()):
-                        if export_filtered and self.view.isRowHidden(r):
+                        proxy_index = self.proxy.index(r, 0)
+                        if not proxy_index.isValid():
                             continue
-                        source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
+                        source_index = self.proxy.mapToSource(proxy_index)
                         if source_index.isValid():
                             row = [self.model.item(source_index.row(), c).text() 
                                    if self.model.item(source_index.row(), c) is not None else '' 
@@ -480,9 +497,17 @@ class DataTableWidget(QWidget):
     def export_excel(self, path=None, export_filtered=True, export_selected=False):
         """Export to Excel with options for filtered/selected data"""
         try:
+            logger.info("Excel export button clicked")
+            # Check if there's any data to export
+            if self.model.rowCount() == 0:
+                logger.warning("No data to export")
+                QMessageBox.warning(self, "No Data", "There is no data to export.")
+                return
+            
             from egg_farm_system.utils.excel_export import ExcelExporter
         except ImportError:
             logger.error("Excel export requires openpyxl")
+            QMessageBox.critical(self, "Missing Dependency", "Excel export requires openpyxl. Please install it with: pip install openpyxl")
             return
         
         if path is None:
@@ -504,7 +529,11 @@ class DataTableWidget(QWidget):
         
         # Get visible columns only
         visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
-        headers = [self.model.headerData(i, Qt.Horizontal) for i in visible_cols]
+        if not visible_cols:
+            QMessageBox.warning(self, "No Columns", "No visible columns to export.")
+            return
+        
+        headers = [self.model.headerData(i, Qt.Horizontal) or f"Column {i+1}" for i in visible_cols]
         
         rows = []
         if export_selected:
@@ -520,14 +549,20 @@ class DataTableWidget(QWidget):
         else:
             # Export all visible rows (respecting filter)
             for r in range(self.proxy.rowCount()):
-                if export_filtered and self.view.isRowHidden(r):
+                proxy_index = self.proxy.index(r, 0)
+                if not proxy_index.isValid():
                     continue
-                source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
+                source_index = self.proxy.mapToSource(proxy_index)
                 if source_index.isValid():
                     row = [self.model.item(source_index.row(), c).text() 
                            if self.model.item(source_index.row(), c) is not None else '' 
                            for c in visible_cols]
                     rows.append(row)
         
-        exporter = ExcelExporter()
-        exporter.export_table_data(headers, rows, Path(path), "Data")
+        try:
+            exporter = ExcelExporter()
+            exporter.export_table_data(headers, rows, Path(path), "Data")
+            QMessageBox.information(self, "Success", f"Data exported to {path}")
+        except Exception as e:
+            logger.exception(f"Error exporting Excel: {e}")
+            QMessageBox.critical(self, "Export Error", f"Failed to export Excel: {e}")

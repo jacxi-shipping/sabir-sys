@@ -267,7 +267,6 @@ class MainWindow(QMainWindow):
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #3d566e,
                     stop:1 #34495e);
-                transform: translateY(-1px);
             }
         """)
         self.notification_btn.clicked.connect(self.show_notifications)
@@ -315,7 +314,6 @@ class MainWindow(QMainWindow):
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #3d566e,
                     stop:1 #34495e);
-                transform: translateY(-1px);
             }
         """)
         self.theme_btn.clicked.connect(self.toggle_theme)
@@ -341,7 +339,6 @@ class MainWindow(QMainWindow):
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ec7063,
                     stop:1 #e74c3c);
-                transform: translateY(-1px);
             }
         """)
         logout_btn.clicked.connect(self._on_logout)

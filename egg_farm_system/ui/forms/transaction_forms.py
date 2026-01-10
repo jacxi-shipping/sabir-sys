@@ -338,13 +338,9 @@ class TransactionFormWidget(QWidget):
                     QMessageBox.warning(self, "Not Found", "Transaction not found")
             finally:
                 session.close()
-                        self.refresh_data()
-                    else:
-                        QMessageBox.warning(self, "Warning", "Transaction not found")
-                finally:
-                    session.close()
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to delete transaction: {e}")
+        except Exception as e:
+            self.loading_overlay.hide()
+            QMessageBox.critical(self, "Error", f"Failed to delete transaction: {str(e)}")
 
     def edit_sale(self, sale):
         """Edit sale using advanced dialog"""
@@ -509,11 +505,11 @@ class PurchaseDialog(QDialog):
         self.party_combo.setToolTip("Select the supplier/party (required)")
         self.material_combo.setToolTip("Select the raw material being purchased (required)")
         self.quantity_spin.setToolTip("Enter the quantity purchased (required, must be > 0)")
-        self.quantity_spin.setPlaceholderText("0.00")
+        self.quantity_spin.setValue(0.00)
         self.rate_afg_spin.setToolTip("Enter the rate per unit in AFG (required, must be >= 0)")
-        self.rate_afg_spin.setPlaceholderText("0.00")
+        self.rate_afg_spin.setValue(0.00)
         self.rate_usd_spin.setToolTip("Enter the rate per unit in USD (optional)")
-        self.rate_usd_spin.setPlaceholderText("0.00")
+        self.rate_usd_spin.setValue(0.00)
         self.payment_method_combo.setToolTip("Select payment method (required)")
         
         date_label = QLabel("Date: <span style='color: red;'>*</span>")
@@ -612,20 +608,18 @@ class PurchaseDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Please select a material. Material is required.")
             return
         
-            if self.quantity_spin.value() <= 0:
-                QMessageBox.warning(self, "Validation Error", "Quantity must be greater than 0.")
-                return
-            
-            if self.rate_afg_spin.value() < 0:
-                QMessageBox.warning(self, "Validation Error", "Rate (AFG) cannot be negative.")
-                return
-            
-            # Show loading overlay
-            loading = LoadingOverlay(self, "Saving purchase...")
-            loading.show()
-            QTimer.singleShot(50, lambda: self._do_save_purchase(loading))
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save purchase: {str(e)}")
+        if self.quantity_spin.value() <= 0:
+            QMessageBox.warning(self, "Validation Error", "Quantity must be greater than 0.")
+            return
+        
+        if self.rate_afg_spin.value() < 0:
+            QMessageBox.warning(self, "Validation Error", "Rate (AFG) cannot be negative.")
+            return
+        
+        # Show loading overlay
+        loading = LoadingOverlay(self, "Saving purchase...")
+        loading.show()
+        QTimer.singleShot(50, lambda: self._do_save_purchase(loading))
     
     def _do_save_purchase(self, loading):
         """Perform the actual save"""
@@ -726,9 +720,9 @@ class ExpenseDialog(QDialog):
         self.date_edit.setToolTip("Select the expense date (required)\nFormat: YYYY-MM-DD HH:MM")
         self.category_combo.setToolTip("Select the expense category (required)")
         self.amount_afg_spin.setToolTip("Enter the amount in AFG (required, must be >= 0)")
-        self.amount_afg_spin.setPlaceholderText("0.00")
+        self.amount_afg_spin.setValue(0.00)
         self.amount_usd_spin.setToolTip("Enter the amount in USD (optional)")
-        self.amount_usd_spin.setPlaceholderText("0.00")
+        self.amount_usd_spin.setValue(0.00)
         self.party_combo.setToolTip("Select the party if this expense is related to a specific party (optional)")
         self.payment_method_combo.setToolTip("Select payment method (required)")
         

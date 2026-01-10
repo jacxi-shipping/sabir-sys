@@ -2,6 +2,7 @@
 Configuration file for Egg Farm Management System
 """
 import os
+import sys
 from pathlib import Path
 
 # Application metadata
@@ -10,7 +11,14 @@ APP_VERSION = "1.0.0"
 APP_AUTHOR = "Farm Management Team"
 
 # Paths
-BASE_DIR = Path(__file__).parent.parent
+# Handle both development and PyInstaller executable modes
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable
+    BASE_DIR = Path(sys.executable).parent
+else:
+    # Running as script
+    BASE_DIR = Path(__file__).parent.parent
+
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "egg_farm.db"
 LOGS_DIR = BASE_DIR / "logs"
