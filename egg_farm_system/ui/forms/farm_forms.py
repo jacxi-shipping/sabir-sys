@@ -178,7 +178,6 @@ class FarmFormWidget(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.shed_manager = ShedManager()
         self.selected_farm_id = None
         self.loading_overlay = LoadingOverlay(self)
         self.init_ui()
@@ -303,14 +302,15 @@ class FarmFormWidget(QWidget):
             self.sheds_table.model.setRowCount(0)
             rows = []
             if self.selected_farm_id:
-                for shed in self.shed_manager.get_sheds_by_farm(self.selected_farm_id):
-                    row = self.sheds_table.model.rowCount()
-                    self.sheds_table.model.insertRow(row)
-                    self.sheds_table.model.setItem(row, 0, QStandardItem(str(shed.id)))
-                    self.sheds_table.model.setItem(row, 1, QStandardItem(shed.name))
-                    self.sheds_table.model.setItem(row, 2, QStandardItem(str(shed.capacity)))
-                    self.add_action_buttons(self.sheds_table, row, shed, self.edit_shed, self.delete_shed)
-                    rows.append([str(shed.id), shed.name, str(shed.capacity), ""])
+                with ShedManager() as sm:
+                    for shed in sm.get_sheds_by_farm(self.selected_farm_id):
+                        row = self.sheds_table.model.rowCount()
+                        self.sheds_table.model.insertRow(row)
+                        self.sheds_table.model.setItem(row, 0, QStandardItem(str(shed.id)))
+                        self.sheds_table.model.setItem(row, 1, QStandardItem(shed.name))
+                        self.sheds_table.model.setItem(row, 2, QStandardItem(str(shed.capacity)))
+                        self.add_action_buttons(self.sheds_table, row, shed, self.edit_shed, self.delete_shed)
+                        rows.append([str(shed.id), shed.name, str(shed.capacity), ""])
             
             # Update empty state
             if len(rows) == 0:
@@ -422,7 +422,9 @@ class FarmFormWidget(QWidget):
     def _do_add_shed(self, data):
         """Perform the actual add"""
         try:
-            self.shed_manager.create_shed(self.selected_farm_id, data['name'], data['capacity'])
+            with ShedManager() as sm:
+                sm.create_shed(self.selected_farm_id, data['name'], data['capacity'])
+            
             self.loading_overlay.hide()
             self.refresh_sheds()
             self.refresh_farms()
@@ -447,7 +449,9 @@ class FarmFormWidget(QWidget):
     def _do_edit_shed(self, shed, data):
         """Perform the actual edit"""
         try:
-            self.shed_manager.update_shed(shed.id, data['name'], data['capacity'])
+            with ShedManager() as sm:
+                sm.update_shed(shed.id, data['name'], data['capacity'])
+            
             self.loading_overlay.hide()
             self.refresh_sheds()
             success_msg = SuccessMessage(self, f"Shed '{data['name']}' updated successfully")
@@ -482,7 +486,9 @@ class FarmFormWidget(QWidget):
     def _do_delete_shed(self, shed, shed_name):
         """Perform the actual delete"""
         try:
-            self.shed_manager.delete_shed(shed.id)
+            with ShedManager() as sm:
+                sm.delete_shed(shed.id)
+            
             self.loading_overlay.hide()
             self.refresh_sheds()
             self.refresh_farms()
