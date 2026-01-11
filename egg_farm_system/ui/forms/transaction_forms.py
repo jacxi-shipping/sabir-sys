@@ -180,9 +180,9 @@ class TransactionFormWidget(QWidget):
                 self.table.set_rows(rows)
 
             # attach action widgets into last column
-            asset_dir = Path(__file__).parent.parent.parent / 'assets'
-            edit_icon = asset_dir / 'icon_edit.svg'
-            delete_icon = asset_dir / 'icon_delete.svg'
+            from egg_farm_system.config import get_asset_path
+            edit_icon = Path(get_asset_path('icon_edit.svg'))
+            delete_icon = Path(get_asset_path('icon_delete.svg'))
             for row_idx, trans, ttype in action_items:
                 edit_btn = QToolButton()
                 edit_btn.setAutoRaise(True)
@@ -226,9 +226,9 @@ class TransactionFormWidget(QWidget):
     def create_action_buttons(self, transaction, trans_type):
         """Create action buttons for transaction"""
         action_layout = QHBoxLayout()
-        asset_dir = Path(__file__).parent.parent.parent / 'assets'
-        edit_icon = asset_dir / 'icon_edit.svg'
-        delete_icon = asset_dir / 'icon_delete.svg'
+        from egg_farm_system.config import get_asset_path
+        edit_icon = Path(get_asset_path('icon_edit.svg'))
+        delete_icon = Path(get_asset_path('icon_delete.svg'))
 
         edit_btn = QToolButton()
         edit_btn.setAutoRaise(True)

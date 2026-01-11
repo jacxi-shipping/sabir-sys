@@ -91,10 +91,10 @@ class PartyFormWidget(QWidget):
                 action_widgets.append((row, party))
             self.loading_overlay.hide()
             self.table.set_rows(rows)
-            asset_dir = Path(__file__).parent.parent.parent / 'assets'
-            view_icon = asset_dir / 'icon_view.svg'
-            edit_icon = asset_dir / 'icon_edit.svg'
-            delete_icon = asset_dir / 'icon_delete.svg'
+            from egg_farm_system.config import get_asset_path
+            view_icon = Path(get_asset_path('icon_view.svg'))
+            edit_icon = Path(get_asset_path('icon_edit.svg'))
+            delete_icon = Path(get_asset_path('icon_delete.svg'))
             for row_idx, party in action_widgets:
                 view_btn = QToolButton()
                 view_btn.setAutoRaise(True)

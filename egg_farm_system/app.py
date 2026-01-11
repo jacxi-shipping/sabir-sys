@@ -43,7 +43,11 @@ def main():
             # Handle both development and PyInstaller executable modes
             if getattr(sys, 'frozen', False):
                 # Running as compiled executable
-                qss_path = Path(sys.executable).parent / "egg_farm_system" / "styles.qss"
+                base_path = Path(sys.executable).parent
+                # Handle PyInstaller 6+ _internal folder
+                if (base_path / "_internal").exists():
+                    base_path = base_path / "_internal"
+                qss_path = base_path / "egg_farm_system" / "styles.qss"
             else:
                 # Running as script
                 qss_path = Path(__file__).parent / "styles.qss"

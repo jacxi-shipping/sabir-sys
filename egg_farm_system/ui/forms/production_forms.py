@@ -132,9 +132,9 @@ class ProductionFormWidget(QWidget):
 
             self.loading_overlay.hide()
             self.table.set_rows(rows)
-            asset_dir = Path(__file__).parent.parent.parent / 'assets'
-            edit_icon = asset_dir / 'icon_edit.svg'
-            delete_icon = asset_dir / 'icon_delete.svg'
+            from egg_farm_system.config import get_asset_path
+            edit_icon = Path(get_asset_path('icon_edit.svg'))
+            delete_icon = Path(get_asset_path('icon_delete.svg'))
             for row_idx, prod in action_widgets:
                 edit_btn = QToolButton()
                 edit_btn.setAutoRaise(True)

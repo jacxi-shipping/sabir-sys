@@ -85,10 +85,10 @@ class CollapsibleGroup(QWidget):
         """)
         
         if icon_path:
-            asset_dir = Path(__file__).parent.parent.parent / 'assets'
-            icon_file = asset_dir / icon_path
-            if icon_file.exists():
-                icon = QIcon(str(icon_file))
+            from egg_farm_system.config import get_asset_path
+            icon_file = get_asset_path(icon_path)
+            if Path(icon_file).exists():
+                icon = QIcon(icon_file)
                 btn.setIcon(icon)
                 btn.setIconSize(QSize(20, 20))  # Set proper icon size
         
