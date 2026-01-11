@@ -3,7 +3,7 @@ Farm management module
 """
 from egg_farm_system.database.models import Farm
 from egg_farm_system.database.db import DatabaseManager
-from egg_farm_system.utils.cache_manager import cached
+from egg_farm_system.utils.cache_manager import cached, get_cache_manager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,10 @@ class FarmManager:
             farm = Farm(name=name, location=location)
             self.session.add(farm)
             self.session.commit()
+            
+            # Invalidate cache
+            get_cache_manager().delete("farms_all")
+            
             logger.info(f"Farm created: {name}")
             return farm
         except Exception as e:
@@ -37,7 +41,6 @@ class FarmManager:
         """Get all farms"""
         try:
             # Check cache first
-            from egg_farm_system.utils.cache_manager import get_cache_manager
             cache = get_cache_manager()
             cached_result = cache.get("farms_all")
             if cached_result is not None:
@@ -83,6 +86,10 @@ class FarmManager:
                 farm.location = location
             
             self.session.commit()
+            
+            # Invalidate cache
+            get_cache_manager().delete("farms_all")
+            
             logger.info(f"Farm updated: {farm_id}")
             return farm
         except Exception as e:
@@ -99,6 +106,10 @@ class FarmManager:
             
             self.session.delete(farm)
             self.session.commit()
+            
+            # Invalidate cache
+            get_cache_manager().delete("farms_all")
+            
             logger.info(f"Farm deleted: {farm_id}")
         except Exception as e:
             self.session.rollback()
