@@ -86,7 +86,6 @@ class FarmDialog(QDialog):
     def __init__(self, parent, farm):
         super().__init__(parent)
         self.farm = farm
-        self.farm_manager = FarmManager()
         self.setWindowTitle("Farm Details" if farm else "New Farm")
         layout = QFormLayout(self)
         self.name_edit = QLineEdit()
@@ -144,12 +143,14 @@ class FarmDialog(QDialog):
         """Perform the actual save operation"""
         try:
             location = self.location_edit.text().strip()
-            if self.farm:
-                self.farm_manager.update_farm(self.farm.id, name, location)
-                message = f"Farm '{name}' updated successfully."
-            else:
-                self.farm_manager.create_farm(name, location)
-                message = f"Farm '{name}' created successfully."
+            
+            with FarmManager() as manager:
+                if self.farm:
+                    manager.update_farm(self.farm.id, name, location)
+                    message = f"Farm '{name}' updated successfully."
+                else:
+                    manager.create_farm(name, location)
+                    message = f"Farm '{name}' created successfully."
             
             loading.hide()
             loading.deleteLater()
@@ -177,7 +178,6 @@ class FarmFormWidget(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.farm_manager = FarmManager()
         self.shed_manager = ShedManager()
         self.selected_farm_id = None
         self.loading_overlay = LoadingOverlay(self)
@@ -271,17 +271,21 @@ class FarmFormWidget(QWidget):
         """Perform the actual refresh"""
         try:
             self.farms_table.model.setRowCount(0)
-            farms = self.farm_manager.get_all_farms()
-            rows = []
-            for farm in farms:
-                row = self.farms_table.model.rowCount()
-                self.farms_table.model.insertRow(row)
-                self.farms_table.model.setItem(row, 0, QStandardItem(str(farm.id)))
-                self.farms_table.model.setItem(row, 1, QStandardItem(farm.name))
-                self.farms_table.model.setItem(row, 2, QStandardItem(farm.location or ""))
-                self.farms_table.model.setItem(row, 3, QStandardItem(str(len(farm.sheds))))
-                self.add_action_buttons(self.farms_table, row, farm, self.edit_farm, self.delete_farm)
-                rows.append([str(farm.id), farm.name, farm.location or "", str(len(farm.sheds)), ""])
+            
+            with FarmManager() as fm:
+                farms = fm.get_all_farms()
+                rows = []
+                for farm in farms:
+                    row = self.farms_table.model.rowCount()
+                    self.farms_table.model.insertRow(row)
+                    self.farms_table.model.setItem(row, 0, QStandardItem(str(farm.id)))
+                    self.farms_table.model.setItem(row, 1, QStandardItem(farm.name))
+                    self.farms_table.model.setItem(row, 2, QStandardItem(farm.location or ""))
+                    # Pre-fetch shed count before session closes
+                    shed_count = len(farm.sheds)
+                    self.farms_table.model.setItem(row, 3, QStandardItem(str(shed_count)))
+                    self.add_action_buttons(self.farms_table, row, farm, self.edit_farm, self.delete_farm)
+                    rows.append([str(farm.id), farm.name, farm.location or "", str(shed_count), ""])
             
             # Update empty state
             if len(rows) == 0:
@@ -386,7 +390,9 @@ class FarmFormWidget(QWidget):
         """Perform the actual delete"""
         try:
             farm_name = farm.name
-            self.farm_manager.delete_farm(farm.id)
+            with FarmManager() as fm:
+                fm.delete_farm(farm.id)
+            
             self.loading_overlay.hide()
             self.refresh_farms()
             self.farm_changed.emit()
