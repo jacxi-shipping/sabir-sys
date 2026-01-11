@@ -35,7 +35,6 @@ class TransactionFormWidget(QWidget):
         self.transaction_type = transaction_type
         self.farm_id = farm_id
         self.current_user = current_user
-        self.sales_manager = SalesManager(current_user=current_user)
         self.purchase_manager = PurchaseManager()
         self.expense_manager = ExpenseManager()
         self.party_manager = PartyManager()
@@ -108,20 +107,21 @@ class TransactionFormWidget(QWidget):
             action_items = []
 
             if self.transaction_type == 'sales':
-                transactions = self.sales_manager.get_sales()
-                for row, trans in enumerate(transactions):
-                    party = self.party_manager.get_party_by_id(trans.party_id)
-                    # Show cartons if available, otherwise show quantity
-                    qty_display = f"{trans.cartons:.2f} cartons" if trans.cartons else f"{trans.quantity} eggs"
-                    rows.append([
-                        trans.date.strftime("%Y-%m-%d"),
-                        party.name if party else "",
-                        qty_display,
-                        f"{trans.rate_afg:.2f}",
-                        f"{trans.total_afg:.2f}",
-                        ""
-                    ])
-                    action_items.append((row, trans, 'sale'))
+                with SalesManager(current_user=self.current_user) as sm:
+                    transactions = sm.get_sales()
+                    for row, trans in enumerate(transactions):
+                        party = self.party_manager.get_party_by_id(trans.party_id)
+                        # Show cartons if available, otherwise show quantity
+                        qty_display = f"{trans.cartons:.2f} cartons" if trans.cartons else f"{trans.quantity} eggs"
+                        rows.append([
+                            trans.date.strftime("%Y-%m-%d"),
+                            party.name if party else "",
+                            qty_display,
+                            f"{trans.rate_afg:.2f}",
+                            f"{trans.total_afg:.2f}",
+                            ""
+                        ])
+                        action_items.append((row, trans, 'sale'))
 
             elif self.transaction_type == 'purchases':
                 transactions = self.purchase_manager.get_purchases()
@@ -395,10 +395,9 @@ class TransactionFormWidget(QWidget):
 class SalesDialog(QDialog):
     """Sales dialog"""
     
-    def __init__(self, parent, sale, sales_manager, party_manager):
+    def __init__(self, parent, sale, party_manager):
         super().__init__(parent)
         self.sale = sale
-        self.sales_manager = sales_manager
         self.party_manager = party_manager
         
         self.setWindowTitle("New Sale")
@@ -459,14 +458,15 @@ class SalesDialog(QDialog):
     def save_sale(self):
         """Save sale"""
         try:
-            self.sales_manager.record_sale(
-                self.party_combo.currentData(),
-                self.quantity_spin.value(),
-                self.rate_afg_spin.value(),
-                self.rate_usd_spin.value(),
-                date=self.date_edit.dateTime().toPython(),
-                payment_method=self.payment_method_combo.currentText()
-            )
+            with SalesManager() as sm:
+                sm.record_sale(
+                    self.party_combo.currentData(),
+                    self.quantity_spin.value(),
+                    self.rate_afg_spin.value(),
+                    self.rate_usd_spin.value(),
+                    date=self.date_edit.dateTime().toPython(),
+                    payment_method=self.payment_method_combo.currentText()
+                )
             QMessageBox.information(self, "Success", "Sale recorded successfully")
             self.accept()
         except Exception as e:
