@@ -29,7 +29,6 @@ class AdvancedSalesDialogNew(QDialog):
         self.sale = sale
         self.farm_id = farm_id
         self.egg_manager = EggManagementSystem()
-        self.sales_manager = SalesManager()
         self.party_manager = PartyManager()
         self.farm_manager = FarmManager()
         
@@ -506,20 +505,21 @@ class AdvancedSalesDialogNew(QDialog):
                     session.close()
             else:
                 # Create new sale
-                self.sales_manager.record_sale_advanced(
-                    party_id=self.party_combo.currentData(),
-                    cartons=cartons,
-                    eggs=eggs,
-                    grade=grade,
-                    rate_afg=rate_afg,
-                    rate_usd=rate_usd,
-                    tray_expense_afg=tray_expense,
-                    carton_expense_afg=carton_expense,
-                    date=self.date_edit.dateTime().toPython(),
-                    notes=self.notes_edit.toPlainText(),
-                    exchange_rate_used=exchange_rate,
-                    payment_method=self.payment_method_combo.currentText()
-                )
+                with SalesManager() as sm:
+                    sm.record_sale_advanced(
+                        party_id=self.party_combo.currentData(),
+                        cartons=cartons,
+                        eggs=eggs,
+                        grade=grade,
+                        rate_afg=rate_afg,
+                        rate_usd=rate_usd,
+                        tray_expense_afg=tray_expense,
+                        carton_expense_afg=carton_expense,
+                        date=self.date_edit.dateTime().toPython(),
+                        notes=self.notes_edit.toPlainText(),
+                        exchange_rate_used=exchange_rate,
+                        payment_method=self.payment_method_combo.currentText()
+                    )
             
             QMessageBox.information(self, "Success", "Sale recorded successfully!")
             self.sale_saved.emit()

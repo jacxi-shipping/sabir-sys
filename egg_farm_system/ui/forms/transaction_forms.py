@@ -35,8 +35,6 @@ class TransactionFormWidget(QWidget):
         self.transaction_type = transaction_type
         self.farm_id = farm_id
         self.current_user = current_user
-        self.purchase_manager = PurchaseManager()
-        self.expense_manager = ExpenseManager()
         self.party_manager = PartyManager()
         self.inventory_manager = InventoryManager()
         self.loading_overlay = LoadingOverlay(self)
@@ -124,36 +122,38 @@ class TransactionFormWidget(QWidget):
                         action_items.append((row, trans, 'sale'))
 
             elif self.transaction_type == 'purchases':
-                transactions = self.purchase_manager.get_purchases()
-                for row, trans in enumerate(transactions):
-                    party = self.party_manager.get_party_by_id(trans.party_id)
-                    session = DatabaseManager.get_session()
-                    try:
-                        material = session.query(RawMaterial).filter(RawMaterial.id == trans.material_id).first()
-                    finally:
-                        session.close()
-                    rows.append([
-                        trans.date.strftime("%Y-%m-%d"),
-                        party.name if party else "",
-                        material.name if material else "",
-                        f"{trans.quantity:.2f}",
-                        f"{trans.total_afg:.2f}",
-                        ""
-                    ])
-                    action_items.append((row, trans, 'purchase'))
+                with PurchaseManager() as pm:
+                    transactions = pm.get_purchases()
+                    for row, trans in enumerate(transactions):
+                        party = self.party_manager.get_party_by_id(trans.party_id)
+                        session = DatabaseManager.get_session()
+                        try:
+                            material = session.query(RawMaterial).filter(RawMaterial.id == trans.material_id).first()
+                        finally:
+                            session.close()
+                        rows.append([
+                            trans.date.strftime("%Y-%m-%d"),
+                            party.name if party else "",
+                            material.name if material else "",
+                            f"{trans.quantity:.2f}",
+                            f"{trans.total_afg:.2f}",
+                            ""
+                        ])
+                        action_items.append((row, trans, 'purchase'))
 
             else:  # expenses
-                transactions = self.expense_manager.get_expenses(farm_id=self.farm_id)
-                for row, trans in enumerate(transactions):
-                    party = self.party_manager.get_party_by_id(trans.party_id) if trans.party_id else None
-                    rows.append([
-                        trans.date.strftime("%Y-%m-%d"),
-                        trans.category,
-                        f"{trans.amount_afg:.2f}",
-                        party.name if party else "",
-                        ""
-                    ])
-                    action_items.append((row, trans, 'expense'))
+                with ExpenseManager() as em:
+                    transactions = em.get_expenses(farm_id=self.farm_id)
+                    for row, trans in enumerate(transactions):
+                        party = self.party_manager.get_party_by_id(trans.party_id) if trans.party_id else None
+                        rows.append([
+                            trans.date.strftime("%Y-%m-%d"),
+                            trans.category,
+                            f"{trans.amount_afg:.2f}",
+                            party.name if party else "",
+                            ""
+                        ])
+                        action_items.append((row, trans, 'expense'))
 
             # populate rows and attach action widgets
             if rows:
@@ -248,13 +248,13 @@ class TransactionFormWidget(QWidget):
                 success_msg = SuccessMessage(self, "Sale added successfully")
                 success_msg.show()
         elif self.transaction_type == 'purchases':
-            dialog = PurchaseDialog(self, None, self.purchase_manager, self.party_manager, self.inventory_manager)
+            dialog = PurchaseDialog(self, None, self.party_manager, self.inventory_manager)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Purchase added successfully")
                 success_msg.show()
         else:
-            dialog = ExpenseDialog(self, None, self.expense_manager, self.party_manager, farm_id=self.farm_id)
+            dialog = ExpenseDialog(self, None, self.party_manager, farm_id=self.farm_id)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Expense added successfully")
@@ -351,13 +351,13 @@ class TransactionFormWidget(QWidget):
     
     def edit_purchase(self, purchase):
         """Edit purchase"""
-        dialog = PurchaseDialog(self, purchase, self.purchase_manager, self.party_manager, self.inventory_manager)
+        dialog = PurchaseDialog(self, purchase, self.party_manager, self.inventory_manager)
         if dialog.exec():
             self.refresh_data()
     
     def edit_expense(self, expense):
         """Edit expense"""
-        dialog = ExpenseDialog(self, expense, self.expense_manager, self.party_manager, farm_id=self.farm_id)
+        dialog = ExpenseDialog(self, expense, self.party_manager, farm_id=self.farm_id)
         if dialog.exec():
             self.refresh_data()
     
@@ -371,13 +371,13 @@ class TransactionFormWidget(QWidget):
                 success_msg = SuccessMessage(self, "Sale updated successfully")
                 success_msg.show()
         elif trans_type == 'purchase':
-            dialog = PurchaseDialog(self, transaction, self.purchase_manager, self.party_manager, self.inventory_manager)
+            dialog = PurchaseDialog(self, transaction, self.party_manager, self.inventory_manager)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Purchase updated successfully")
                 success_msg.show()
         else:  # expense
-            dialog = ExpenseDialog(self, transaction, self.expense_manager, self.party_manager, farm_id=self.farm_id)
+            dialog = ExpenseDialog(self, transaction, self.party_manager, farm_id=self.farm_id)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Expense updated successfully")
@@ -476,10 +476,9 @@ class SalesDialog(QDialog):
 class PurchaseDialog(QDialog):
     """Purchase dialog"""
     
-    def __init__(self, parent, purchase, purchase_manager, party_manager, inventory_manager):
+    def __init__(self, parent, purchase, party_manager, inventory_manager):
         super().__init__(parent)
         self.purchase = purchase
-        self.purchase_manager = purchase_manager
         self.party_manager = party_manager
         self.inventory_manager = inventory_manager
         
@@ -669,15 +668,16 @@ class PurchaseDialog(QDialog):
                     session.close()
             else:
                 # Create new purchase
-                self.purchase_manager.record_purchase(
-                    self.party_combo.currentData(),
-                    self.material_combo.currentData(),
-                    self.quantity_spin.value(),
-                    self.rate_afg_spin.value(),
-                    self.rate_usd_spin.value(),
-                    date=self.date_edit.dateTime().toPython(),
-                    payment_method=self.payment_method_combo.currentText()
-                )
+                with PurchaseManager() as pm:
+                    pm.record_purchase(
+                        self.party_combo.currentData(),
+                        self.material_combo.currentData(),
+                        self.quantity_spin.value(),
+                        self.rate_afg_spin.value(),
+                        self.rate_usd_spin.value(),
+                        date=self.date_edit.dateTime().toPython(),
+                        payment_method=self.payment_method_combo.currentText()
+                    )
                 message = "Purchase recorded successfully."
             
             loading.hide()
@@ -704,10 +704,9 @@ class PurchaseDialog(QDialog):
 class ExpenseDialog(QDialog):
     """Expense dialog"""
     
-    def __init__(self, parent, expense, expense_manager, party_manager, farm_id=None):
+    def __init__(self, parent, expense, party_manager, farm_id=None):
         super().__init__(parent)
         self.expense = expense
-        self.expense_manager = expense_manager
         self.party_manager = party_manager
         self.farm_id = farm_id
         
@@ -868,15 +867,16 @@ class ExpenseDialog(QDialog):
                     session.close()
             else:
                 # Create new expense
-                self.expense_manager.record_expense(
-                    farm_id,
-                    self.category_combo.currentText(),
-                    self.amount_afg_spin.value(),
-                    self.amount_usd_spin.value(),
-                    party_id=self.party_combo.currentData(),
-                    date=self.date_edit.dateTime().toPython(),
-                    payment_method=self.payment_method_combo.currentText()
-                )
+                with ExpenseManager() as em:
+                    em.record_expense(
+                        farm_id,
+                        self.category_combo.currentText(),
+                        self.amount_afg_spin.value(),
+                        self.amount_usd_spin.value(),
+                        party_id=self.party_combo.currentData(),
+                        date=self.date_edit.dateTime().toPython(),
+                        payment_method=self.payment_method_combo.currentText()
+                    )
                 message = "Expense recorded successfully."
             
             loading.hide()

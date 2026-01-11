@@ -22,6 +22,17 @@ class ExpenseManager:
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
+        
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
+
+    def close_session(self):
+        """Close database session"""
+        if self.session:
+            self.session.close()
     
     def record_expense(self, farm_id, category, amount_afg, amount_usd, 
                       party_id=None, exchange_rate_used=78.0, date=None, description=None, payment_method="Cash"):
@@ -148,6 +159,12 @@ class PaymentManager:
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
     
     def record_payment(self, party_id, amount_afg, amount_usd, payment_type,
                       payment_method="Cash", reference=None, exchange_rate_used=78.0, 

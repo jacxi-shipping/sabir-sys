@@ -25,6 +25,12 @@ class PurchaseManager:
         self.session = DatabaseManager.get_session()
         self.ledger_manager = LedgerManager()
         self.converter = CurrencyConverter()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
     
     def record_purchase(self, party_id, material_id, quantity, rate_afg, rate_usd,
                        exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
