@@ -184,31 +184,7 @@ class EggProduction(Base):
         return f"<EggProduction {self.shed_id} - {self.date}>"
 
 
-class RawMaterial(Base):
-    """Raw materials for feed production"""
-    __tablename__ = "raw_materials"
-    
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False, unique=True)
-    unit = Column(String(50), default="kg")
-    current_stock = Column(Float, default=0)
-    cost_afg = Column(Float, nullable=False)  # Cost per unit in AFG
-    cost_usd = Column(Float, nullable=False)  # Cost per unit in USD
-    supplier_id = Column(Integer, ForeignKey("parties.id"), index=True)
-    low_stock_alert = Column(Float, default=50)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    supplier = relationship("Party", back_populates="raw_materials")
-    formulations = relationship("FeedFormulation", back_populates="material")
-    
-    __table_args__ = (
-        Index('idx_raw_material_supplier_id', 'supplier_id'),
-    )
-    
-    def __repr__(self):
-        return f"<RawMaterial {self.name}>"
+
 
 
 class FeedFormula(Base):
@@ -362,6 +338,7 @@ class Party(Base):
     purchases = relationship("Purchase", back_populates="party")
     payments = relationship("Payment", back_populates="party")
     expenses = relationship("Expense", back_populates="party")
+    raw_material_sales = relationship("RawMaterialSale", back_populates="party")
     
     def get_balance(self, currency="AFG"):
         """Get party balance (debit - credit)"""
@@ -437,10 +414,43 @@ class Sale(Base):
     __table_args__ = (
         Index('idx_sale_party_id', 'party_id'),
         Index('idx_sale_date', 'date'),
+        {'extend_existing': True}
     )
     
     def __repr__(self):
         return f"<Sale {self.party_id} - {self.date}>"
+
+
+class RawMaterialSale(Base):
+    """Sales of raw materials"""
+    __tablename__ = "raw_material_sales"
+    
+    id = Column(Integer, primary_key=True)
+    party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    material_id = Column(Integer, ForeignKey("raw_materials.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
+    quantity = Column(Float, nullable=False)  # Quantity sold
+    rate_afg = Column(Float, nullable=False)  # Sale price per unit in AFG
+    rate_usd = Column(Float, nullable=False)  # Sale price per unit in USD
+    total_afg = Column(Float, nullable=False)
+    total_usd = Column(Float, nullable=False)
+    exchange_rate_used = Column(Float, nullable=False)
+    payment_method = Column(String(20), default="Cash")  # Cash or Credit
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    party = relationship("Party", back_populates="raw_material_sales")
+    material = relationship("RawMaterial", back_populates="raw_material_sales")
+    
+    __table_args__ = (
+        Index('idx_raw_material_sale_party_id', 'party_id'),
+        Index('idx_raw_material_sale_material_id', 'material_id'),
+        Index('idx_raw_material_sale_date', 'date'),
+    )
+    
+    def __repr__(self):
+        return f"<RawMaterialSale {self.party_id} - {self.material.name} - {self.date}>"
 
 
 class Purchase(Base):
@@ -463,6 +473,7 @@ class Purchase(Base):
     
     # Relationships
     party = relationship("Party", back_populates="purchases")
+    material = relationship("RawMaterial", back_populates="purchases") # Added this relationship
     
     __table_args__ = (
         Index('idx_purchase_party_id', 'party_id'),
@@ -500,6 +511,45 @@ class Payment(Base):
     
     def __repr__(self):
         return f"<Payment {self.party_id} - {self.date}>"
+
+
+class RawMaterial(Base):
+    """Raw materials for feed production"""
+    __tablename__ = "raw_materials"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+    unit = Column(String(50), default="kg")
+    current_stock = Column(Float, default=0.0)
+    # Store cumulative data for average cost calculation
+    total_quantity_purchased = Column(Float, default=0.0, nullable=False)
+    total_cost_purchased_afg = Column(Float, default=0.0, nullable=False)
+    total_cost_purchased_usd = Column(Float, default=0.0, nullable=False)
+    
+    supplier_id = Column(Integer, ForeignKey("parties.id"), index=True)
+    low_stock_alert = Column(Float, default=50)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    supplier = relationship("Party", back_populates="raw_materials")
+    purchases = relationship("Purchase", back_populates="material")
+    raw_material_sales = relationship("RawMaterialSale", back_populates="material")
+    formulations = relationship("FeedFormulation", back_populates="material")
+
+    @property
+    def cost_afg(self):
+        """Calculated average cost per unit in AFG"""
+        if self.total_quantity_purchased > 0:
+            return self.total_cost_purchased_afg / self.total_quantity_purchased
+        return 0.0
+
+    @property
+    def cost_usd(self):
+        """Calculated average cost per unit in USD"""
+        if self.total_quantity_purchased > 0:
+            return self.total_cost_purchased_usd / self.total_quantity_purchased
+        return 0.0
 
 
 class Expense(Base):

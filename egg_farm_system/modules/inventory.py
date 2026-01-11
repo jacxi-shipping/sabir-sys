@@ -27,8 +27,17 @@ class InventoryManager:
                 inventory = []
                 
                 for material in materials:
-                    inventory_value_afg = material.current_stock * material.cost_afg
-                    inventory_value_usd = material.current_stock * material.cost_usd
+                    # Get cost safely - handle case where no purchases yet
+                    try:
+                        cost_afg = material.cost_afg if material.total_quantity_purchased > 0 else 0.0
+                        cost_usd = material.cost_usd if material.total_quantity_purchased > 0 else 0.0
+                    except Exception as e:
+                        logger.warning(f"Error calculating cost for material {material.id}: {e}")
+                        cost_afg = 0.0
+                        cost_usd = 0.0
+                    
+                    inventory_value_afg = material.current_stock * cost_afg
+                    inventory_value_usd = material.current_stock * cost_usd
                     is_low = material.current_stock <= material.low_stock_alert
                     
                     inventory.append({
@@ -36,8 +45,8 @@ class InventoryManager:
                         'name': material.name,
                         'stock': material.current_stock,
                         'unit': material.unit,
-                        'cost_afg': material.cost_afg,
-                        'cost_usd': material.cost_usd,
+                        'cost_afg': cost_afg,
+                        'cost_usd': cost_usd,
                         'inventory_value_afg': inventory_value_afg,
                         'inventory_value_usd': inventory_value_usd,
                         'low_stock_alert': material.low_stock_alert,

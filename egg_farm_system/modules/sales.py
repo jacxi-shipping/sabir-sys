@@ -13,6 +13,121 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class RawMaterialSaleManager:
+    """
+    Manage raw material sales
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
+    
+    def __init__(self, current_user=None):
+        self.session = DatabaseManager.get_session()
+        self.converter = CurrencyConverter()
+        self.current_user = current_user
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
+    
+    def record_raw_material_sale(self, party_id, material_id, quantity, rate_afg, rate_usd,
+                                 exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+        """Record raw material sale and post to ledger"""
+        try:
+            with measure_time(f"record_raw_material_sale_party_{party_id}"):
+                from egg_farm_system.database.models import RawMaterial, RawMaterialSale
+                
+                # Input validation
+                if quantity <= 0:
+                    raise ValueError("Quantity must be greater than 0")
+                if rate_afg < 0:
+                    raise ValueError("Rate (AFG) cannot be negative")
+                if rate_usd < 0:
+                    raise ValueError("Rate (USD) cannot be negative")
+                if exchange_rate_used <= 0:
+                    raise ValueError("Exchange rate must be greater than 0")
+                
+                if date is None:
+                    date = datetime.utcnow()
+                
+                material = self.session.query(RawMaterial).filter(RawMaterial.id == material_id).first()
+                if not material:
+                    raise ValueError(f"Raw Material {material_id} not found")
+                
+                if material.current_stock < quantity:
+                    raise ValueError(f"Insufficient stock for {material.name}. Available: {material.current_stock}, Trying to sell: {quantity}")
+                
+                total_afg = quantity * rate_afg
+                total_usd = quantity * rate_usd
+                
+                raw_material_sale = RawMaterialSale(
+                    party_id=party_id,
+                    material_id=material_id,
+                    date=date,
+                    quantity=quantity,
+                    rate_afg=rate_afg,
+                    rate_usd=rate_usd,
+                    total_afg=total_afg,
+                    total_usd=total_usd,
+                    exchange_rate_used=exchange_rate_used,
+                    payment_method=payment_method,
+                    notes=notes
+                )
+                self.session.add(raw_material_sale)
+                
+                # Deduct from material stock
+                material.current_stock -= quantity
+                self.session.add(material)
+                
+                self.session.flush() # Get sale ID for ledger posting
+                
+                # Post to ledger: Debit party, Credit Raw Material Sales
+                ledger_manager = LedgerManager()
+                ledger_manager.post_entry(
+                    party_id=party_id,
+                    date=date,
+                    description=f"Raw Material Sale: {quantity}{material.unit} {material.name}",
+                    debit_afg=total_afg,
+                    debit_usd=total_usd,
+                    exchange_rate_used=exchange_rate_used,
+                    reference_type="RawMaterialSale",
+                    reference_id=raw_material_sale.id,
+                    session=self.session
+                )
+                
+                self.session.commit()
+                
+                # Invalidate caches after successful save
+                CacheInvalidationManager.on_raw_material_sale_created() # Assuming this cache key exists
+                
+                # Log audit
+                user_id = self.current_user.id if self.current_user else None
+                username = self.current_user.username if self.current_user else None
+                get_audit_trail().log_action(
+                    user_id=user_id,
+                    username=username,
+                    action_type=ActionType.CREATE,
+                    entity_type="RawMaterialSale",
+                    entity_id=raw_material_sale.id,
+                    description=f"New raw material sale: {quantity}{material.unit} {material.name} to Party {party_id}"
+                )
+                
+                logger.info(f"Raw material sale recorded: {quantity}{material.unit} {material.name} to party {party_id}")
+                return raw_material_sale
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error recording raw material sale: {e}")
+            raise
+    
+    def close_session(self):
+        """Close database session"""
+        if self.session:
+            self.session.close()
+
+
 class SalesManager:
     """
     Manage egg sales

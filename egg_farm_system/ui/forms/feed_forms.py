@@ -66,7 +66,7 @@ class RawMaterialsTab(QWidget):
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
         self.table = QTableWidget()
-        self.table.setColumnCount(5); self.table.setHorizontalHeaderLabels(["ID", "Name", "Current Stock (kg)", "Cost (AFG)", "Low Stock Alert"])
+        self.table.setColumnCount(7); self.table.setHorizontalHeaderLabels(["ID", "Name", "Current Stock (kg)", "Avg Price (AFG)", "Avg Price (USD)", "Total Value (AFG)", "Low Stock Alert"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers); self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
         self.table.verticalHeader().setMinimumSectionSize(40)
@@ -80,8 +80,16 @@ class RawMaterialsTab(QWidget):
             self.table.setItem(row, 0, QTableWidgetItem(str(material.id)))
             self.table.setItem(row, 1, QTableWidgetItem(material.name))
             self.table.setItem(row, 2, QTableWidgetItem(f"{material.current_stock:.2f}"))
-            self.table.setItem(row, 3, QTableWidgetItem(f"{material.cost_afg:,.2f}"))
-            self.table.setItem(row, 4, QTableWidgetItem(f"{material.low_stock_alert:.2f}"))
+            # Average Price in AFG
+            avg_price_afg = material.cost_afg if material.total_quantity_purchased > 0 else 0.0
+            self.table.setItem(row, 3, QTableWidgetItem(f"{avg_price_afg:,.2f}"))
+            # Average Price in USD
+            avg_price_usd = material.cost_usd if material.total_quantity_purchased > 0 else 0.0
+            self.table.setItem(row, 4, QTableWidgetItem(f"{avg_price_usd:,.2f}"))
+            # Total Value (Stock * Average Price)
+            total_value = material.current_stock * avg_price_afg
+            self.table.setItem(row, 5, QTableWidgetItem(f"{total_value:,.2f}"))
+            self.table.setItem(row, 6, QTableWidgetItem(f"{material.low_stock_alert:.2f}"))
 
     def add_material(self):
         dialog = RawMaterialDialog(parent=self)

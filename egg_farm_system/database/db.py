@@ -67,6 +67,9 @@ class DatabaseManager:
             from egg_farm_system.database.migrate_payment_method import migrate_payment_method
             migrate_payment_method()
             
+            from egg_farm_system.database.migrate_raw_materials_avg_cost import migrate_raw_materials_avg_cost
+            migrate_raw_materials_avg_cost()
+            
             logger.info("Database initialized successfully with performance optimizations")
             
         except Exception as e:

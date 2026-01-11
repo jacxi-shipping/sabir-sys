@@ -24,17 +24,26 @@ class InventoryFormWidget(QWidget):
         """Initialize UI"""
         layout = QVBoxLayout()
         
-        # Title
+        # Header with title and refresh button
+        header_layout = QHBoxLayout()
         title = QLabel("Inventory Management")
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
         title.setFont(title_font)
-        layout.addWidget(title)
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+        
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.clicked.connect(self.refresh_data)
+        refresh_btn.setToolTip("Refresh inventory data")
+        header_layout.addWidget(refresh_btn)
+        
+        layout.addLayout(header_layout)
         
         # Tabs for different inventory types
         self.raw_materials_table = self.create_table(
-            ["Material", "Stock (kg)", "Cost AFG", "Cost USD", "Total Value AFG", "Status"]
+            ["Material", "Stock (kg)", "Avg Price (AFG)", "Avg Price (USD)", "Total Value AFG", "Status"]
         )
         self.finished_feed_table = self.create_table(
             ["Feed Type", "Stock (kg)", "Cost/kg AFG", "Total Value AFG", "Status"]
@@ -73,19 +82,30 @@ class InventoryFormWidget(QWidget):
     def refresh_data(self):
         """Refresh inventory data"""
         try:
+            # Clear cache to ensure fresh data
+            from egg_farm_system.utils.advanced_caching import dashboard_cache
+            dashboard_cache.invalidate_all()
+            
             # Raw materials
             raw_materials = self.inventory_manager.get_raw_materials_inventory()
             self.raw_materials_table.setRowCount(len(raw_materials))
             
-            for row, material in enumerate(raw_materials):
-                self.raw_materials_table.setItem(row, 0, QTableWidgetItem(material['name']))
-                self.raw_materials_table.setItem(row, 1, QTableWidgetItem(f"{material['stock']:.2f}"))
-                self.raw_materials_table.setItem(row, 2, QTableWidgetItem(f"{material['cost_afg']:.2f}"))
-                self.raw_materials_table.setItem(row, 3, QTableWidgetItem(f"{material['cost_usd']:.2f}"))
-                self.raw_materials_table.setItem(row, 4, QTableWidgetItem(f"{material['inventory_value_afg']:.2f}"))
-                
-                status = "⚠ Low" if material['is_low'] else "OK"
-                self.raw_materials_table.setItem(row, 5, QTableWidgetItem(status))
+            if len(raw_materials) == 0:
+                # Show message if no materials
+                self.raw_materials_table.setRowCount(1)
+                self.raw_materials_table.setItem(0, 0, QTableWidgetItem("No raw materials found. Add materials in Feed Management."))
+                for col in range(1, 6):
+                    self.raw_materials_table.setItem(0, col, QTableWidgetItem(""))
+            else:
+                for row, material in enumerate(raw_materials):
+                    self.raw_materials_table.setItem(row, 0, QTableWidgetItem(material['name']))
+                    self.raw_materials_table.setItem(row, 1, QTableWidgetItem(f"{material['stock']:.2f} {material.get('unit', 'kg')}"))
+                    self.raw_materials_table.setItem(row, 2, QTableWidgetItem(f"{material['cost_afg']:,.2f}"))
+                    self.raw_materials_table.setItem(row, 3, QTableWidgetItem(f"{material['cost_usd']:,.2f}"))
+                    self.raw_materials_table.setItem(row, 4, QTableWidgetItem(f"{material['inventory_value_afg']:,.2f}"))
+                    
+                    status = "⚠ Low" if material['is_low'] else "OK"
+                    self.raw_materials_table.setItem(row, 5, QTableWidgetItem(status))
             
             # Finished feed
             finished_feed = self.inventory_manager.get_finished_feed_inventory()

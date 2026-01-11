@@ -20,7 +20,7 @@ class EggManagementSystem:
     EGGS_PER_TRAY = 30
     EGGS_PER_CARTON = 180
     TRAYS_PER_CARTON = 6  # 180 / 30
-    TRAYS_EXPENSE_PER_CARTON = 6  # Packaging trays used per carton
+    TRAYS_EXPENSE_PER_CARTON = 7  # Packaging trays used per carton
     
     def __init__(self):
         self.session = DatabaseManager.get_session()

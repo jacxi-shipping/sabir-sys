@@ -274,6 +274,12 @@ class CacheInvalidationManager:
         ReportCache().invalidate_report_type("inventory")
     
     @staticmethod
+    def on_raw_material_sale_created():
+        """Invalidate caches when raw material sale is recorded"""
+        ReportCache().invalidate_report_type("inventory")
+        ReportCache().invalidate_report_type("financial")
+    
+    @staticmethod
     def on_expense_created():
         """Invalidate caches when expense is recorded"""
         DashboardCache().invalidate_all()

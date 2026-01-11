@@ -73,21 +73,11 @@ class PurchaseManager:
                 self.session.add(purchase)
                 self.session.flush()  # Get purchase ID
                 
-                # Update material stock with Weighted Average Cost (WAC)
-                current_stock = max(0, material.current_stock)  # Treat negative stock as 0 for cost calc
-                current_cost_afg = material.cost_afg
-                current_cost_usd = material.cost_usd
-                
-                new_total_quantity = current_stock + quantity
-                
-                if new_total_quantity > 0:
-                    material.cost_afg = ((current_stock * current_cost_afg) + (quantity * rate_afg)) / new_total_quantity
-                    material.cost_usd = ((current_stock * current_cost_usd) + (quantity * rate_usd)) / new_total_quantity
-                else:
-                    material.cost_afg = rate_afg
-                    material.cost_usd = rate_usd
-                
+                # Update material stock and cumulative costs for average cost calculation
                 material.current_stock += quantity
+                material.total_quantity_purchased += quantity
+                material.total_cost_purchased_afg += total_afg
+                material.total_cost_purchased_usd += total_usd
                 self.session.add(material)
                 
                 # Post to ledger: Credit party, Debit inventory

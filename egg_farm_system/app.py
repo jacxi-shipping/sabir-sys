@@ -8,6 +8,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Ensure all models are loaded and registered with SQLAlchemy's Base.metadata early
+import egg_farm_system.database.models
+
 from PySide6.QtWidgets import QApplication, QDialog
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.ui.main_window import MainWindow

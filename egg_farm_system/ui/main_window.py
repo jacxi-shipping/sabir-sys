@@ -210,6 +210,7 @@ class MainWindow(QMainWindow):
         trans_group = CollapsibleGroup("💰 Transactions")
         trans_group.add_button("Sales", lambda: self._safe_load(self.load_sales), 'icon_sales.svg')
         trans_group.add_button("Purchases", lambda: self._safe_load(self.load_purchases), 'icon_purchases.svg')
+        trans_group.add_button("Sell Raw Material", lambda: self._safe_load(self.load_raw_material_sale), 'icon_sales.svg') # New Button
         trans_group.add_button("Expenses", lambda: self._safe_load(self.load_expenses), 'icon_expenses.svg')
         trans_group.add_button("Parties", lambda: self._safe_load(self.load_parties), 'icon_parties.svg')
         layout.addWidget(trans_group)
@@ -531,7 +532,16 @@ class MainWindow(QMainWindow):
         self._update_breadcrumbs("Expenses", "expenses")
         self._add_to_history("Expenses", "expenses", self.load_expenses)
     
-    def load_employees_management(self):
+    def load_raw_material_sale(self):
+        """Load raw material sale dialog"""
+        from egg_farm_system.ui.forms.raw_material_sale_dialog import RawMaterialSaleDialog
+        dialog = RawMaterialSaleDialog(self)
+        dialog.sale_saved.connect(self._refresh_current_page) # Refresh current view if sale is saved
+        dialog.exec()
+        self._update_breadcrumbs("Sell Raw Material", "raw_material_sale")
+        self._add_to_history("Sell Raw Material", "raw_material_sale", self.load_raw_material_sale)
+    
+    def load_employees_management():
         """Load employees management widget"""
         self.clear_content()
         employees_widget = EmployeeManagementWidget()

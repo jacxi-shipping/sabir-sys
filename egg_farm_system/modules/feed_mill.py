@@ -17,6 +17,15 @@ class RawMaterialManager:
     def __init__(self):
         self.session = DatabaseManager.get_session()
     
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type: # An exception occurred
+            self.session.rollback()
+            logger.error(f"Transaction rolled back due to exception: {exc_val}")
+        self.session.close()
+    
     def create_material(self, name, cost_afg, cost_usd, supplier_id=None, low_stock_alert=50):
         """Create raw material"""
         try:

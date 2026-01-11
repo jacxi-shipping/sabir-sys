@@ -15,6 +15,9 @@ from egg_farm_system.ui.widgets.success_message import SuccessMessage
 from egg_farm_system.ui.widgets.keyboard_shortcuts import KeyboardShortcuts
 from egg_farm_system.utils.error_handler import ErrorHandler
 from PySide6.QtWidgets import QToolButton
+import logging
+
+logger = logging.getLogger(__name__)
 
 from egg_farm_system.modules.sales import SalesManager
 from egg_farm_system.modules.purchases import PurchaseManager
@@ -124,22 +127,39 @@ class TransactionFormWidget(QWidget):
             elif self.transaction_type == 'purchases':
                 with PurchaseManager() as pm:
                     transactions = pm.get_purchases()
-                    for row, trans in enumerate(transactions):
+                    # Extract all data while session is still open to avoid detached instance errors
+                    purchase_data = []
+                    for trans in transactions:
                         party = self.party_manager.get_party_by_id(trans.party_id)
-                        session = DatabaseManager.get_session()
+                        # Get material using PurchaseManager's session
                         try:
-                            material = session.query(RawMaterial).filter(RawMaterial.id == trans.material_id).first()
-                        finally:
-                            session.close()
-                        rows.append([
-                            trans.date.strftime("%Y-%m-%d"),
-                            party.name if party else "",
-                            material.name if material else "",
-                            f"{trans.quantity:.2f}",
-                            f"{trans.total_afg:.2f}",
-                            ""
-                        ])
-                        action_items.append((row, trans, 'purchase'))
+                            material = pm.session.query(RawMaterial).filter(RawMaterial.id == trans.material_id).first()
+                            material_name = material.name if material else "Unknown"
+                        except Exception as e:
+                            logger.error(f"Error getting material {trans.material_id}: {e}")
+                            material_name = "Unknown"
+                        
+                        # Extract all needed data while objects are still attached to session
+                        purchase_data.append({
+                            'transaction': trans,
+                            'party_name': party.name if party else "",
+                            'material_name': material_name,
+                            'date': trans.date.strftime("%Y-%m-%d"),
+                            'quantity': f"{trans.quantity:.2f}",
+                            'total_afg': f"{trans.total_afg:.2f}"
+                        })
+                
+                # Build rows after session is closed (data already extracted)
+                for row, data in enumerate(purchase_data):
+                    rows.append([
+                        data['date'],
+                        data['party_name'],
+                        data['material_name'],
+                        data['quantity'],
+                        data['total_afg'],
+                        ""
+                    ])
+                    action_items.append((row, data['transaction'], 'purchase'))
 
             else:  # expenses
                 with ExpenseManager() as em:
@@ -499,15 +519,18 @@ class PurchaseDialog(QDialog):
         self.material_combo = QComboBox()
         materials = []
         try:
-            # Use RawMaterialManager to get materials
-            material_manager = RawMaterialManager()
-            materials = material_manager.get_all_materials()
+            # Use RawMaterialManager as context manager to properly close session
+            with RawMaterialManager() as material_manager:
+                materials = material_manager.get_all_materials()
+                # Extract data before session closes
+                material_data = [(m.name, m.id) for m in materials]
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"Error loading materials: {e}")
-            materials = []
-        for material in materials:
-            self.material_combo.addItem(material.name, material.id)
+            material_data = []
+        
+        for name, material_id in material_data:
+            self.material_combo.addItem(name, material_id)
         
         self.quantity_spin = QDoubleSpinBox()
         self.quantity_spin.setMaximum(10000)
