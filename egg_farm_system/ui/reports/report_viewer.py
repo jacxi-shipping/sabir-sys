@@ -295,6 +295,16 @@ class ReportViewerWidget(QWidget):
                 if not party_id:
                     QMessageBox.warning(self, 'Warning', 'Select a party')
                     return
+                # Get date range if needed (though UI hides date inputs for party statement by default,
+                # we might want to enable them or assume all time. The backend supports filtering.)
+                # If you want to support date filtering for party statement, make sure the UI inputs are visible.
+                # For now, let's pass None to get full statement or use the date inputs if we enable them.
+                # Assuming we want full statement as per current UI behavior (hiding dates).
+                # But let's check if the user modified the on_report_changed to show dates?
+                # The current code in on_report_changed hides them.
+                # If we want to support date filtering, we should change on_report_changed.
+                # For now, let's keep it as is (all time) to avoid confusion, or use the hidden values?
+                # Let's pass None for now to be safe.
                 data = self.report_generator.party_statement(party_id)
                 if data:
                     # Update info

@@ -72,7 +72,7 @@ class ReportGenerator:
     def daily_egg_production_report(self, farm_id, date):
         """Generate daily egg production report"""
         try:
-            from modules.farms import FarmManager
+            from egg_farm_system.modules.farms import FarmManager
             fm = FarmManager()
             farm = fm.get_farm_by_id(farm_id)
             if not farm:
@@ -136,7 +136,7 @@ class ReportGenerator:
     def monthly_egg_production_report(self, farm_id, year, month):
         """Generate monthly egg production report"""
         try:
-            from modules.farms import FarmManager
+            from egg_farm_system.modules.farms import FarmManager
             from datetime import date, timedelta
             
             fm = FarmManager()
@@ -185,7 +185,7 @@ class ReportGenerator:
     def feed_usage_report(self, farm_id, start_date, end_date):
         """Generate feed usage report"""
         try:
-            from modules.farms import FarmManager
+            from egg_farm_system.modules.farms import FarmManager
             fm = FarmManager()
             farm = fm.get_farm_by_id(farm_id)
             if not farm:
@@ -206,11 +206,23 @@ class ReportGenerator:
             
             for shed in farm.sheds:
                 shed_issues = [f for f in feed_issues if f.shed_id == shed.id]
+                issue_count = len(shed_issues)
+                total_kg = sum(f.quantity_kg for f in shed_issues)
+                
+                # Determine predominant feed type if any
+                feed_types = [f.feed.feed_type.value for f in shed_issues if f.feed]
+                feed_type_str = max(set(feed_types), key=feed_types.count) if feed_types else "N/A"
+                if len(set(feed_types)) > 1:
+                    feed_type_str += " (Mixed)"
+
                 report_data['sheds'][shed.name] = {
-                    'total_kg': sum(f.quantity_kg for f in shed_issues),
+                    'total_kg': total_kg,
                     'total_cost_afg': sum(f.cost_afg for f in shed_issues),
                     'total_cost_usd': sum(f.cost_usd for f in shed_issues),
-                    'daily_average': sum(f.quantity_kg for f in shed_issues) / max(len(set(f.date.date() for f in shed_issues)), 1)
+                    'issue_count': issue_count,
+                    'avg_per_issue': total_kg / issue_count if issue_count > 0 else 0,
+                    'feed_type': feed_type_str,
+                    'daily_average': total_kg / max(len(set(f.date.date() for f in shed_issues)), 1)
                 }
             
             return report_data

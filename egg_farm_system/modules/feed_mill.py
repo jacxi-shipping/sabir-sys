@@ -86,9 +86,23 @@ class RawMaterialManager:
             if not material:
                 raise ValueError(f"Material {material_id} not found")
             
+            # Check for dependencies
+            # Check formulas
+            formulas = self.session.query(FeedFormulation).filter(FeedFormulation.material_id == material_id).count()
+            if formulas > 0:
+                raise ValueError(f"Cannot delete material '{material.name}' because it is used in {formulas} feed formula(s).")
+            
+            # Check purchases
+            from egg_farm_system.database.models import Purchase
+            purchases = self.session.query(Purchase).filter(Purchase.material_id == material_id).count()
+            if purchases > 0:
+                raise ValueError(f"Cannot delete material '{material.name}' because there are {purchases} purchase record(s) associated with it.")
+                
             self.session.delete(material)
             self.session.commit()
             logger.info(f"Raw material deleted: {material.name}")
+        except ValueError:
+            raise # Re-raise ValueError for UI to handle
         except Exception as e:
             self.session.rollback()
             logger.error(f"Error deleting material: {e}")
@@ -215,9 +229,16 @@ class FeedFormulaManager:
             if not formula:
                 raise ValueError(f"Formula {formula_id} not found.")
             
+            # Check for dependencies
+            batch_count = self.session.query(FeedBatch).filter(FeedBatch.formula_id == formula_id).count()
+            if batch_count > 0:
+                raise ValueError(f"Cannot delete formula '{formula.name}' because it has been used in {batch_count} production batch(es).")
+            
             self.session.delete(formula)
             self.session.commit()
             logger.info(f"Feed formula deleted: {formula.name}")
+        except ValueError:
+            raise # Re-raise ValueError for UI to handle
         except Exception as e:
             self.session.rollback()
             logger.error(f"Error deleting formula: {e}")

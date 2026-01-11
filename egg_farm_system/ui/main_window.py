@@ -473,7 +473,7 @@ class MainWindow(QMainWindow):
     def load_feed_management(self):
         """Load feed management widget"""
         self.clear_content()
-        from ui.forms.feed_forms import FeedFormWidget
+        from egg_farm_system.ui.forms.feed_forms import FeedFormWidget
         feed_widget = FeedFormWidget()
         feed_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Ensure it expands
         self.content_layout.addWidget(feed_widget)
