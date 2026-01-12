@@ -4,7 +4,7 @@ Feed management forms for Raw Materials, Formulas, Production, and Issuing.
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox,
     QDialog, QFormLayout, QLineEdit, QTableWidget, QTableWidgetItem, QTabWidget,
-    QDoubleSpinBox, QHeaderView, QSplitter, QComboBox, QDateEdit
+    QDoubleSpinBox, QHeaderView, QSplitter, QComboBox, QDateEdit, QGroupBox
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont
@@ -278,17 +278,62 @@ class ProductionTab(QWidget):
         self.manager = production_manager
         self.formula_manager = formula_manager
         self.init_ui()
+        self.load_history()
+
     def init_ui(self):
-        layout = QFormLayout(self)
-        self.formula_combo = QComboBox(); self.quantity_spin = QDoubleSpinBox(); self.quantity_spin.setRange(1.0, 10000.0)
-        self.exchange_rate_spin = QDoubleSpinBox(); self.exchange_rate_spin.setRange(1.0, 1000.0); self.exchange_rate_spin.setValue(78.0)
-        produce_btn = QPushButton("Produce Batch"); produce_btn.clicked.connect(self.produce)
-        layout.addRow("Formula:", self.formula_combo); layout.addRow("Quantity (kg):", self.quantity_spin)
-        layout.addRow("Exchange Rate (AFN/USD):", self.exchange_rate_spin); layout.addRow(produce_btn)
+        layout = QVBoxLayout(self)
+        
+        # Production Form
+        form_group = QGroupBox("Produce New Batch")
+        form_layout = QFormLayout(form_group)
+        
+        self.formula_combo = QComboBox()
+        self.quantity_spin = QDoubleSpinBox()
+        self.quantity_spin.setRange(1.0, 10000.0)
+        self.exchange_rate_spin = QDoubleSpinBox()
+        self.exchange_rate_spin.setRange(1.0, 1000.0)
+        self.exchange_rate_spin.setValue(78.0)
+        produce_btn = QPushButton("Produce Batch")
+        produce_btn.clicked.connect(self.produce)
+        
+        form_layout.addRow("Formula:", self.formula_combo)
+        form_layout.addRow("Quantity (kg):", self.quantity_spin)
+        form_layout.addRow("Exchange Rate (AFN/USD):", self.exchange_rate_spin)
+        form_layout.addRow(produce_btn)
+        
+        layout.addWidget(form_group)
         self.load_formulas()
+        
+        # History Table
+        history_group = QGroupBox("Production History")
+        history_layout = QVBoxLayout(history_group)
+        
+        self.history_table = QTableWidget()
+        self.history_table.setColumnCount(5)
+        self.history_table.setHorizontalHeaderLabels(["Date", "Formula", "Qty (kg)", "Cost (AFG)", "Cost (USD)"])
+        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.history_table.setAlternatingRowColors(True)
+        
+        history_layout.addWidget(self.history_table)
+        layout.addWidget(history_group)
+
     def load_formulas(self):
         self.formula_combo.clear()
         self.formula_combo.addItems([f.name for f in self.formula_manager.get_formulas()])
+
+    def load_history(self):
+        self.history_table.setRowCount(0)
+        # Using the newly added get_batches method
+        batches = self.manager.get_batches(limit=20) 
+        for row, batch in enumerate(batches):
+            self.history_table.insertRow(row)
+            self.history_table.setItem(row, 0, QTableWidgetItem(str(batch.batch_date)))
+            self.history_table.setItem(row, 1, QTableWidgetItem(batch.formula.name if batch.formula else "Unknown"))
+            self.history_table.setItem(row, 2, QTableWidgetItem(f"{batch.quantity_kg:.2f}"))
+            self.history_table.setItem(row, 3, QTableWidgetItem(f"{batch.cost_afg:,.2f}"))
+            self.history_table.setItem(row, 4, QTableWidgetItem(f"{batch.cost_usd:,.2f}"))
+
     def produce(self):
         formula_name = self.formula_combo.currentText()
         formula = next((f for f in self.formula_manager.get_formulas() if f.name == formula_name), None)
@@ -299,6 +344,7 @@ class ProductionTab(QWidget):
         if reply == QMessageBox.Yes:
             try:
                 self.manager.produce_batch(formula.id, self.quantity_spin.value(), self.exchange_rate_spin.value())
+                self.load_history() # Refresh history
                 QMessageBox.information(self, "Success", "Feed batch produced successfully.")
             except Exception as e: QMessageBox.critical(self, "Error", str(e))
 

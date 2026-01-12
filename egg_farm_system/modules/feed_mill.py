@@ -347,6 +347,14 @@ class FeedProductionManager:
             logger.error(f"Error producing batch: {e}")
             raise
     
+    def get_batches(self, limit=50):
+        """Get recent feed batches"""
+        try:
+            return self.session.query(FeedBatch).order_by(FeedBatch.batch_date.desc()).limit(limit).all()
+        except Exception as e:
+            logger.error(f"Error getting batches: {e}")
+            return []
+    
     def close_session(self):
         """Close database session"""
         if self.session:

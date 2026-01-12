@@ -201,6 +201,7 @@ class MainWindow(QMainWindow):
         # Farm Operations Group
         farm_group = CollapsibleGroup("🏭 Farm Operations")
         farm_group.add_button("Farm Management", lambda: self._safe_load(self.load_farm_management), 'icon_farm.svg')
+        farm_group.add_button("Flock Management", lambda: self._safe_load(self.load_flock_management), 'icon_farm.svg')
         farm_group.add_button("Feed Management", lambda: self._safe_load(self.load_feed_management), 'icon_feed.svg')
         farm_group.add_button("Inventory", lambda: self._safe_load(self.load_inventory), 'icon_inventory.svg')
         farm_group.add_button("Equipment", lambda: self._safe_load(self.load_equipment_management), 'icon_inventory.svg')
@@ -438,6 +439,16 @@ class MainWindow(QMainWindow):
         self.content_layout.addWidget(farm_widget)
         self._update_breadcrumbs("Farm Management", "farm_management")
         self._add_to_history("Farm Management", "farm_management", self.load_farm_management)
+
+    def load_flock_management(self):
+        """Load flock management widget"""
+        self.clear_content()
+        from egg_farm_system.ui.forms.flock_forms import FlockManagementWidget
+        flock_widget = FlockManagementWidget()
+        flock_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.content_layout.addWidget(flock_widget)
+        self._update_breadcrumbs("Flock Management", "flock_management")
+        self._add_to_history("Flock Management", "flock_management", self.load_flock_management)
     
     def load_production(self):
         """Load egg production widget"""

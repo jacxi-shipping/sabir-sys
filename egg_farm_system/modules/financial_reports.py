@@ -56,7 +56,8 @@ class FinancialReportGenerator:
                 Sale.date >= start_date,
                 Sale.date <= end_date
             )
-            # TODO: Add farm_id filtering for sales if possible
+            # Note: Sales are currently global and linked to Parties, not specific Farms/Sheds.
+            # Farm-specific revenue filtering is not possible without schema changes.
             total_revenue = revenue_query.scalar() or 0
 
             # 2. Calculate Cost of Goods Sold (COGS) - primarily feed cost for now
