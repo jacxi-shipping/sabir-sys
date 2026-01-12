@@ -29,10 +29,11 @@ class RawMaterialManager:
     def create_material(self, name, cost_afg, cost_usd, supplier_id=None, low_stock_alert=50):
         """Create raw material"""
         try:
+            # Note: cost_afg and cost_usd are calculated properties in the new model based on purchase history.
+            # We ignore the initial values here as they cannot be set directly without a purchase.
+            # Future improvement: Create an initial "opening balance" purchase if needed.
             material = RawMaterial(
                 name=name,
-                cost_afg=cost_afg,
-                cost_usd=cost_usd,
                 supplier_id=supplier_id,
                 low_stock_alert=low_stock_alert
             )
@@ -69,6 +70,9 @@ class RawMaterialManager:
                 raise ValueError(f"Material {material_id} not found")
             
             for key, value in data.items():
+                # Skip calculated properties that cannot be set directly
+                if key in ['cost_afg', 'cost_usd']:
+                    continue
                 setattr(material, key, value)
             
             self.session.commit()

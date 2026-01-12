@@ -80,9 +80,15 @@ def get_asset_path(filename: str) -> str:
     """
     # Base directory resolution
     if getattr(sys, 'frozen', False):
-        # Running as compiled executable
-        base_path = Path(sys.executable).parent
-        # Handle PyInstaller 6+ _internal folder
+        # Running as compiled executable (PyInstaller)
+        if hasattr(sys, '_MEIPASS'):
+            # --onefile mode: assets are in temp dir
+            base_path = Path(sys._MEIPASS)
+        else:
+            # --onedir mode or fallback
+            base_path = Path(sys.executable).parent
+            
+        # Handle PyInstaller 6+ _internal folder structure for onedir
         if (base_path / "_internal").exists():
             base_path = base_path / "_internal"
         

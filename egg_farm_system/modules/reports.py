@@ -233,7 +233,7 @@ class ReportGenerator:
     def party_statement(self, party_id, start_date=None, end_date=None):
         """Generate party statement"""
         try:
-            from modules.parties import PartyManager
+            from egg_farm_system.modules.parties import PartyManager
             pm = PartyManager()
             party = pm.get_party_by_id(party_id)
             if not party:
