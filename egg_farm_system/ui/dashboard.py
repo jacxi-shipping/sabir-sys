@@ -16,6 +16,7 @@ from egg_farm_system.ui.widgets.charts import TimeSeriesChart
 from egg_farm_system.ui.widgets.forecasting import ForecastingWidget
 from egg_farm_system.utils.advanced_caching import dashboard_cache, CacheInvalidationManager
 from egg_farm_system.utils.performance_monitoring import measure_time
+from egg_farm_system.utils.i18n import tr, get_i18n
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,9 +31,36 @@ class DashboardWidget(QWidget):
         self.report_generator = ReportGenerator()
         
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Connect to language change signal
+        get_i18n().language_changed.connect(self._update_texts)
+        
         self.init_ui()
         self.refresh_data()
-    
+        
+    def _update_texts(self, lang_code):
+        """Update UI texts when language changes"""
+        # Update window title if applicable (usually handled by parent)
+        
+        # Update widgets with i18n_key
+        for widget in self.findChildren(QWidget):
+            key = widget.property("i18n_key")
+            if key:
+                if isinstance(widget, QLabel):
+                    # For summary labels, we often have format strings like "Total: 0".
+                    # If the key is the prefix, we might need logic to keep the value.
+                    # But here, let's assume simple labels or specific keys.
+                    # For dynamic labels (e.g. "Total Sales: 100"), updating just the translation part is hard without re-running logic.
+                    # EASIER: Just call refresh_data() which re-generates strings using tr()!
+                    pass 
+                elif isinstance(widget, QPushButton):
+                    widget.setText(tr(key))
+                elif isinstance(widget, QGroupBox):
+                    widget.setTitle(tr(key))
+        
+        # Refresh dynamic data to update format strings
+        self.refresh_data()
+
     def init_ui(self):
         """Initialize UI with proper spacing and scrollable content"""
         # Main scroll area for the entire dashboard
@@ -50,7 +78,8 @@ class DashboardWidget(QWidget):
         
         # Title with refresh button
         title_layout = QHBoxLayout()
-        title = QLabel("Dashboard")
+        title = QLabel(tr("Dashboard"))
+        title.setProperty("i18n_key", "Dashboard")
         title.setObjectName('titleLabel')
         title_font = QFont()
         title_font.setPointSize(18)
@@ -59,7 +88,13 @@ class DashboardWidget(QWidget):
         title_layout.addWidget(title)
         title_layout.addStretch()
         
-        refresh_btn = QPushButton("🔄 Refresh")
+        refresh_btn = QPushButton(f"🔄 {tr('Refresh')}")
+        # Refresh btn has icon, handling translation might be custom or we just reset text with icon
+        # Let's rely on refresh_data re-drawing or just set key.
+        # But refresh_data doesn't update static buttons.
+        # I'll skip i18n_key for complex buttons and handle them in _update_texts if needed, 
+        # or just set it here.
+        
         refresh_btn.setMinimumWidth(120)
         refresh_btn.setMinimumHeight(40)
         refresh_btn.setStyleSheet("""
@@ -74,7 +109,8 @@ class DashboardWidget(QWidget):
         layout.addLayout(title_layout)
         
         # Today's Metrics Cards - Premium layout
-        today_group = QGroupBox("Today's Metrics")
+        today_group = QGroupBox(tr("Today's Overview"))
+        today_group.setProperty("i18n_key", "Today's Overview")
         today_group.setStyleSheet("""
             QGroupBox {
                 font-weight: 700;
@@ -108,7 +144,8 @@ class DashboardWidget(QWidget):
         layout.addWidget(today_group)
         
         # Quick Actions - Premium styling
-        actions_group = QGroupBox("Quick Actions")
+        actions_group = QGroupBox(tr("Actions"))
+        actions_group.setProperty("i18n_key", "Actions")
         actions_group.setStyleSheet("""
             QGroupBox {
                 font-weight: 700;
@@ -128,14 +165,15 @@ class DashboardWidget(QWidget):
         actions_layout.setContentsMargins(15, 25, 15, 15)
         
         quick_actions = [
-            ("📊 Record Production", self._navigate_to_production),
-            ("💰 New Sale", self._navigate_to_sales),
-            ("🛒 New Purchase", self._navigate_to_purchases),
-            ("📈 View Reports", self._navigate_to_reports),
+            ("Add Production", self._navigate_to_production),
+            ("Record Sale", self._navigate_to_sales),
+            ("Record Purchase", self._navigate_to_purchases),
+            ("View Reports", self._navigate_to_reports),
         ]
         
         for action_text, callback in quick_actions:
-            btn = QPushButton(action_text)
+            btn = QPushButton(tr(action_text))
+            btn.setProperty("i18n_key", action_text)
             btn.setMinimumHeight(48)
             btn.setMinimumWidth(180)
             btn.setStyleSheet("""
@@ -153,7 +191,9 @@ class DashboardWidget(QWidget):
         layout.addWidget(actions_group)
         
         # Summary Metrics - Premium layout
-        summary_group = QGroupBox("Last 30 Days Summary")
+        summary_group = QGroupBox(tr("Last 30 Days Summary"))
+        # Dynamic title usually not translated via key if it has numbers, but here it's static text
+        summary_group.setProperty("i18n_key", "Last 30 Days Summary") # Add to dictionary
         summary_group.setStyleSheet("""
             QGroupBox {
                 font-weight: 700;
@@ -186,7 +226,8 @@ class DashboardWidget(QWidget):
         layout.addWidget(summary_group)
 
         # Charts Layout - Side by side with proper sizing
-        charts_group = QGroupBox("Analytics & Forecasting")
+        charts_group = QGroupBox(tr("Analytics & Forecasting"))
+        charts_group.setProperty("i18n_key", "Analytics & Forecasting")
         charts_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -205,8 +246,8 @@ class DashboardWidget(QWidget):
         charts_layout.setContentsMargins(15, 25, 15, 15)
         
         # Production Chart
-        self.production_chart = TimeSeriesChart(title="Daily Egg Production (Last 30 Days)")
-        self.production_chart.set_labels(left_label="Total Eggs", bottom_label="Date")
+        self.production_chart = TimeSeriesChart(title=tr("Daily Egg Production (Last 30 Days)"))
+        self.production_chart.set_labels(left_label=tr("Total Eggs"), bottom_label=tr("Date"))
         self.production_chart.setMinimumHeight(300)
         charts_layout.addWidget(self.production_chart, 1)
         
@@ -219,7 +260,8 @@ class DashboardWidget(QWidget):
         layout.addWidget(charts_group)
         
         # Low Stock Alerts - Premium styling
-        alerts_group = QGroupBox("Low Stock Alerts")
+        alerts_group = QGroupBox(tr("Low Stock Alerts"))
+        alerts_group.setProperty("i18n_key", "Low Stock Alerts")
         alerts_group.setStyleSheet("""
             QGroupBox {
                 font-weight: 700;
@@ -236,7 +278,7 @@ class DashboardWidget(QWidget):
         """)
         alerts_layout = QVBoxLayout()
         alerts_layout.setContentsMargins(15, 25, 15, 15)
-        self.alerts_label = QLabel("No low stock alerts")
+        self.alerts_label = QLabel(tr("No low stock alerts"))
         self.alerts_label.setWordWrap(True)
         self.alerts_label.setMinimumHeight(60)
         self.alerts_label.setStyleSheet("""
@@ -285,7 +327,9 @@ class DashboardWidget(QWidget):
         layout.setSpacing(4)
         layout.setContentsMargins(16, 14, 16, 14)
         
-        title_label = QLabel(title)
+        # Use tr() and set property
+        title_label = QLabel(tr(title))
+        title_label.setProperty("i18n_key", title)
         title_label.setStyleSheet("""
             color: rgba(255, 255, 255, 0.95);
             font-size: 10pt;

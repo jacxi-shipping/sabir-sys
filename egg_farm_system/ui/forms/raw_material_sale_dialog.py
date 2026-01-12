@@ -91,10 +91,12 @@ class RawMaterialSaleDialog(QDialog):
         stock_layout = QHBoxLayout()
         self.current_stock_label = QLabel("Available: 0.00 units")
         self.current_stock_label.setFont(QFont("Arial", 10))
-        self.current_stock_label.setStyleSheet("color: #2c3e50; font-weight: bold;")
+        self.current_stock_label.setProperty("state", "info")
+        
         self.avg_price_label = QLabel("Avg Price: N/A")
         self.avg_price_label.setFont(QFont("Arial", 9))
-        self.avg_price_label.setStyleSheet("color: #7f8c8d;")
+        self.avg_price_label.setStyleSheet("color: #7f8c8d;") # Keep generic grey or use theme class if available
+        
         stock_layout.addWidget(self.current_stock_label)
         stock_layout.addStretch()
         stock_layout.addWidget(self.avg_price_label)
@@ -143,14 +145,12 @@ class RawMaterialSaleDialog(QDialog):
         
         # Total AFG
         self.total_afg_label = QLabel("0.00 AFG")
-        self.total_afg_label.setFont(QFont("Arial", 12, QFont.Bold))
-        self.total_afg_label.setStyleSheet("color: #27ae60; padding: 5px;")
+        self.total_afg_label.setObjectName("totalLabel")
         total_layout.addRow("Total (AFG):", self.total_afg_label)
         
         # Total USD
         self.total_usd_label = QLabel("0.00 USD")
-        self.total_usd_label.setFont(QFont("Arial", 12, QFont.Bold))
-        self.total_usd_label.setStyleSheet("color: #2980b9; padding: 5px;")
+        self.total_usd_label.setObjectName("totalLabel")
         total_layout.addRow("Total (USD):", self.total_usd_label)
         
         total_group.setLayout(total_layout)
@@ -176,40 +176,12 @@ class RawMaterialSaleDialog(QDialog):
         
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setMinimumSize(120, 40)
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #95a5a6;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 8px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #7f8c8d;
-            }
-        """)
         self.cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(self.cancel_btn)
         
         self.save_btn = QPushButton("Save Sale")
         self.save_btn.setMinimumSize(120, 40)
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 8px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-            }
-            QPushButton:pressed {
-                background-color: #1e8449;
-            }
-        """)
+        self.save_btn.setProperty("class", "success")
         self.save_btn.clicked.connect(self.save_sale)
         button_layout.addWidget(self.save_btn)
         
@@ -249,16 +221,18 @@ class RawMaterialSaleDialog(QDialog):
                 if material:
                     stock_text = f"Available: {material.current_stock:.2f} {material.unit}"
                     # Color code based on stock level
+                    state = "success"
                     if material.current_stock <= 0:
-                        self.current_stock_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+                        state = "error"
                         stock_text += " ⚠️ OUT OF STOCK"
                     elif material.current_stock <= material.low_stock_alert:
-                        self.current_stock_label.setStyleSheet("color: #f39c12; font-weight: bold;")
+                        state = "warning"
                         stock_text += " ⚠️ LOW STOCK"
-                    else:
-                        self.current_stock_label.setStyleSheet("color: #27ae60; font-weight: bold;")
                     
                     self.current_stock_label.setText(stock_text)
+                    self.current_stock_label.setProperty("state", state)
+                    self.current_stock_label.style().unpolish(self.current_stock_label)
+                    self.current_stock_label.style().polish(self.current_stock_label)
                     
                     # Show average price
                     if material.total_quantity_purchased > 0:
@@ -272,13 +246,17 @@ class RawMaterialSaleDialog(QDialog):
                     self.update_totals()
                 else:
                     self.current_stock_label.setText("Available: N/A")
-                    self.current_stock_label.setStyleSheet("color: #7f8c8d;")
+                    self.current_stock_label.setProperty("state", "info")
+                    self.current_stock_label.style().unpolish(self.current_stock_label)
+                    self.current_stock_label.style().polish(self.current_stock_label)
                     self.avg_price_label.setText("Avg Price: N/A")
                     self.quantity_spin.setMaximum(0.0)
                     self.quantity_spin.setValue(0.0)
         else:
             self.current_stock_label.setText("Available: N/A")
-            self.current_stock_label.setStyleSheet("color: #7f8c8d;")
+            self.current_stock_label.setProperty("state", "info")
+            self.current_stock_label.style().unpolish(self.current_stock_label)
+            self.current_stock_label.style().polish(self.current_stock_label)
             self.avg_price_label.setText("Avg Price: N/A")
             self.quantity_spin.setMaximum(0.0)
             self.quantity_spin.setValue(0.0)

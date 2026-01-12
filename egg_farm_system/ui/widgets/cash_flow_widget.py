@@ -192,45 +192,15 @@ class CashFlowWidget(QWidget):
                     end_date = datetime.combine(end_date, datetime.max.time())
                 
                 # Get all cash transactions
+                # Note: Sales and Purchases are Accrual (Ledger) events. 
+                # Cash flow is tracked via Payments and Direct Expenses only.
                 transactions = []
                 
-                # Sales (cash inflow) - ONLY if payment_method is Cash
-                sales = session.query(Sale).filter(
-                    Sale.date >= start_date,
-                    Sale.date <= end_date,
-                    Sale.payment_method == "Cash"
-                ).all()
-                for sale in sales:
-                    transactions.append({
-                        'date': sale.date,
-                        'type': 'Sale',
-                        'description': f"Sale to {sale.party.name if sale.party else 'Cash'}: {sale.cartons or sale.quantity} {'cartons' if sale.cartons else 'eggs'}",
-                        'amount_afg': sale.total_afg,
-                        'amount_usd': sale.total_usd,
-                        'is_inflow': True
-                    })
-                
-                # Purchases (cash outflow) - ONLY if payment_method is Cash
-                purchases = session.query(Purchase).filter(
-                    Purchase.date >= start_date,
-                    Purchase.date <= end_date,
-                    Purchase.payment_method == "Cash"
-                ).all()
-                for purchase in purchases:
-                    transactions.append({
-                        'date': purchase.date,
-                        'type': 'Purchase',
-                        'description': f"Purchase from {purchase.party.name if purchase.party else 'Cash'}: {purchase.material.name if purchase.material else 'Material'}",
-                        'amount_afg': purchase.total_afg,
-                        'amount_usd': purchase.total_usd,
-                        'is_inflow': False
-                    })
-                
-                # Expenses (cash outflow) - ONLY if payment_method is Cash
+                # Expenses (cash outflow) - Direct expenses (no party linked)
                 expenses = session.query(Expense).filter(
                     Expense.date >= start_date,
                     Expense.date <= end_date,
-                    Expense.payment_method == "Cash"
+                    Expense.party_id == None
                 ).all()
                 for expense in expenses:
                     transactions.append({
@@ -242,11 +212,10 @@ class CashFlowWidget(QWidget):
                         'is_inflow': False
                     })
                 
-                # Payments (can be inflow or outflow) - ONLY if payment_method is Cash
+                # Payments (can be inflow or outflow) - All payments represent cash movement
                 payments = session.query(Payment).filter(
                     Payment.date >= start_date,
-                    Payment.date <= end_date,
-                    Payment.payment_method == "Cash"
+                    Payment.date <= end_date
                 ).all()
                 for payment in payments:
                     transactions.append({
@@ -327,31 +296,16 @@ class CashFlowWidget(QWidget):
             total_inflow = 0
             total_outflow = 0
             
-            # Sales - ONLY Cash transactions
-            sales = session.query(Sale).filter(
-                Sale.date < start_date,
-                Sale.payment_method == "Cash"
-            ).all()
-            total_inflow += sum(s.total_afg for s in sales)
-            
-            # Purchases - ONLY Cash transactions
-            purchases = session.query(Purchase).filter(
-                Purchase.date < start_date,
-                Purchase.payment_method == "Cash"
-            ).all()
-            total_outflow += sum(p.total_afg for p in purchases)
-            
-            # Expenses - ONLY Cash transactions
+            # Expenses - Direct only (no party)
             expenses = session.query(Expense).filter(
                 Expense.date < start_date,
-                Expense.payment_method == "Cash"
+                Expense.party_id == None
             ).all()
             total_outflow += sum(e.amount_afg for e in expenses)
             
-            # Payments - ONLY Cash transactions
+            # Payments - All
             payments = session.query(Payment).filter(
-                Payment.date < start_date,
-                Payment.payment_method == "Cash"
+                Payment.date < start_date
             ).all()
             for payment in payments:
                 if payment.payment_type == "Received":

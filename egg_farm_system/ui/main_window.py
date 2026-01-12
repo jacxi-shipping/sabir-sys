@@ -34,6 +34,7 @@ from egg_farm_system.utils.notification_manager import get_notification_manager,
 from egg_farm_system.ui.widgets.notification_center import NotificationCenterWidget
 from egg_farm_system.ui.widgets.backup_restore_widget import BackupRestoreWidget
 from egg_farm_system.ui.widgets.global_search_widget import GlobalSearchWidget
+from egg_farm_system.utils.i18n import tr, get_i18n
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class MainWindow(QMainWindow):
     def __init__(self, current_user=None, app_version="1.0.0"):
         super().__init__()
         self.current_user = current_user
-        self.setWindowTitle("Egg Farm Management System")
+        self.setWindowTitle(tr("Egg Farm Management System"))
         self.setGeometry(100, 100, WINDOW_WIDTH, WINDOW_HEIGHT)
         self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.app_version = app_version
@@ -51,6 +52,9 @@ class MainWindow(QMainWindow):
         # Initialize Theme - Default to Farm theme
         self.current_theme = ThemeManager.FARM
         ThemeManager.apply_theme(sys.modules['__main__'].app if hasattr(sys.modules['__main__'], 'app') else self, self.current_theme)
+
+        # Initialize I18n
+        get_i18n().language_changed.connect(self._update_texts)
 
         DatabaseManager.initialize()
         # Re-fetch the user to bind it to a new session for MainWindow's lifetime
@@ -123,6 +127,74 @@ class MainWindow(QMainWindow):
         # Load dashboard initially
         self.load_dashboard()
     
+    def _update_texts(self, lang_code):
+        """Update UI texts when language changes"""
+        self.setWindowTitle(tr("Egg Farm Management System"))
+        
+        # Update sidebar buttons and labels
+        for widget in self.sidebar.findChildren(QWidget):
+            key = widget.property("i18n_key")
+            if key:
+                if isinstance(widget, QPushButton):
+                    # For sidebar buttons, we might need to update full_text property too
+                    # if it's used for tooltip/expansion
+                    new_text = tr(key)
+                    # If it has an icon (most do), we often prepend text. 
+                    # But here buttons are " Icon  Text".
+                    # The text set in create_sidebar was just text.
+                    # Wait, create_sidebar sets text directly.
+                    # CollapsibleGroup adds buttons.
+                    
+                    # Update displayed text
+                    widget.setText(new_text)
+                    
+                    # Update full_text property if it exists (used by sidebar collapse logic)
+                    if widget.property("full_text"):
+                        widget.setProperty("full_text", new_text)
+                        if not self.sidebar.property('collapsed'):
+                             widget.setText(new_text)
+                        else:
+                             widget.setToolTip(new_text)
+                
+                elif isinstance(widget, QLabel):
+                    widget.setText(tr(key))
+                
+                # Collapsible Group Titles
+                # CollapsibleGroup is a QWidget but holds a button and label?
+                # Actually CollapsibleGroup title is usually a button or label.
+                # If CollapsibleGroup is custom widget, we might need to iterate it specifically.
+                
+        # Update CollapsibleGroup titles explicitly if they aren't caught above
+        from egg_farm_system.ui.widgets.collapsible_group import CollapsibleGroup
+        for group in self.sidebar.findChildren(CollapsibleGroup):
+            key = group.property("i18n_key")
+            if key:
+                group.setTitle(tr(key))
+
+        # Update specific buttons that might not be caught
+        if hasattr(self, 'notification_btn'):
+            self.notification_btn.setText(f"🔔 {tr('Notifications')}")
+        
+        if hasattr(self, 'theme_btn'):
+            self.theme_btn.setText(f"🎨 {tr('Farm Theme')}")
+            
+        if hasattr(self, 'logout_button'):
+            self.logout_button.setText(f"🚪 {tr('Logout')}")
+            
+        if hasattr(self, 'lang_btn'):
+            # Update label based on current language
+            label = "English" if lang_code == 'ps' else "پښتو"
+            self.lang_btn.setText(f"🌐 {label}")
+
+        # Refresh current page to apply translations to the active view
+        self._refresh_current_page()
+
+    def toggle_language(self):
+        """Switch between English and Pashto"""
+        current = get_i18n().current_lang
+        new_lang = 'ps' if current == 'en' else 'en'
+        get_i18n().set_language(new_lang)
+
     def create_sidebar(self):
         """Create left sidebar navigation with grouped collapsible sections"""
         sidebar = QFrame()
@@ -172,7 +244,9 @@ class MainWindow(QMainWindow):
         from egg_farm_system.ui.widgets.collapsible_group import CollapsibleGroup
 
         # Dashboard (always visible, not in a group)
-        dashboard_btn = QPushButton("📊 Dashboard")
+        dashboard_btn = QPushButton(tr("Dashboard"))
+        dashboard_btn.setProperty("i18n_key", "Dashboard")
+        dashboard_btn.setProperty("full_text", "Dashboard") # Ensure consistent property
         dashboard_btn.setMinimumHeight(40)
         dashboard_btn.setStyleSheet("""
             QPushButton {
@@ -191,53 +265,66 @@ class MainWindow(QMainWindow):
         dashboard_btn.clicked.connect(lambda: self._safe_load(self.load_dashboard))
         layout.addWidget(dashboard_btn)
 
+        # Helper to set i18n key on buttons added to groups
+        def add_btn_with_i18n(group, text, callback, icon):
+            btn = group.add_button(tr(text), callback, icon)
+            btn.setProperty("i18n_key", text)
+            btn.setProperty("full_text", text) # CollapsibleGroup might set this, but ensure it matches key
+            return btn
+
         # Egg Management Group
-        egg_group = CollapsibleGroup("🥚 Egg Management")
-        egg_group.add_button("Production", lambda: self._safe_load(self.load_production), 'icon_egg.svg')
-        egg_group.add_button("Stock", lambda: self._safe_load(self.load_egg_stock), 'icon_egg.svg')
-        egg_group.add_button("Expenses", lambda: self._safe_load(self.load_egg_expenses), 'icon_expenses.svg')
+        egg_group = CollapsibleGroup(tr("Egg Management"))
+        egg_group.setProperty("i18n_key", "Egg Management")
+        add_btn_with_i18n(egg_group, "Production", lambda: self._safe_load(self.load_production), 'icon_egg.svg')
+        add_btn_with_i18n(egg_group, "Stock", lambda: self._safe_load(self.load_egg_stock), 'icon_egg.svg')
+        add_btn_with_i18n(egg_group, "Expenses", lambda: self._safe_load(self.load_egg_expenses), 'icon_expenses.svg')
         layout.addWidget(egg_group)
 
         # Farm Operations Group
-        farm_group = CollapsibleGroup("🏭 Farm Operations")
-        farm_group.add_button("Farm Management", lambda: self._safe_load(self.load_farm_management), 'icon_farm.svg')
-        farm_group.add_button("Flock Management", lambda: self._safe_load(self.load_flock_management), 'icon_farm.svg')
-        farm_group.add_button("Feed Management", lambda: self._safe_load(self.load_feed_management), 'icon_feed.svg')
-        farm_group.add_button("Inventory", lambda: self._safe_load(self.load_inventory), 'icon_inventory.svg')
-        farm_group.add_button("Equipment", lambda: self._safe_load(self.load_equipment_management), 'icon_inventory.svg')
+        farm_group = CollapsibleGroup(tr("Farm Operations"))
+        farm_group.setProperty("i18n_key", "Farm Operations")
+        add_btn_with_i18n(farm_group, "Farm Management", lambda: self._safe_load(self.load_farm_management), 'icon_farm.svg')
+        add_btn_with_i18n(farm_group, "Flock Management", lambda: self._safe_load(self.load_flock_management), 'icon_farm.svg')
+        add_btn_with_i18n(farm_group, "Feed Management", lambda: self._safe_load(self.load_feed_management), 'icon_feed.svg')
+        add_btn_with_i18n(farm_group, "Inventory", lambda: self._safe_load(self.load_inventory), 'icon_inventory.svg')
+        add_btn_with_i18n(farm_group, "Equipment", lambda: self._safe_load(self.load_equipment_management), 'icon_inventory.svg')
         layout.addWidget(farm_group)
 
         # Transactions Group
-        trans_group = CollapsibleGroup("💰 Transactions")
-        trans_group.add_button("Sales", lambda: self._safe_load(self.load_sales), 'icon_sales.svg')
-        trans_group.add_button("Purchases", lambda: self._safe_load(self.load_purchases), 'icon_purchases.svg')
-        trans_group.add_button("Sell Raw Material", lambda: self._safe_load(self.load_raw_material_sale), 'icon_sales.svg') # New Button
-        trans_group.add_button("Expenses", lambda: self._safe_load(self.load_expenses), 'icon_expenses.svg')
-        trans_group.add_button("Parties", lambda: self._safe_load(self.load_parties), 'icon_parties.svg')
+        trans_group = CollapsibleGroup(tr("Transactions"))
+        trans_group.setProperty("i18n_key", "Transactions")
+        add_btn_with_i18n(trans_group, "Sales", lambda: self._safe_load(self.load_sales), 'icon_sales.svg')
+        add_btn_with_i18n(trans_group, "Purchases", lambda: self._safe_load(self.load_purchases), 'icon_purchases.svg')
+        add_btn_with_i18n(trans_group, "Sell Raw Material", lambda: self._safe_load(self.load_raw_material_sale), 'icon_sales.svg') 
+        add_btn_with_i18n(trans_group, "Expenses", lambda: self._safe_load(self.load_expenses), 'icon_expenses.svg')
+        add_btn_with_i18n(trans_group, "Parties", lambda: self._safe_load(self.load_parties), 'icon_parties.svg')
         layout.addWidget(trans_group)
 
         # Reports & Analytics Group
-        reports_group = CollapsibleGroup("📊 Reports & Analytics")
-        reports_group.add_button("Reports", lambda: self._safe_load(self.load_reports), 'icon_reports.svg')
-        reports_group.add_button("Analytics", lambda: self._safe_load(self.load_analytics), 'icon_reports.svg')
-        reports_group.add_button("Cash Flow", lambda: self._safe_load(self.load_cash_flow), 'icon_reports.svg')
+        reports_group = CollapsibleGroup(tr("Reports & Analytics"))
+        reports_group.setProperty("i18n_key", "Reports & Analytics")
+        add_btn_with_i18n(reports_group, "Reports", lambda: self._safe_load(self.load_reports), 'icon_reports.svg')
+        add_btn_with_i18n(reports_group, "Analytics", lambda: self._safe_load(self.load_analytics), 'icon_reports.svg')
+        add_btn_with_i18n(reports_group, "Cash Flow", lambda: self._safe_load(self.load_cash_flow), 'icon_reports.svg')
         layout.addWidget(reports_group)
 
         # System Group
-        system_group = CollapsibleGroup("⚙️ System")
-        system_group.add_button("Settings", lambda: self._safe_load(self.load_settings), 'icon_reports.svg')
-        system_group.add_button("Backup & Restore", lambda: self._safe_load(self.load_backup_restore), 'icon_reports.svg')
-        system_group.add_button("Workflow Automation", lambda: self._safe_load(self.load_workflow_automation), 'icon_reports.svg')
-        system_group.add_button("Audit Trail", lambda: self._safe_load(self.load_audit_trail), 'icon_reports.svg')
-        system_group.add_button("Email Config", lambda: self._safe_load(self.load_email_config), 'icon_reports.svg')
+        system_group = CollapsibleGroup(tr("System"))
+        system_group.setProperty("i18n_key", "System")
+        add_btn_with_i18n(system_group, "Settings", lambda: self._safe_load(self.load_settings), 'icon_reports.svg')
+        add_btn_with_i18n(system_group, "Backup & Restore", lambda: self._safe_load(self.load_backup_restore), 'icon_reports.svg')
+        add_btn_with_i18n(system_group, "Workflow Automation", lambda: self._safe_load(self.load_workflow_automation), 'icon_reports.svg')
+        add_btn_with_i18n(system_group, "Audit Trail", lambda: self._safe_load(self.load_audit_trail), 'icon_reports.svg')
+        add_btn_with_i18n(system_group, "Email Config", lambda: self._safe_load(self.load_email_config), 'icon_reports.svg')
         layout.addWidget(system_group)
 
         # Admin Group (only for admins)
         try:
             if hasattr(self, 'current_user') and self.current_user and getattr(self.current_user, 'role', '') == 'admin':
-                admin_group = CollapsibleGroup("👤 Administration")
-                admin_group.add_button("Users", lambda: self._safe_load(self.load_users_management), 'icon_parties.svg')
-                admin_group.add_button("Employees", lambda: self._safe_load(self.load_employees_management), 'icon_parties.svg')
+                admin_group = CollapsibleGroup(tr("Administration"))
+                admin_group.setProperty("i18n_key", "Administration")
+                add_btn_with_i18n(admin_group, "Users", lambda: self._safe_load(self.load_users_management), 'icon_parties.svg')
+                add_btn_with_i18n(admin_group, "Employees", lambda: self._safe_load(self.load_employees_management), 'icon_parties.svg')
                 layout.addWidget(admin_group)
         except Exception:
             pass
@@ -250,7 +337,8 @@ class MainWindow(QMainWindow):
         
         # Premium Notification button
         notif_layout = QHBoxLayout()
-        self.notification_btn = QPushButton("🔔 Notifications")
+        self.notification_btn = QPushButton(f"🔔 {tr('Notifications')}")
+        self.notification_btn.setProperty("i18n_key", "Notifications") # Special handling needed for icon prefix
         self.notification_btn.setMinimumHeight(42)
         self.notification_btn.setStyleSheet("""
             QPushButton {
@@ -296,8 +384,33 @@ class MainWindow(QMainWindow):
         notif_layout.addWidget(self.notification_badge)
         bottom_layout.addLayout(notif_layout)
         
+        # Language Switcher
+        self.lang_btn = QPushButton("🌐 پښتو")
+        self.lang_btn.setMinimumHeight(42)
+        self.lang_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 10px 18px;
+                border: none;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #34495e,
+                    stop:1 #2c3e50);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 11pt;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3d566e,
+                    stop:1 #34495e);
+            }
+        """)
+        self.lang_btn.clicked.connect(self.toggle_language)
+        bottom_layout.addWidget(self.lang_btn)
+
         # Premium Theme toggle
-        self.theme_btn = QPushButton("🎨 Farm Theme")
+        self.theme_btn = QPushButton(f"🎨 {tr('Farm Theme')}")
         self.theme_btn.setMinimumHeight(42)
         self.theme_btn.setStyleSheet("""
             QPushButton {
@@ -322,7 +435,7 @@ class MainWindow(QMainWindow):
         bottom_layout.addWidget(self.theme_btn)
         
         # Premium Logout button
-        logout_btn = QPushButton("🚪 Logout")
+        logout_btn = QPushButton(f"🚪 {tr('Logout')}")
         logout_btn.setMinimumHeight(42)
         logout_btn.setStyleSheet("""
             QPushButton {

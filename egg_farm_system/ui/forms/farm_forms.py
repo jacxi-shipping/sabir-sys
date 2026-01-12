@@ -14,6 +14,7 @@ from egg_farm_system.ui.widgets.loading_overlay import LoadingOverlay
 from egg_farm_system.ui.widgets.success_message import SuccessMessage
 from egg_farm_system.ui.widgets.keyboard_shortcuts import KeyboardShortcuts
 from egg_farm_system.utils.error_handler import ErrorHandler
+from egg_farm_system.utils.i18n import tr, get_i18n
 
 from egg_farm_system.modules.farms import FarmManager
 from egg_farm_system.modules.sheds import ShedManager
@@ -23,21 +24,22 @@ from egg_farm_system.config import MAX_FARMS
 class ShedDialog(QDialog):
     def __init__(self, shed=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"{'Edit' if shed else 'Add'} Shed")
+        self.setWindowTitle(f"{tr('Edit') if shed else tr('Add')} {tr('Shed')}")
         layout = QFormLayout(self)
         self.name_edit = QLineEdit(shed.name if shed else "")
-        self.name_edit.setToolTip("Enter the name of the shed (required)")
-        self.name_edit.setPlaceholderText("e.g., Shed A, North Shed")
+        self.name_edit.setToolTip(tr("Enter the name of the shed (required)"))
+        # Placeholder text might need translation too, but QLineEdit doesn't support i18n_key easily without subclass
+        self.name_edit.setPlaceholderText("e.g., Shed A, North Shed") 
         self.capacity_spin = QSpinBox()
         self.capacity_spin.setRange(1, 100000)
         self.capacity_spin.setValue(shed.capacity if shed else 1000)
-        self.capacity_spin.setToolTip("Enter the maximum number of birds this shed can accommodate (required)")
-        self.capacity_spin.setSuffix(" birds")
+        self.capacity_spin.setToolTip(tr("Enter the maximum number of birds this shed can accommodate (required)"))
+        self.capacity_spin.setSuffix(f" {tr('birds')}")
         
         # Required field indicators
-        name_label = QLabel("Shed Name: <span style='color: red;'>*</span>")
+        name_label = QLabel(f"{tr('Shed Name')}: <span style='color: red;'>*</span>")
         name_label.setTextFormat(Qt.RichText)
-        capacity_label = QLabel("Capacity (birds): <span style='color: red;'>*</span>")
+        capacity_label = QLabel(f"{tr('Capacity (birds)')}: <span style='color: red;'>*</span>")
         capacity_label.setTextFormat(Qt.RichText)
         
         layout.addRow(name_label, self.name_edit)
@@ -46,11 +48,11 @@ class ShedDialog(QDialog):
         buttons.setSpacing(10)
         buttons.setContentsMargins(0, 10, 0, 0)
         buttons.addStretch()
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(tr("Save"))
         save_btn.setMinimumWidth(100)
         save_btn.setMinimumHeight(35)
         save_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(tr("Cancel"))
         cancel_btn.setMinimumWidth(100)
         cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(self.reject)
@@ -69,10 +71,10 @@ class ShedDialog(QDialog):
     def validate(self):
         """Validate form inputs"""
         if not self.name_edit.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Shed name is required.")
+            QMessageBox.warning(self, tr("Validation Error"), tr("Shed name is required."))
             return False
         if self.capacity_spin.value() <= 0:
-            QMessageBox.warning(self, "Validation Error", "Capacity must be greater than 0.")
+            QMessageBox.warning(self, tr("Validation Error"), tr("Capacity must be greater than 0."))
             return False
         return True
     
@@ -86,22 +88,22 @@ class FarmDialog(QDialog):
     def __init__(self, parent, farm):
         super().__init__(parent)
         self.farm = farm
-        self.setWindowTitle("Farm Details" if farm else "New Farm")
+        self.setWindowTitle(tr("Farm Details") if farm else tr("New Farm"))
         layout = QFormLayout(self)
         self.name_edit = QLineEdit()
-        self.name_edit.setToolTip("Enter the name of the farm (required)")
+        self.name_edit.setToolTip(tr("Enter the name of the farm (required)"))
         self.name_edit.setPlaceholderText("e.g., Main Farm, North Farm")
         self.location_edit = QLineEdit()
-        self.location_edit.setToolTip("Enter the location/address of the farm (optional)")
+        self.location_edit.setToolTip(tr("Enter the location/address of the farm (optional)"))
         self.location_edit.setPlaceholderText("e.g., Kabul, District 5")
         if farm:
             self.name_edit.setText(farm.name)
             self.location_edit.setText(farm.location or "")
         
         # Required field indicators
-        name_label = QLabel("Farm Name: <span style='color: red;'>*</span>")
+        name_label = QLabel(f"{tr('Farm Name')}: <span style='color: red;'>*</span>")
         name_label.setTextFormat(Qt.RichText)
-        location_label = QLabel("Location:")
+        location_label = QLabel(f"{tr('Location')}:")
         
         layout.addRow(name_label, self.name_edit)
         layout.addRow(location_label, self.location_edit)
@@ -109,11 +111,11 @@ class FarmDialog(QDialog):
         btn_layout.setSpacing(10)
         btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(tr("Save"))
         save_btn.setMinimumWidth(100)
         save_btn.setMinimumHeight(35)
         save_btn.clicked.connect(self.save_farm)
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(tr("Cancel"))
         cancel_btn.setMinimumWidth(100)
         cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(self.reject)
@@ -131,11 +133,11 @@ class FarmDialog(QDialog):
         """Save farm with loading indicator and success feedback"""
         name = self.name_edit.text().strip()
         if not name:
-            QMessageBox.warning(self, "Validation Error", "Farm name is required. Please enter a name for the farm.")
+            QMessageBox.warning(self, tr("Validation Error"), tr("Farm name is required."))
             return
         
         # Show loading overlay
-        loading = LoadingOverlay(self, "Saving farm...")
+        loading = LoadingOverlay(self, tr("Saving farm..."))
         loading.show()
         QTimer.singleShot(50, lambda: self._do_save(name, loading))
     
@@ -147,10 +149,10 @@ class FarmDialog(QDialog):
             with FarmManager() as manager:
                 if self.farm:
                     manager.update_farm(self.farm.id, name, location)
-                    message = f"Farm '{name}' updated successfully."
+                    message = tr("Saved successfully")
                 else:
                     manager.create_farm(name, location)
-                    message = f"Farm '{name}' created successfully."
+                    message = tr("Saved successfully")
             
             loading.hide()
             loading.deleteLater()
@@ -162,14 +164,14 @@ class FarmDialog(QDialog):
         except ValueError as e:
             loading.hide()
             loading.deleteLater()
-            QMessageBox.warning(self, "Validation Error", f"Invalid input: {str(e)}")
+            QMessageBox.warning(self, tr("Validation Error"), f"{tr('Error')}: {str(e)}")
         except Exception as e:
             loading.hide()
             loading.deleteLater()
             QMessageBox.critical(
                 self, 
-                "Save Failed", 
-                f"Failed to save farm.\n\nError: {str(e)}\n\nPlease check your input and try again."
+                tr("Failed to save"), 
+                f"{tr('Error')}: {str(e)}"
             )
 
 # --- Main Widget ---
@@ -180,8 +182,33 @@ class FarmFormWidget(QWidget):
         super().__init__()
         self.selected_farm_id = None
         self.loading_overlay = LoadingOverlay(self)
+        
+        get_i18n().language_changed.connect(self._update_texts)
+        
         self.init_ui()
         self.refresh_farms()
+
+    def _update_texts(self, lang_code):
+        """Update texts when language changes"""
+        # Update persistent widgets
+        self.farms_title.setText(tr("Farms"))
+        self.new_farm_btn.setText(tr("Add New Farm"))
+        
+        # Update table headers
+        self.farms_table.set_headers(["ID", tr("Name"), tr("Location"), tr("Sheds"), tr("Actions")])
+        self.sheds_table.set_headers(["ID", tr("Name"), tr("Capacity"), tr("Actions")])
+        
+        # Refresh dynamic content (sheds title, table data might contain static strings?)
+        # Table data usually comes from DB, so it's fine.
+        # But Sheds Title depends on selected farm
+        if self.selected_farm_id:
+            # We can't easily get the farm name again without querying or storing it separately
+            # Just reset to "Sheds" or try to keep context
+            pass
+        else:
+            self.sheds_title.setText(tr("Sheds"))
+            
+        self.add_shed_btn.setText(tr("Add Shed"))
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -192,15 +219,15 @@ class FarmFormWidget(QWidget):
         layout = QVBoxLayout(farms_widget)
         
         header_hbox = QHBoxLayout()
-        title = QLabel("Farms")
-        title.setFont(QFont("Arial", 14, QFont.Bold))
-        header_hbox.addWidget(title)
+        self.farms_title = QLabel(tr("Farms"))
+        self.farms_title.setFont(QFont("Arial", 14, QFont.Bold))
+        header_hbox.addWidget(self.farms_title)
         header_hbox.addStretch()
         
-        new_farm_btn = QPushButton("Add New Farm")
-        new_farm_btn.clicked.connect(self.add_farm)
-        new_farm_btn.setToolTip("Add a new farm (Ctrl+N)")
-        header_hbox.addWidget(new_farm_btn)
+        self.new_farm_btn = QPushButton(tr("Add New Farm"))
+        self.new_farm_btn.clicked.connect(self.add_farm)
+        self.new_farm_btn.setToolTip(tr("Add a new farm"))
+        header_hbox.addWidget(self.new_farm_btn)
         layout.addLayout(header_hbox)
         
         # Add keyboard shortcuts
@@ -210,7 +237,7 @@ class FarmFormWidget(QWidget):
         })
         
         self.farms_table = DataTableWidget()
-        self.farms_table.set_headers(["ID", "Name", "Location", "Sheds", "Actions"])
+        self.farms_table.set_headers(["ID", tr("Name"), tr("Location"), tr("Sheds"), tr("Actions")])
         self.farms_table.view.setColumnHidden(0, True)
         self.farms_table.view.selectionModel().selectionChanged.connect(self.farm_selected)
         layout.addWidget(self.farms_table)
@@ -221,20 +248,20 @@ class FarmFormWidget(QWidget):
         sheds_layout = QVBoxLayout(sheds_widget)
         
         shed_header_hbox = QHBoxLayout()
-        self.sheds_title = QLabel("Sheds")
+        self.sheds_title = QLabel(tr("Sheds"))
         self.sheds_title.setFont(QFont("Arial", 14, QFont.Bold))
         shed_header_hbox.addWidget(self.sheds_title)
         shed_header_hbox.addStretch()
         
-        self.add_shed_btn = QPushButton("Add Shed")
+        self.add_shed_btn = QPushButton(tr("Add Shed"))
         self.add_shed_btn.clicked.connect(self.add_shed)
         self.add_shed_btn.setEnabled(False)
-        self.add_shed_btn.setToolTip("Add a new shed to the selected farm (Ctrl+N)")
+        self.add_shed_btn.setToolTip(tr("Add a new shed"))
         shed_header_hbox.addWidget(self.add_shed_btn)
         sheds_layout.addLayout(shed_header_hbox)
         
         self.sheds_table = DataTableWidget()
-        self.sheds_table.set_headers(["ID", "Name", "Capacity", "Actions"])
+        self.sheds_table.set_headers(["ID", tr("Name"), tr("Capacity"), tr("Actions")])
         self.sheds_table.view.setColumnHidden(0, True)
         sheds_layout.addWidget(self.sheds_table)
         splitter.addWidget(sheds_widget)
@@ -247,7 +274,7 @@ class FarmFormWidget(QWidget):
         if not selected_indexes:
             self.selected_farm_id = None
             self.sheds_table.model.setRowCount(0)
-            self.sheds_title.setText("Sheds")
+            self.sheds_title.setText(tr("Sheds"))
             self.add_shed_btn.setEnabled(False)
             return
         
@@ -256,13 +283,14 @@ class FarmFormWidget(QWidget):
         farm_name = self.farms_table.model.item(source_index.row(), 1).text()
 
         self.selected_farm_id = farm_id
-        self.sheds_title.setText(f"Sheds for {farm_name}")
+        # Simple concatenation for title
+        self.sheds_title.setText(f"{tr('Sheds')} - {farm_name}")
         self.add_shed_btn.setEnabled(True)
         self.refresh_sheds()
 
     def refresh_farms(self):
         """Refresh farms table with loading indicator"""
-        self.loading_overlay.set_message("Loading farms...")
+        self.loading_overlay.set_message(tr("Loading..."))
         self.loading_overlay.show()
         QTimer.singleShot(50, self._do_refresh_farms)
     
@@ -292,7 +320,7 @@ class FarmFormWidget(QWidget):
             else:
                 self.farms_table.stacked.setCurrentIndex(0)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load farms: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
         finally:
             self.loading_overlay.hide()
 
@@ -318,14 +346,14 @@ class FarmFormWidget(QWidget):
             else:
                 self.sheds_table.stacked.setCurrentIndex(0)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load sheds: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
 
     def add_action_buttons(self, table, row, item_instance, edit_func, delete_func):
         from egg_farm_system.config import get_asset_path
         edit_btn = QToolButton(); edit_btn.setIcon(QIcon(get_asset_path('icon_edit.svg')))
-        edit_btn.setToolTip('Edit'); edit_btn.clicked.connect(lambda: edit_func(item_instance))
+        edit_btn.setToolTip(tr('Edit')); edit_btn.clicked.connect(lambda: edit_func(item_instance))
         delete_btn = QToolButton(); delete_btn.setIcon(QIcon(get_asset_path('icon_delete.svg')))
-        delete_btn.setToolTip('Delete'); delete_btn.clicked.connect(lambda: delete_func(item_instance))
+        delete_btn.setToolTip(tr('Delete')); delete_btn.clicked.connect(lambda: delete_func(item_instance))
         container = QWidget()
         container.setMinimumHeight(36)
         container.setMaximumHeight(36)
@@ -345,7 +373,7 @@ class FarmFormWidget(QWidget):
         if dialog.exec():
             self.refresh_farms()
             self.farm_changed.emit()
-            success_msg = SuccessMessage(self, "Farm added successfully")
+            success_msg = SuccessMessage(self, tr("Saved successfully"))
             success_msg.show()
 
     def edit_farm(self, farm):
@@ -353,7 +381,7 @@ class FarmFormWidget(QWidget):
         if dialog.exec():
             self.refresh_farms()
             self.farm_changed.emit()
-            success_msg = SuccessMessage(self, "Farm updated successfully")
+            success_msg = SuccessMessage(self, tr("Saved successfully"))
             success_msg.show()
 
     def delete_farm(self, farm):
@@ -363,29 +391,27 @@ class FarmFormWidget(QWidget):
         
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Confirm Delete")
-        msg.setText(f"Are you sure you want to delete the farm '{farm.name}'?")
+        msg.setWindowTitle(tr("Confirm Delete"))
+        msg.setText(f"{tr('Are you sure you want to delete')} '{farm.name}'?")
         
         if shed_count > 0:
             msg.setInformativeText(
-                f"This farm has {shed_count} shed(s) associated with it.\n\n"
-                "Deleting this farm will also delete all associated sheds and their data.\n"
-                "This action cannot be undone."
+                f"{tr('This action cannot be undone')}"
             )
         else:
-            msg.setInformativeText("This action cannot be undone.")
+            msg.setInformativeText(tr("This action cannot be undone"))
         
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.No)
         
         if msg.exec() == QMessageBox.Yes:
             try:
-                self.loading_overlay.set_message("Deleting farm...")
+                self.loading_overlay.set_message(tr("Loading..."))
                 self.loading_overlay.show()
                 QTimer.singleShot(50, lambda: self._do_delete_farm(farm))
             except Exception as e:
                 self.loading_overlay.hide()
-                QMessageBox.critical(self, "Delete Failed", f"Failed to delete farm: {str(e)}")
+                QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
     
     def _do_delete_farm(self, farm):
         """Perform the actual delete"""
@@ -397,14 +423,14 @@ class FarmFormWidget(QWidget):
             self.loading_overlay.hide()
             self.refresh_farms()
             self.farm_changed.emit()
-            success_msg = SuccessMessage(self, f"Farm '{farm_name}' deleted successfully")
+            success_msg = SuccessMessage(self, tr("Saved successfully")) # Generic success
             success_msg.show()
         except Exception as e:
             self.loading_overlay.hide()
             QMessageBox.critical(
                 self, 
-                "Delete Failed", 
-                f"Failed to delete farm.\n\nError: {str(e)}\n\nPlease try again."
+                tr("Error"), 
+                f"{tr('Error')}: {str(e)}"
             )
 
     def add_shed(self):
@@ -413,12 +439,12 @@ class FarmFormWidget(QWidget):
         if dialog.exec():
             data = dialog.get_data()
             try:
-                self.loading_overlay.set_message("Creating shed...")
+                self.loading_overlay.set_message(tr("Loading..."))
                 self.loading_overlay.show()
                 QTimer.singleShot(50, lambda: self._do_add_shed(data))
             except Exception as e:
                 self.loading_overlay.hide()
-                QMessageBox.critical(self, "Error", f"Failed to create shed: {str(e)}")
+                QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
     
     def _do_add_shed(self, data):
         """Perform the actual add"""
@@ -429,23 +455,23 @@ class FarmFormWidget(QWidget):
             self.loading_overlay.hide()
             self.refresh_sheds()
             self.refresh_farms()
-            success_msg = SuccessMessage(self, f"Shed '{data['name']}' created successfully")
+            success_msg = SuccessMessage(self, tr("Saved successfully"))
             success_msg.show()
         except Exception as e:
             self.loading_overlay.hide()
-            QMessageBox.critical(self, "Error", f"Failed to create shed: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
 
     def edit_shed(self, shed):
         dialog = ShedDialog(shed, self)
         if dialog.exec():
             data = dialog.get_data()
             try:
-                self.loading_overlay.set_message("Updating shed...")
+                self.loading_overlay.set_message(tr("Loading..."))
                 self.loading_overlay.show()
                 QTimer.singleShot(50, lambda: self._do_edit_shed(shed, data))
             except Exception as e:
                 self.loading_overlay.hide()
-                QMessageBox.critical(self, "Error", f"Failed to update shed: {str(e)}")
+                QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
     
     def _do_edit_shed(self, shed, data):
         """Perform the actual edit"""
@@ -455,34 +481,31 @@ class FarmFormWidget(QWidget):
             
             self.loading_overlay.hide()
             self.refresh_sheds()
-            success_msg = SuccessMessage(self, f"Shed '{data['name']}' updated successfully")
+            success_msg = SuccessMessage(self, tr("Saved successfully"))
             success_msg.show()
         except Exception as e:
             self.loading_overlay.hide()
-            QMessageBox.critical(self, "Error", f"Failed to update shed: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
 
     def delete_shed(self, shed):
         """Delete shed with detailed confirmation"""
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Confirm Delete")
-        msg.setText(f"Are you sure you want to delete the shed '{shed.name}'?")
-        msg.setInformativeText(
-            f"Capacity: {shed.capacity} birds\n\n"
-            "This action cannot be undone."
-        )
+        msg.setWindowTitle(tr("Confirm Delete"))
+        msg.setText(f"{tr('Are you sure you want to delete')} '{shed.name}'?")
+        msg.setInformativeText(tr("This action cannot be undone"))
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.No)
         
         if msg.exec() == QMessageBox.Yes:
             try:
                 shed_name = shed.name
-                self.loading_overlay.set_message("Deleting shed...")
+                self.loading_overlay.set_message(tr("Loading..."))
                 self.loading_overlay.show()
                 QTimer.singleShot(50, lambda: self._do_delete_shed(shed, shed_name))
             except Exception as e:
                 self.loading_overlay.hide()
-                QMessageBox.critical(self, "Delete Failed", f"Failed to delete shed: {str(e)}")
+                QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
     
     def _do_delete_shed(self, shed, shed_name):
         """Perform the actual delete"""
@@ -493,8 +516,8 @@ class FarmFormWidget(QWidget):
             self.loading_overlay.hide()
             self.refresh_sheds()
             self.refresh_farms()
-            success_msg = SuccessMessage(self, f"Shed '{shed_name}' deleted successfully")
+            success_msg = SuccessMessage(self, tr("Saved successfully"))
             success_msg.show()
         except Exception as e:
             self.loading_overlay.hide()
-            QMessageBox.critical(self, "Delete Failed", f"Failed to delete shed: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")

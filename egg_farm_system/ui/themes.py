@@ -491,6 +491,40 @@ class ThemeManager:
             padding: 20px;
         }}
         
+        /* Premium Dialogs */
+        QDialog {{
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+              stop:0 {ThemeManager.FARM_EGGSHELL_CREAM}, 
+              stop:1 #FEF9F3);
+        }}
+
+        /* Status Labels */
+        QLabel[state="success"] {{
+            color: {ThemeManager.FARM_PASTURE_GREEN};
+            font-weight: bold;
+        }}
+        
+        QLabel[state="warning"] {{
+            color: {ThemeManager.FARM_RUST_ORANGE};
+            font-weight: bold;
+        }}
+        
+        QLabel[state="error"] {{
+            color: #C62828;
+            font-weight: bold;
+        }}
+        
+        QLabel[state="info"] {{
+            color: {ThemeManager.FARM_EARTH_BROWN};
+        }}
+        
+        QLabel#totalLabel {{
+            font-size: 14pt;
+            font-weight: 800;
+            color: {ThemeManager.FARM_DEEP_BROWN};
+            padding: 4px;
+        }}
+
         /* Premium Success/Error/Warning Buttons */
         QPushButton[class="success"] {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,

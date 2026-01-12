@@ -3,7 +3,7 @@
 ## 1. Executive Summary
 The Egg Farm Management System is a robust, desktop-based ERP solution designed specifically for poultry operations. It centralizes the management of farms, production, inventory, finance, and human resources into a single, cohesive interface. Built with Python and Qt (PySide6), it offers a modern, responsive user experience backed by a reliable SQLite database.
 
-**Current Version:** 1.0.2 (Production Ready - Feature Complete)
+**Current Version:** 1.0.3 (Production Ready - Enhanced UI/UX)
 **Platform:** Windows (Standalone Executable)
 
 ## 2. System Architecture
@@ -42,7 +42,7 @@ The Egg Farm Management System is a robust, desktop-based ERP solution designed 
 
 ### 💰 Sales & Distribution
 - **Egg Sales:** Record bulk or carton-based sales to customers.
-- **Raw Material Sales:** Ability to sell excess raw ingredients.
+- **Raw Material Sales:** Ability to sell excess raw ingredients via a modernized sales dialog.
 - **Pricing:** Support for dual currency (AFG/USD) and exchange rates.
 - **Profitability:** Tracking of sales vs. expenses.
 
@@ -61,26 +61,27 @@ The Egg Farm Management System is a robust, desktop-based ERP solution designed 
 - **Payroll:** Manage salary periods (Monthly/Daily) and record payments.
 
 ### 📊 Reporting & Analytics
-- **Financial Reports:** P&L (Profit & Loss), Cash Flow Statement.
+- **Financial Reports:** P&L (Profit & Loss), Cash Flow Statement (Fixed Logic).
 - **Production Reports:** Daily/Monthly summaries, Feed Usage analysis.
 - **Export:** Professional PDF generation with company header/footer; CSV/Excel data dump.
 - **Dashboard:** At-a-glance view of key metrics (Today's eggs, flock health, financials).
 
 ## 4. Current Status & Recent Fixes
 
-### Critical Fixes & Feature Additions (Build v1.0.2)
+### Critical Fixes & Feature Additions (Build v1.0.3)
 The following issues were identified and resolved in the latest build:
 1.  **Missing Icons:** Fixed asset path resolution for the standalone Windows executable (`sys._MEIPASS` support).
 2.  **Creation Crash:** Fixed a critical bug where creating Raw Materials crashed the app due to incorrect model parameter passing.
 3.  **Report Failure:** Fixed broken import paths that prevented "Party Statement" reports from generating.
 4.  **Missing Features:**
-    -   **Flock Management:** Added a dedicated UI module for managing flocks (Create/Edit/Delete) which was previously backend-only.
-    -   **Feed Batches:** Added a "Production History" table to the Feed Management module to view past production batches.
+    -   **Flock Management:** Added a dedicated UI module for managing flocks (Create/Edit/Delete).
+    -   **Feed Batches:** Added a "Production History" table to the Feed Management module.
+5.  **Financial Logic:** Corrected Cash Flow calculation logic to prevent double-counting revenue. Sales/Purchases are now Accrual; Payments are Cash.
 
-### Code Quality Improvements
-- **Import Standardization:** All modules now use absolute imports (`egg_farm_system.modules...`) to prevent runtime errors.
-- **Session Safety:** Implemented `try/finally` blocks and context managers across all database interactions to prevent connection leaks.
-- **Input Validation:** Added rigorous checks (negative numbers, zero quantities) to Sales, Purchases, and Expenses modules.
+### UI/UX Enhancements (New in v1.0.3)
+-   **Design System:** Implemented a unified "Farm Theme" with consistent colors, fonts, and widget styles.
+-   **Modernized Modals:** Refactored `RawMaterialSaleDialog` to use the new design system, improving layout, grouping, and visual hierarchy.
+-   **Semantic Styling:** Added support for status labels (success, warning, error) directly in the theme engine.
 
 ## 5. Current Errors & Limitations
 
@@ -88,12 +89,11 @@ While the application is stable, the following limitations exist:
 
 ### Known Limitations
 1.  **Farm-Specific Sales Filtering:** The `Sale` record is linked to a `Party` (Customer), not a specific `Farm`. Therefore, financial reports cannot filter *Revenue* by Farm, only Expenses and Feed Costs.
-2.  **Single User Local DB:** The application uses a local SQLite database file. It is not designed for simultaneous multi-user access across a network (though the file can be shared, concurrent writes risk corruption).
+2.  **Single User Local DB:** The application uses a local SQLite database file. It is not designed for simultaneous multi-user access across a network.
 3.  **Manual Backup:** While a backup tool exists, there is no automatic scheduled backup to the cloud.
 
 ### Minor Issues
-- **Company Logo:** The PDF exporter supports a company logo, but the default asset is currently skipped to avoid external dependency issues (`svglib`) with the default SVG logo format.
-- **Search Context:** Global search is powerful but may require specific keywords for best results.
+-   **Company Logo:** The PDF exporter supports a company logo, but the default asset is currently skipped to avoid external dependency issues with SVG.
 
 ## 6. Future Planning & Roadmap
 
@@ -113,4 +113,4 @@ While the application is stable, the following limitations exist:
 - [ ] **IoT Integration:** Connect to smart scales or temperature sensors in sheds.
 
 ## 7. Conclusion
-The Egg Farm Management System is now in a **Production Ready** state. All reported missing features (Flock UI, Batch History) and critical bugs have been resolved. The application provides end-to-end coverage of farm operations, from feed manufacturing to financial closing. Future development should focus on data granularity (Batch tracking) and accessibility (Cloud/Mobile).
+The Egg Farm Management System is now in a **Production Ready** state. With the latest UI/UX overhaul and financial logic fixes, it offers a professional, reliable, and user-friendly experience. Future development should focus on data granularity (Batch tracking) and accessibility (Cloud/Mobile).
