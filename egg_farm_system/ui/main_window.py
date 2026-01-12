@@ -541,7 +541,7 @@ class MainWindow(QMainWindow):
         self._update_breadcrumbs("Sell Raw Material", "raw_material_sale")
         self._add_to_history("Sell Raw Material", "raw_material_sale", self.load_raw_material_sale)
     
-    def load_employees_management():
+    def load_employees_management(self):
         """Load employees management widget"""
         self.clear_content()
         employees_widget = EmployeeManagementWidget()
