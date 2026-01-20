@@ -37,6 +37,10 @@ from egg_farm_system.ui.widgets.backup_restore_widget import BackupRestoreWidget
 from egg_farm_system.ui.widgets.global_search_widget import GlobalSearchWidget
 from egg_farm_system.utils.i18n import tr, get_i18n
 from egg_farm_system.ui.animation_helper import AnimationHelper
+from egg_farm_system.ui.widgets.command_palette import CommandPalette
+from egg_farm_system.ui.widgets.import_wizard import ImportWizard
+from egg_farm_system.utils.alert_scheduler import AlertScheduler
+from PySide6.QtGui import QShortcut, QKeySequence
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +90,10 @@ class MainWindow(QMainWindow):
         self.workflow_timer = QTimer()
         self.workflow_timer.timeout.connect(self._run_workflow_tasks)
         self.workflow_timer.start(60000)  # Check every minute
+        
+        # Initialize alert scheduler
+        self.alert_scheduler = AlertScheduler()
+        self.alert_scheduler.start(interval_minutes=30)  # Check alerts every 30 minutes
         
         # Create main layout
         main_widget = QWidget()
@@ -337,6 +345,7 @@ class MainWindow(QMainWindow):
         # System Group
         system_group = CollapsibleGroup(tr("System"))
         system_group.setProperty("i18n_key", "System")
+        add_btn_with_i18n(system_group, "Import Data", self.show_import_wizard, 'icon_reports.svg')
         add_btn_with_i18n(system_group, "Settings", lambda: self._safe_load(self.load_settings), 'icon_reports.svg')
         add_btn_with_i18n(system_group, "Backup & Restore", lambda: self._safe_load(self.load_backup_restore), 'icon_reports.svg')
         add_btn_with_i18n(system_group, "Workflow Automation", lambda: self._safe_load(self.load_workflow_automation), 'icon_reports.svg')
@@ -808,6 +817,10 @@ class MainWindow(QMainWindow):
             "search": self._open_global_search,
         }
         self.shortcut_manager.setup_default_shortcuts(shortcuts)
+        
+        # Add Ctrl+K for command palette
+        self.cmd_palette_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
+        self.cmd_palette_shortcut.activated.connect(self.show_command_palette)
     
     def _open_global_search(self):
         """Open global search dialog"""
@@ -1053,3 +1066,83 @@ class MainWindow(QMainWindow):
             return
         dlg = PasswordChangeDialog(self, target_user_id=self.current_user.id, force=False)
         dlg.exec()
+    
+    def show_command_palette(self):
+        """Show command palette dialog"""
+        palette = CommandPalette(self)
+        palette.command_executed.connect(self.execute_command)
+        # Center on screen
+        palette.move(
+            self.geometry().center() - palette.rect().center()
+        )
+        palette.exec()
+    
+    def execute_command(self, command_id: str, data: dict):
+        """Execute command from palette"""
+        command_map = {
+            # Navigation
+            'goto_dashboard': self.load_dashboard,
+            'goto_farms': self.load_farm_management,
+            'goto_production': self.load_production,
+            'goto_sales': self.load_sales,
+            'goto_purchases': self.load_purchases,
+            'goto_inventory': self.load_inventory,
+            'goto_parties': self.load_parties,
+            'goto_reports': self.load_reports,
+            'goto_expenses': self.load_expenses,
+            'goto_employees': self.load_employees,
+            
+            # Quick Actions
+            'record_production': lambda: self._safe_load(self.load_production),
+            'add_sale': lambda: self._safe_load(self.load_sales),
+            'add_purchase': lambda: self._safe_load(self.load_purchases),
+            'record_mortality': lambda: self._safe_load(self.load_production),
+            'issue_feed': lambda: self._safe_load(self.load_feed_management),
+            'add_expense': lambda: self._safe_load(self.load_expenses),
+            'add_party': lambda: self._safe_load(self.load_parties),
+            'add_payment': lambda: self._safe_load(self.load_parties),
+            
+            # Tools
+            'refresh_dashboard': self._refresh_current_page,
+            'import_data': self.show_import_wizard,
+            'check_alerts': lambda: self.alert_scheduler.check_now(),
+            'backup_database': self.load_backup_restore,
+        }
+        
+        handler = command_map.get(command_id)
+        if handler:
+            try:
+                handler()
+            except Exception as e:
+                logger.error(f"Error executing command {command_id}: {e}")
+                QMessageBox.warning(self, "Error", f"Failed to execute command: {str(e)}")
+    
+    def show_import_wizard(self):
+        """Show import wizard dialog"""
+        wizard = ImportWizard(self)
+        wizard.import_completed.connect(self._on_import_completed)
+        wizard.exec()
+    
+    def _on_import_completed(self, result: dict):
+        """Handle import completion"""
+        if result['status'] == 'success':
+            QMessageBox.information(
+                self,
+                "Import Successful",
+                f"Successfully imported {result['imported']} records!"
+            )
+            # Refresh current view
+            self._refresh_current_page()
+        elif result['imported'] > 0:
+            QMessageBox.warning(
+                self,
+                "Import Completed with Warnings",
+                f"Imported {result['imported']} records with {len(result.get('errors', []))} errors."
+            )
+            self._refresh_current_page()
+        else:
+            QMessageBox.warning(
+                self,
+                "Import Failed",
+                f"Import failed: {result.get('message', 'Unknown error')}"
+            )
