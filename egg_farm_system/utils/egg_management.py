@@ -2,6 +2,8 @@
 Advanced Egg Management System
 Handles tray/carton conversion, expenses, and cost calculations
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import Dict, Optional, Tuple
 from datetime import datetime

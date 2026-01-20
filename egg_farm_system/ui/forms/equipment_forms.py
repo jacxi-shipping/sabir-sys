@@ -1,6 +1,8 @@
 """
 UI Forms for Equipment Management.
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox,
     QDialog, QFormLayout, QLineEdit, QTableWidget, QTableWidgetItem,
@@ -11,6 +13,8 @@ from PySide6.QtGui import QFont
 
 from egg_farm_system.modules.equipments import EquipmentManager
 from egg_farm_system.database.models import EquipmentStatus
+from egg_farm_system.utils.jalali import format_value_for_ui
+from egg_farm_system.ui.widgets.delegates import StatusDelegate
 
 # --- Dialog for Add/Edit Equipment ---
 class EquipmentDialog(QDialog):
@@ -42,11 +46,11 @@ class EquipmentDialog(QDialog):
         buttons.setSpacing(10)
         buttons.setContentsMargins(0, 10, 0, 0)
         buttons.addStretch()
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(tr("Save"))
         save_btn.setMinimumWidth(100)
         save_btn.setMinimumHeight(35)
         save_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(tr("Cancel"))
         cancel_btn.setMinimumWidth(100)
         cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(self.reject)
@@ -68,20 +72,19 @@ class EquipmentFormWidget(QWidget):
     def __init__(self, farm_id):
         super().__init__()
         self.farm_id = farm_id
-        self.manager = EquipmentManager()
         self.init_ui()
         self.load_equipment()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
         
-        title = QLabel("Equipment Management"); title.setFont(QFont("Arial", 14, QFont.Bold))
+        title = QLabel(tr("Equipment Management")); title.setFont(QFont("Arial", 14, QFont.Bold))
         layout.addWidget(title)
 
         buttons_layout = QHBoxLayout()
-        add_btn = QPushButton("Add Equipment"); add_btn.clicked.connect(self.add_equipment)
-        edit_btn = QPushButton("Edit Selected"); edit_btn.clicked.connect(self.edit_equipment)
-        delete_btn = QPushButton("Delete Selected"); delete_btn.clicked.connect(self.delete_equipment)
+        add_btn = QPushButton(tr("Add Equipment")); add_btn.clicked.connect(self.add_equipment)
+        edit_btn = QPushButton(tr("Edit Selected")); edit_btn.clicked.connect(self.edit_equipment)
+        delete_btn = QPushButton(tr("Delete Selected")); delete_btn.clicked.connect(self.delete_equipment)
         buttons_layout.addWidget(add_btn); buttons_layout.addWidget(edit_btn); buttons_layout.addWidget(delete_btn)
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
@@ -92,6 +95,10 @@ class EquipmentFormWidget(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
         self.table.verticalHeader().setMinimumSectionSize(40)
         self.table.verticalHeader().setDefaultSectionSize(40)
+        
+        # Apply Status Delegate
+        self.table.setItemDelegateForColumn(5, StatusDelegate(self.table))
+        
         layout.addWidget(self.table)
 
     def set_farm_id(self, farm_id):
@@ -103,19 +110,20 @@ class EquipmentFormWidget(QWidget):
         if not self.farm_id:
             return
             
-        equipments = self.manager.get_all_equipment(farm_id=self.farm_id)
-        for row, eq in enumerate(equipments):
-            self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(eq.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(eq.name))
-            self.table.setItem(row, 2, QTableWidgetItem(eq.description))
-            self.table.setItem(row, 3, QTableWidgetItem(eq.purchase_date.strftime("%Y-%m-%d") if eq.purchase_date else ""))
-            self.table.setItem(row, 4, QTableWidgetItem(f"{eq.purchase_price:,.0f}" if eq.purchase_price else ""))
-            self.table.setItem(row, 5, QTableWidgetItem(eq.status.value))
+        with EquipmentManager() as em:
+            equipments = em.get_all_equipment(farm_id=self.farm_id)
+            for row, eq in enumerate(equipments):
+                self.table.insertRow(row)
+                self.table.setItem(row, 0, QTableWidgetItem(str(eq.id)))
+                self.table.setItem(row, 1, QTableWidgetItem(eq.name))
+                self.table.setItem(row, 2, QTableWidgetItem(eq.description))
+                self.table.setItem(row, 3, QTableWidgetItem(format_value_for_ui(eq.purchase_date) if eq.purchase_date else ""))
+                self.table.setItem(row, 4, QTableWidgetItem(f"{eq.purchase_price:,.0f}" if eq.purchase_price else ""))
+                self.table.setItem(row, 5, QTableWidgetItem(eq.status.value))
 
     def add_equipment(self):
         if not self.farm_id:
-            QMessageBox.warning(self, "Warning", "Please select a farm first.")
+            QMessageBox.warning(self, tr("Warning"), "Please select a farm first.")
             return
             
         dialog = EquipmentDialog(parent=self)
@@ -123,34 +131,41 @@ class EquipmentFormWidget(QWidget):
             try:
                 data = dialog.get_data()
                 data['farm_id'] = self.farm_id
-                self.manager.create_equipment(**data)
+                with EquipmentManager() as em:
+                    em.create_equipment(**data)
                 self.load_equipment()
-            except Exception as e: QMessageBox.critical(self, "Error", str(e))
+            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
 
     def edit_equipment(self):
         row = self.table.currentRow()
-        if row < 0: return QMessageBox.warning(self, "Selection Error", "Please select an equipment to edit.")
+        if row < 0: return QMessageBox.warning(self, tr("Selection Error"), "Please select an equipment to edit.")
         eq_id = int(self.table.item(row, 0).text())
-        equipment = self.manager.get_equipment_by_id(eq_id)
-        dialog = EquipmentDialog(equipment, self)
-        if dialog.exec():
-            try:
-                self.manager.update_equipment(eq_id, **dialog.get_data())
-                self.load_equipment()
-            except Exception as e: QMessageBox.critical(self, "Error", str(e))
+        
+        with EquipmentManager() as em:
+            equipment = em.get_equipment_by_id(eq_id)
+            if not equipment:
+                return QMessageBox.warning(self, tr("Error"), "Equipment not found.")
+            
+            dialog = EquipmentDialog(equipment, self)
+            if dialog.exec():
+                try:
+                    em.update_equipment(eq_id, **dialog.get_data())
+                    self.load_equipment()
+                except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
     
     def delete_equipment(self):
         row = self.table.currentRow()
-        if row < 0: return QMessageBox.warning(self, "Selection Error", "Please select an equipment to delete.")
+        if row < 0: return QMessageBox.warning(self, tr("Selection Error"), "Please select an equipment to delete.")
         eq_id = int(self.table.item(row, 0).text())
         
         reply = QMessageBox.question(self, "Confirm Deletion", "Are you sure you want to delete this equipment record?")
         
         if reply == QMessageBox.Yes:
             try:
-                self.manager.delete_equipment(eq_id)
+                with EquipmentManager() as em:
+                    em.delete_equipment(eq_id)
                 self.load_equipment()
-            except Exception as e: QMessageBox.critical(self, "Error", str(e))
+            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
             
     def refresh_data(self):
         self.load_equipment()

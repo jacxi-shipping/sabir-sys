@@ -52,6 +52,13 @@ class DatabaseManager:
                 cursor.close()
             
             # Create all tables
+            # Ensure all model modules are imported so their tables are registered
+            try:
+                import egg_farm_system.database.models as _models  # noqa: F401
+            except Exception:
+                # If models fail to import, let create_all run; errors will surface
+                logger.exception("Failed to import models before creating tables")
+
             Base.metadata.create_all(bind=cls._engine)
             cls._SessionLocal = sessionmaker(
                 autocommit=False,
@@ -69,6 +76,12 @@ class DatabaseManager:
             
             from egg_farm_system.database.migrate_raw_materials_avg_cost import migrate_raw_materials_avg_cost
             migrate_raw_materials_avg_cost()
+
+            from egg_farm_system.database.migrate_egg_inventory import migrate_egg_inventory
+            migrate_egg_inventory()
+
+            from egg_farm_system.database.migrate_egg_production_packaging import migrate_egg_production_packaging
+            migrate_egg_production_packaging()
             
             logger.info("Database initialized successfully with performance optimizations")
             

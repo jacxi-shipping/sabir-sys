@@ -29,7 +29,7 @@ class ShedDialog(QDialog):
         self.name_edit = QLineEdit(shed.name if shed else "")
         self.name_edit.setToolTip(tr("Enter the name of the shed (required)"))
         # Placeholder text might need translation too, but QLineEdit doesn't support i18n_key easily without subclass
-        self.name_edit.setPlaceholderText("e.g., Shed A, North Shed") 
+        self.name_edit.setPlaceholderText(tr("e.g., Shed A, North Shed")) 
         self.capacity_spin = QSpinBox()
         self.capacity_spin.setRange(1, 100000)
         self.capacity_spin.setValue(shed.capacity if shed else 1000)
@@ -92,10 +92,10 @@ class FarmDialog(QDialog):
         layout = QFormLayout(self)
         self.name_edit = QLineEdit()
         self.name_edit.setToolTip(tr("Enter the name of the farm (required)"))
-        self.name_edit.setPlaceholderText("e.g., Main Farm, North Farm")
+        self.name_edit.setPlaceholderText(tr("e.g., Main Farm, North Farm"))
         self.location_edit = QLineEdit()
         self.location_edit.setToolTip(tr("Enter the location/address of the farm (optional)"))
-        self.location_edit.setPlaceholderText("e.g., Kabul, District 5")
+        self.location_edit.setPlaceholderText(tr("e.g., Kabul, District 5"))
         if farm:
             self.name_edit.setText(farm.name)
             self.location_edit.setText(farm.location or "")

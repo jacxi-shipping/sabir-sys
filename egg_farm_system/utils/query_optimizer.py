@@ -1,6 +1,8 @@
 """
 Query optimization utilities to prevent N+1 queries and improve database performance
 """
+from egg_farm_system.utils.i18n import tr
+
 from sqlalchemy.orm import joinedload, selectinload, contains_eager
 from sqlalchemy import func
 import logging

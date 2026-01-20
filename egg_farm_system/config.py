@@ -1,6 +1,8 @@
 """
 Configuration file for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import os
 import sys
 from pathlib import Path
@@ -42,6 +44,9 @@ MAX_FARMS = 4
 WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 900
 SIDEBAR_WIDTH = 250
+
+# Theme
+DEFAULT_THEME = "farm"
 
 # Expense categories
 EXPENSE_CATEGORIES = [

@@ -1,6 +1,8 @@
 """
 Form widgets for parties
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QFormLayout,
@@ -29,8 +31,9 @@ class PartyFormWidget(QWidget):
     
     def __init__(self):
         super().__init__()
-        self.party_manager = PartyManager()
+        # self.party_manager removed - using context manager
         self.ledger_manager = LedgerManager()
+        self.converter = CurrencyConverter()
         self.loading_overlay = LoadingOverlay(self)
         self.init_ui()
         self.refresh_parties()
@@ -41,20 +44,20 @@ class PartyFormWidget(QWidget):
         
         # Header: title left, actions right
         header_hbox = QHBoxLayout()
-        title = QLabel("Party Management")
+        title = QLabel(tr("Party Management"))
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
         title.setFont(title_font)
         header_hbox.addWidget(title)
         header_hbox.addStretch()
-        transaction_btn = QPushButton("Add Transaction")
+        transaction_btn = QPushButton(tr("Add Transaction"))
         transaction_btn.clicked.connect(self.add_transaction)
-        transaction_btn.setToolTip("Add credit/debit transaction to a party")
+        transaction_btn.setToolTip(tr("Add credit/debit transaction to a party"))
         header_hbox.addWidget(transaction_btn)
-        new_party_btn = QPushButton("Add New Party")
+        new_party_btn = QPushButton(tr("Add New Party"))
         new_party_btn.clicked.connect(self.add_party)
-        new_party_btn.setToolTip("Add a new party (Ctrl+N)")
+        new_party_btn.setToolTip(tr("Add a new party (Ctrl+N)"))
         header_hbox.addWidget(new_party_btn)
         
         # Add keyboard shortcuts
@@ -81,29 +84,60 @@ class PartyFormWidget(QWidget):
     def _do_refresh_parties(self):
         """Perform the actual refresh"""
         try:
-            parties = self.party_manager.get_all_parties()
-            rows = []
-            action_widgets = []
-            for row, party in enumerate(parties):
-                balance_afg = self.ledger_manager.get_party_balance(party.id, "AFG")
-                balance_usd = self.ledger_manager.get_party_balance(party.id, "USD")
-                rows.append([party.name, party.phone or "", f"{balance_afg:,.2f}", f"{balance_usd:,.2f}", ""])
-                action_widgets.append((row, party))
+            with PartyManager() as pm:
+                parties = pm.get_all_parties()
+                rows = []
+                action_widgets = []
+                for row, party in enumerate(parties):
+                    balance_afg = self.ledger_manager.get_party_balance(party.id, "AFG")
+                    balance_usd = self.ledger_manager.get_party_balance(party.id, "USD")
+                    rows.append([party.name, party.phone or "", f"{balance_afg:,.2f}", f"{balance_usd:,.2f}", ""])
+                    action_widgets.append((row, party.id, party.name, balance_afg, balance_usd)) # Store minimal data
+                
             self.loading_overlay.hide()
             self.table.set_rows(rows)
+            
+            # Apply color formatting to balance columns
+            from PySide6.QtGui import QColor
+            for row_idx, party_id, party_name, balance_afg, balance_usd in action_widgets:
+                # Balance AFG column (column 2)
+                afg_item = self.table.model.item(row_idx, 2)
+                if afg_item:
+                    if balance_afg < 0:
+                        afg_item.setForeground(QColor("#C62828"))  # Red for negative
+                    elif balance_afg > 0:
+                        afg_item.setForeground(QColor("#2E7D32"))  # Green for positive
+                    else:
+                        afg_item.setForeground(QColor("#000000"))  # Black for zero
+                
+                # Balance USD column (column 3)
+                usd_item = self.table.model.item(row_idx, 3)
+                if usd_item:
+                    if balance_usd < 0:
+                        usd_item.setForeground(QColor("#C62828"))  # Red for negative
+                    elif balance_usd > 0:
+                        usd_item.setForeground(QColor("#2E7D32"))  # Green for positive
+                    else:
+                        usd_item.setForeground(QColor("#000000"))  # Black for zero
             from egg_farm_system.config import get_asset_path
             view_icon = Path(get_asset_path('icon_view.svg'))
             edit_icon = Path(get_asset_path('icon_edit.svg'))
             delete_icon = Path(get_asset_path('icon_delete.svg'))
-            for row_idx, party in action_widgets:
+            
+            # Re-fetch party for actions if needed, or pass data struct.
+            # Lambda capture needs to be careful.
+            # Using Party object from closed session is risky. We should fetch fresh in action or pass ID.
+            # Here I'll just pass IDs to helper methods which will fetch fresh.
+            
+            for row_idx, party_id, party_name, balance_afg, balance_usd in action_widgets:
                 view_btn = QToolButton()
                 view_btn.setAutoRaise(True)
                 view_btn.setFixedSize(28, 28)
                 if view_icon.exists():
                     view_btn.setIcon(QIcon(str(view_icon)))
                     view_btn.setIconSize(QSize(20, 20))
-                view_btn.setToolTip('View')
-                view_btn.clicked.connect(lambda checked, p=party: self.view_party(p))
+                view_btn.setToolTip(tr('View'))
+                view_btn.clicked.connect(lambda checked, pid=party_id: self.view_party(pid))
 
                 edit_btn = QToolButton()
                 edit_btn.setAutoRaise(True)
@@ -111,8 +145,8 @@ class PartyFormWidget(QWidget):
                 if edit_icon.exists():
                     edit_btn.setIcon(QIcon(str(edit_icon)))
                     edit_btn.setIconSize(QSize(20, 20))
-                edit_btn.setToolTip('Edit')
-                edit_btn.clicked.connect(lambda checked, p=party: self.edit_party(p))
+                edit_btn.setToolTip(tr('Edit'))
+                edit_btn.clicked.connect(lambda checked, pid=party_id: self.edit_party(pid))
 
                 delete_btn = QToolButton()
                 delete_btn.setAutoRaise(True)
@@ -120,8 +154,8 @@ class PartyFormWidget(QWidget):
                 if delete_icon.exists():
                     delete_btn.setIcon(QIcon(str(delete_icon)))
                     delete_btn.setIconSize(QSize(20, 20))
-                delete_btn.setToolTip('Delete')
-                delete_btn.clicked.connect(lambda checked, p=party: self.delete_party(p))
+                delete_btn.setToolTip(tr('Delete'))
+                delete_btn.clicked.connect(lambda checked, pid=party_id, pname=party_name: self.delete_party(pid, pname))
 
                 container = QWidget()
                 container.setMinimumHeight(36)
@@ -135,53 +169,59 @@ class PartyFormWidget(QWidget):
                 l.addStretch()
                 self.table.set_cell_widget(row_idx, 4, container)
             
-            # Data rows have been populated via `set_rows` above and action
-            # widgets were attached using `set_cell_widget` already. No further
-            # per-cell population is required for the DataTableWidget.
         except Exception as e:
             self.loading_overlay.hide()
-            QMessageBox.critical(self, "Error", f"Failed to load parties: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to load parties: {str(e)}")
     
     def add_transaction(self):
         """Add credit/debit transaction dialog"""
-        dialog = PartyTransactionDialog(self, self.party_manager, self.ledger_manager)
-        if dialog.exec():
-            self.refresh_parties()
-            success_msg = SuccessMessage(self, "Transaction recorded successfully")
-            success_msg.show()
+        from egg_farm_system.ui.forms.add_transaction_dialog import AddTransactionDialog
+        # We pass PartyManager class or create new one inside. 
+        # AddTransactionDialog seems to take party_manager instance.
+        with PartyManager() as pm:
+            dialog = AddTransactionDialog(self, party=None, transaction_type="Debit", ledger_manager=self.ledger_manager, converter=self.converter, party_manager=pm)
+            if dialog.exec():
+                self.refresh_parties()
+                success_msg = SuccessMessage(self, "Transaction recorded successfully")
+                success_msg.show()
     
     def add_party(self):
         """Add new party dialog"""
-        dialog = PartyDialog(self, None, self.party_manager)
-        if dialog.exec():
-            self.refresh_parties()
-            success_msg = SuccessMessage(self, "Party added successfully")
-            success_msg.show()
+        with PartyManager() as pm:
+            dialog = PartyDialog(self, None, pm)
+            if dialog.exec():
+                self.refresh_parties()
+                # success message handled in dialog
     
-    def view_party(self, party):
+    def view_party(self, party_id):
         """View party ledger with premium dialog"""
         from egg_farm_system.ui.widgets.party_view_dialog import PartyViewDialog
-        dialog = PartyViewDialog(self, party)
-        dialog.exec()
+        with PartyManager() as pm:
+            party = pm.get_party_by_id(party_id)
+            if party:
+                dialog = PartyViewDialog(self, party)
+                dialog.exec()
     
-    def edit_party(self, party):
+    def edit_party(self, party_id):
         """Edit party dialog"""
-        dialog = PartyDialog(self, party, self.party_manager)
-        if dialog.exec():
-            self.refresh_parties()
-            success_msg = SuccessMessage(self, "Party updated successfully")
-            success_msg.show()
+        with PartyManager() as pm:
+            party = pm.get_party_by_id(party_id)
+            if party:
+                dialog = PartyDialog(self, party, pm)
+                if dialog.exec():
+                    self.refresh_parties()
+                    # success message handled in dialog
     
-    def delete_party(self, party):
+    def delete_party(self, party_id, party_name):
         """Delete party with detailed confirmation"""
         # Get party balance info
-        balance_afg = self.ledger_manager.get_party_balance(party.id, "AFG")
-        balance_usd = self.ledger_manager.get_party_balance(party.id, "USD")
+        balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG")
+        balance_usd = self.ledger_manager.get_party_balance(party_id, "USD")
         
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Confirm Delete")
-        msg.setText(f"Are you sure you want to delete the party '{party.name}'?")
+        msg.setWindowTitle(tr("Confirm Delete"))
+        msg.setText(f"Are you sure you want to delete the party '{party_name}'?")
         
         balance_info = ""
         if balance_afg != 0 or balance_usd != 0:
@@ -193,40 +233,38 @@ class PartyFormWidget(QWidget):
                 "Deleting will remove all transaction history."
             )
         
-        msg.setInformativeText(
-            f"Phone: {party.phone or 'N/A'}\n"
-            f"Address: {party.address or 'N/A'}\n"
-            f"{balance_info}\n"
-            "This action cannot be undone."
-        )
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg.setDefaultButton(QMessageBox.No)
-        
-        if msg.exec() == QMessageBox.Yes:
-            try:
-                party_name = party.name
-                self.loading_overlay.set_message("Deleting party...")
-                self.loading_overlay.show()
-                QTimer.singleShot(50, lambda: self._do_delete_party(party, party_name))
-            except Exception as e:
-                self.loading_overlay.hide()
-                QMessageBox.critical(self, "Delete Failed", f"Failed to delete party: {str(e)}")
-    
-    def _do_delete_party(self, party, party_name):
-        """Perform the actual delete"""
-        try:
-            self.party_manager.delete_party(party.id)
-            self.loading_overlay.hide()
-            self.refresh_parties()
-            success_msg = SuccessMessage(self, f"Party '{party_name}' deleted successfully")
-            success_msg.show()
-        except Exception as e:
-            self.loading_overlay.hide()
-            QMessageBox.critical(
-                self, 
-                "Delete Failed", 
-                f"Failed to delete party.\n\nError: {str(e)}\n\nPlease try again."
+        # Can't get other details like phone/address easily without querying again, skipping for now or query
+        with PartyManager() as pm:
+            party = pm.get_party_by_id(party_id)
+            if not party: return
+
+            msg.setInformativeText(
+                f"Phone: {party.phone or 'N/A'}\n"
+                f"Address: {party.address or 'N/A'}\n"
+                f"{balance_info}\n"
+                "This action cannot be undone."
             )
+            msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg.setDefaultButton(QMessageBox.No)
+            
+            if msg.exec() == QMessageBox.Yes:
+                try:
+                    self.loading_overlay.set_message("Deleting party...")
+                    self.loading_overlay.show()
+                    # Need to perform deletion in a way that doesn't block UI but here we are in same thread
+                    # For safety, doing it directly
+                    pm.delete_party(party.id)
+                    self.loading_overlay.hide()
+                    self.refresh_parties()
+                    success_msg = SuccessMessage(self, f"Party '{party_name}' deleted successfully")
+                    success_msg.show()
+                except Exception as e:
+                    self.loading_overlay.hide()
+                    QMessageBox.critical(
+                        self, 
+                        tr("Delete Failed"), 
+                        f"Failed to delete party.\n\nError: {str(e)}\n\nPlease try again."
+                    )
 
 
 class PartyDialog(QDialog):
@@ -243,13 +281,13 @@ class PartyDialog(QDialog):
         layout = QFormLayout()
         
         self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("e.g., ABC Company, John Doe")
+        self.name_edit.setPlaceholderText(tr("e.g., ABC Company, John Doe"))
         self.phone_edit = QLineEdit()
-        self.phone_edit.setPlaceholderText("e.g., +93 700 123 456")
+        self.phone_edit.setPlaceholderText(tr("e.g., +93 700 123 456"))
         self.address_edit = QTextEdit()
-        self.address_edit.setPlaceholderText("Enter full address...")
+        self.address_edit.setPlaceholderText(tr("Enter full address..."))
         self.notes_edit = QTextEdit()
-        self.notes_edit.setPlaceholderText("Any additional notes...")
+        self.notes_edit.setPlaceholderText(tr("Any additional notes..."))
         
         if party:
             self.name_edit.setText(party.name)
@@ -258,16 +296,16 @@ class PartyDialog(QDialog):
             self.notes_edit.setText(party.notes or "")
         
         # Required field indicators and tooltips
-        self.name_edit.setToolTip("Enter the party name (required)")
-        self.phone_edit.setToolTip("Enter phone number (optional)")
-        self.address_edit.setToolTip("Enter address (optional)")
-        self.notes_edit.setToolTip("Enter any additional notes (optional)")
+        self.name_edit.setToolTip(tr("Enter the party name (required)"))
+        self.phone_edit.setToolTip(tr("Enter phone number (optional)"))
+        self.address_edit.setToolTip(tr("Enter address (optional)"))
+        self.notes_edit.setToolTip(tr("Enter any additional notes (optional)"))
         
-        name_label = QLabel("Name: <span style='color: red;'>*</span>")
+        name_label = QLabel(tr("Name: <span style='color: red;'>*</span>"))
         name_label.setTextFormat(Qt.RichText)
-        phone_label = QLabel("Phone:")
-        address_label = QLabel("Address:")
-        notes_label = QLabel("Notes:")
+        phone_label = QLabel(tr("Phone:"))
+        address_label = QLabel(tr("Address:"))
+        notes_label = QLabel(tr("Notes:"))
         
         layout.addRow(name_label, self.name_edit)
         layout.addRow(phone_label, self.phone_edit)
@@ -280,10 +318,10 @@ class PartyDialog(QDialog):
         btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(tr("Save"))
         save_btn.setMinimumWidth(100)
         save_btn.setMinimumHeight(35)
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(tr("Cancel"))
         cancel_btn.setMinimumWidth(100)
         cancel_btn.setMinimumHeight(35)
         
@@ -307,7 +345,7 @@ class PartyDialog(QDialog):
         if not name:
             QMessageBox.warning(
                 self, 
-                "Validation Error", 
+                tr("Validation Error"), 
                 "Party name is required. Please enter a name for the party."
             )
             return
@@ -342,13 +380,13 @@ class PartyDialog(QDialog):
         except ValueError as e:
             loading.hide()
             loading.deleteLater()
-            QMessageBox.warning(self, "Validation Error", f"Invalid input: {str(e)}")
+            QMessageBox.warning(self, tr("Validation Error"), f"Invalid input: {str(e)}")
         except Exception as e:
             loading.hide()
             loading.deleteLater()
             QMessageBox.critical(
                 self, 
-                "Save Failed", 
+                tr("Save Failed"), 
                 f"Failed to save party.\n\nError: {str(e)}\n\nPlease check your input and try again."
             )
 
@@ -363,7 +401,7 @@ class PartyTransactionDialog(QDialog):
         self.converter = CurrencyConverter()
         self.exchange_rate = self.converter.get_exchange_rate()
         
-        self.setWindowTitle("Add Party Transaction")
+        self.setWindowTitle(tr("Add Party Transaction"))
         self.setMinimumSize(550, 500)
         self.setModal(True)
         
@@ -378,7 +416,7 @@ class PartyTransactionDialog(QDialog):
         main_layout.setContentsMargins(20, 20, 20, 20)
         
         # Title
-        title = QLabel("Party Transaction")
+        title = QLabel(tr("Party Transaction"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -398,7 +436,7 @@ class PartyTransactionDialog(QDialog):
         transaction_layout.addRow("Party:", self.party_combo)
         
         # Current Balance Display
-        self.balance_label = QLabel("Current Balance: N/A")
+        self.balance_label = QLabel(tr("Current Balance: N/A"))
         self.balance_label.setFont(QFont("Arial", 10))
         self.balance_label.setStyleSheet("color: #2c3e50; font-weight: bold; padding: 5px;")
         transaction_layout.addRow("Balance:", self.balance_label)
@@ -423,7 +461,7 @@ class PartyTransactionDialog(QDialog):
         
         # Description
         self.description_edit = QLineEdit()
-        self.description_edit.setPlaceholderText("e.g., Manual adjustment, Payment received, etc.")
+        self.description_edit.setPlaceholderText(tr("e.g., Manual adjustment, Payment received, etc."))
         self.description_edit.setMinimumWidth(250)
         transaction_layout.addRow("Description:", self.description_edit)
         
@@ -471,12 +509,12 @@ class PartyTransactionDialog(QDialog):
         preview_layout.setSpacing(10)
         preview_layout.setLabelAlignment(Qt.AlignRight)
         
-        self.new_balance_afg_label = QLabel("0.00 AFG")
+        self.new_balance_afg_label = QLabel(tr("0.00 AFG"))
         self.new_balance_afg_label.setFont(QFont("Arial", 11, QFont.Bold))
         self.new_balance_afg_label.setStyleSheet("color: #27ae60; padding: 5px;")
         preview_layout.addRow("New Balance (AFG):", self.new_balance_afg_label)
         
-        self.new_balance_usd_label = QLabel("0.00 USD")
+        self.new_balance_usd_label = QLabel(tr("0.00 USD"))
         self.new_balance_usd_label.setFont(QFont("Arial", 11, QFont.Bold))
         self.new_balance_usd_label.setStyleSheet("color: #2980b9; padding: 5px;")
         preview_layout.addRow("New Balance (USD):", self.new_balance_usd_label)
@@ -491,7 +529,7 @@ class PartyTransactionDialog(QDialog):
         button_layout.setSpacing(10)
         button_layout.addStretch()
         
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton(tr("Cancel"))
         self.cancel_btn.setMinimumSize(120, 40)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
@@ -509,7 +547,7 @@ class PartyTransactionDialog(QDialog):
         self.cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(self.cancel_btn)
         
-        self.save_btn = QPushButton("Save Transaction")
+        self.save_btn = QPushButton(tr("Save Transaction"))
         self.save_btn.setMinimumSize(150, 40)
         self.save_btn.setStyleSheet("""
             QPushButton {
@@ -571,7 +609,7 @@ class PartyTransactionDialog(QDialog):
             self.balance_label.setText(balance_text)
             self.update_preview()
         else:
-            self.balance_label.setText("Current Balance: N/A")
+            self.balance_label.setText(tr("Current Balance: N/A"))
             self.balance_label.setStyleSheet("color: #7f8c8d;")
     
     def on_amount_afg_changed(self):
@@ -594,8 +632,8 @@ class PartyTransactionDialog(QDialog):
         """Update balance preview after transaction"""
         party_id = self.party_combo.currentData()
         if not party_id:
-            self.new_balance_afg_label.setText("0.00 AFG")
-            self.new_balance_usd_label.setText("0.00 USD")
+            self.new_balance_afg_label.setText(tr("0.00 AFG"))
+            self.new_balance_usd_label.setText(tr("0.00 USD"))
             return
         
         current_balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG")
@@ -632,19 +670,19 @@ class PartyTransactionDialog(QDialog):
             # Validation
             party_id = self.party_combo.currentData()
             if not party_id:
-                QMessageBox.warning(self, "Validation Error", "Please select a party.")
+                QMessageBox.warning(self, tr("Validation Error"), "Please select a party.")
                 return
             
             description = self.description_edit.text().strip()
             if not description:
-                QMessageBox.warning(self, "Validation Error", "Please enter a description for the transaction.")
+                QMessageBox.warning(self, tr("Validation Error"), "Please enter a description for the transaction.")
                 return
             
             amount_afg = self.amount_afg_spin.value()
             amount_usd = self.amount_usd_spin.value()
             
             if amount_afg <= 0 and amount_usd <= 0:
-                QMessageBox.warning(self, "Validation Error", "At least one amount (AFG or USD) must be greater than 0.")
+                QMessageBox.warning(self, tr("Validation Error"), "At least one amount (AFG or USD) must be greater than 0.")
                 return
             
             transaction_type = self.transaction_type_combo.currentText()
@@ -685,7 +723,7 @@ class PartyTransactionDialog(QDialog):
                     )
                 
                 session.commit()
-                QMessageBox.information(self, "Success", f"{transaction_type} transaction recorded successfully!")
+                QMessageBox.information(self, tr("Success"), f"{transaction_type} transaction recorded successfully!")
                 self.accept()
             except Exception as e:
                 session.rollback()
@@ -694,7 +732,7 @@ class PartyTransactionDialog(QDialog):
                 session.close()
         
         except ValueError as ve:
-            QMessageBox.warning(self, "Validation Error", str(ve))
+            QMessageBox.warning(self, tr("Validation Error"), str(ve))
         except Exception as e:
             logger.error(f"Error saving transaction: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to save transaction: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to save transaction: {str(e)}")

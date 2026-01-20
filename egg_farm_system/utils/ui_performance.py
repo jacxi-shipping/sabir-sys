@@ -1,6 +1,8 @@
 """
 UI performance optimization utilities including lazy loading and pagination
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import List, Dict, Any, Callable, Optional
 from datetime import datetime

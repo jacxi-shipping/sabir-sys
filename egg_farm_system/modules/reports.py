@@ -21,8 +21,25 @@ logger = logging.getLogger(__name__)
 class ReportGenerator:
     """Generate various reports"""
     
-    def __init__(self):
-        self.session = DatabaseManager.get_session()
+    def __init__(self, session=None):
+        self._owned_session = False
+        if session:
+            self.session = session
+        else:
+            self.session = DatabaseManager.get_session()
+            self._owned_session = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
+
+    def close_session(self):
+        """Close database session if it was created by this instance."""
+        if self._owned_session and self.session:
+            self.session.close()
+            self.session = None
 
     def get_daily_production_summary(self, farm_id, days=30):
         """

@@ -1,11 +1,12 @@
 """
 Inventory management module
 """
-from egg_farm_system.database.models import RawMaterial, FinishedFeed
+from egg_farm_system.database.models import RawMaterial, FinishedFeed, EggInventory, EggGrade
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.utils.advanced_caching import dashboard_cache, CacheInvalidationManager
 from egg_farm_system.utils.performance_monitoring import measure_time
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -172,5 +173,90 @@ class InventoryManager:
             return []
         finally:
             session.close()
+
+    # --- Egg inventory and packaging helpers ---
+    def ensure_packaging_materials(self, session):
+        """Ensure RawMaterial entries for Carton and Tray exist."""
+        carton = session.query(RawMaterial).filter(RawMaterial.name == 'Carton').first()
+        tray = session.query(RawMaterial).filter(RawMaterial.name == 'Tray').first()
+        created = False
+        if not carton:
+            carton = RawMaterial(name='Carton', unit='pcs', current_stock=0)
+            session.add(carton)
+            created = True
+        if not tray:
+            tray = RawMaterial(name='Tray', unit='pcs', current_stock=0)
+            session.add(tray)
+            created = True
+        if created:
+            session.flush()
+        return carton, tray
+
+    def add_eggs(self, session, small=0, medium=0, large=0):
+        """Add eggs produced to `egg_inventory` by grade."""
+        for grade_name, count in (('SMALL', small), ('MEDIUM', medium), ('LARGE', large)):
+            if count <= 0:
+                continue
+            grade_enum = EggGrade[grade_name]
+            inv = session.query(EggInventory).filter(EggInventory.grade == grade_enum).first()
+            if not inv:
+                inv = EggInventory(grade=grade_enum, current_stock=0)
+                session.add(inv)
+                session.flush()
+            inv.current_stock = (inv.current_stock or 0) + int(count)
+            session.add(inv)
+
+    def total_usable_eggs(self, session):
+        rows = session.query(EggInventory).all()
+        return sum(r.current_stock for r in rows)
+
+    def consume_eggs(self, session, quantity):
+        """Consume eggs from inventory. Deducts from Large -> Medium -> Small.
+        Raises ValueError if insufficient stock.
+        Returns breakdown consumed per grade.
+        """
+        if quantity <= 0:
+            return {'small':0,'medium':0,'large':0}
+        total = self.total_usable_eggs(session)
+        if total < quantity:
+            raise ValueError(f"Insufficient egg stock. Available: {total}, requested: {quantity}")
+
+        remaining = int(quantity)
+        consumed = {'large':0,'medium':0,'small':0}
+        order = [('LARGE','large'), ('MEDIUM','medium'), ('SMALL','small')]
+        for enum_name, key in order:
+            if remaining <= 0:
+                break
+            grade_enum = EggGrade[enum_name]
+            inv = session.query(EggInventory).filter(EggInventory.grade == grade_enum).first()
+            avail = inv.current_stock if inv else 0
+            take = min(avail, remaining)
+            if take > 0:
+                inv.current_stock = avail - take
+                session.add(inv)
+                consumed[key] = take
+                remaining -= take
+        if remaining != 0:
+            raise ValueError("Failed to consume required eggs; inventory mismatch")
+        return consumed
+
+    def consume_packaging(self, session, cartons_needed, trays_needed):
+        """Consume integer cartons and trays from RawMaterial entries.
+        Raises ValueError if insufficient packaging stock.
+        """
+        cartons_needed = int(math.ceil(cartons_needed)) if cartons_needed else 0
+        trays_needed = int(math.ceil(trays_needed)) if trays_needed else 0
+        carton, tray = self.ensure_packaging_materials(session)
+
+        if carton.current_stock < cartons_needed:
+            raise ValueError(f"Insufficient Carton stock. Available: {carton.current_stock}, required: {cartons_needed}")
+        if tray.current_stock < trays_needed:
+            raise ValueError(f"Insufficient Tray stock. Available: {tray.current_stock}, required: {trays_needed}")
+
+        carton.current_stock -= cartons_needed
+        tray.current_stock -= trays_needed
+        session.add(carton)
+        session.add(tray)
+        return {'cartons_consumed':cartons_needed, 'trays_consumed':trays_needed}
     
 

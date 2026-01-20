@@ -117,3 +117,67 @@ QPushButton#collapse_btn {
   border: none;
   background: transparent;
 }
+
+/* Class-based button styles (use QPushButton.setProperty('class', 'name')) */
+QPushButton[class="primary"] {
+  background-color: #1976d2;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+QPushButton[class="primary"]:hover { background-color: #1565c0; }
+
+QPushButton[class="danger"] {
+  background-color: #c62828;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+QPushButton[class="danger"]:hover { background-color: #d32f2f; }
+
+QPushButton[class="success"] {
+  background-color: #388e3c;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+QPushButton[class="success"]:hover { background-color: #2e7d32; }
+
+QPushButton[class="ghost"] {
+  background-color: transparent;
+  color: #2b2b2b;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+QPushButton[class="ghost"]:hover { background-color: #f5f7fb; }
+
+/* Loading overlay and message classes */
+QWidget[class="loading-overlay"] {
+  background-color: rgba(0, 0, 0, 120);
+}
+QLabel[class="loading-label"] {
+  background-color: rgba(255, 255, 255, 240);
+  border-radius: 8px;
+  padding: 18px 24px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #333333;
+}
+
+QLabel[class="success-message"] {
+  color: #155724;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+QLabel[class="badge-unread"] {
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-weight: bold;
+}

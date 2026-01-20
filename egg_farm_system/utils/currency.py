@@ -1,6 +1,8 @@
 """
 Currency utilities and conversion functions
 """
+from egg_farm_system.utils.i18n import tr
+
 from egg_farm_system.config import BASE_CURRENCY, SECONDARY_CURRENCY, DEFAULT_EXCHANGE_RATE
 from egg_farm_system.modules.settings import SettingsManager
 

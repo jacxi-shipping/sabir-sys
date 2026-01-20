@@ -155,6 +155,16 @@ class FullSystemTest(unittest.TestCase):
         
         # 1. Record Sale (Cash Method)
         sm = SalesManager()
+        # Ensure sufficient egg inventory exists for the sale (test environment may be fresh)
+        from egg_farm_system.modules.inventory import InventoryManager
+        inv_mgr = InventoryManager()
+        sess = DatabaseManager.get_session()
+        try:
+            # Add 200 eggs (large) to inventory to satisfy sale
+            inv_mgr.add_eggs(sess, large=200)
+            sess.commit()
+        finally:
+            sess.close()
         # Sell 100 eggs @ 10 AFG
         sale = sm.record_sale(customer.id, 100, 10, 0.1, payment_method="Cash")
         

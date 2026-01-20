@@ -1,6 +1,8 @@
 """
 Standardized error handling utility
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import Optional, Callable
 from PySide6.QtWidgets import QMessageBox, QWidget

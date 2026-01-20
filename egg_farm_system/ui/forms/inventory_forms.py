@@ -1,6 +1,8 @@
 """
 Form widgets for inventory
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
     QPushButton, QMessageBox, QDialog, QFormLayout, QLineEdit, QDoubleSpinBox,
@@ -10,6 +12,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from egg_farm_system.modules.inventory import InventoryManager
+from egg_farm_system.ui.forms.packaging_purchase_dialog import PackagingPurchaseDialog
+from egg_farm_system.ui.ui_helpers import create_button
 
 class InventoryFormWidget(QWidget):
     """Inventory management widget"""
@@ -26,18 +30,23 @@ class InventoryFormWidget(QWidget):
         
         # Header with title and refresh button
         header_layout = QHBoxLayout()
-        title = QLabel("Inventory Management")
+        title = QLabel(tr("Inventory Management"))
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
         title.setFont(title_font)
         header_layout.addWidget(title)
         header_layout.addStretch()
-        
-        refresh_btn = QPushButton("Refresh")
+
+        refresh_btn = QPushButton(tr("Refresh"))
         refresh_btn.clicked.connect(self.refresh_data)
-        refresh_btn.setToolTip("Refresh inventory data")
+        refresh_btn.setToolTip(tr("Refresh inventory data"))
         header_layout.addWidget(refresh_btn)
+
+        purchase_btn = create_button(tr("Purchase Packaging"), style='success')
+        purchase_btn.setToolTip(tr("Purchase Cartons or Trays"))
+        purchase_btn.clicked.connect(self.open_packaging_purchase)
+        header_layout.addWidget(purchase_btn)
         
         layout.addLayout(header_layout)
         
@@ -50,11 +59,11 @@ class InventoryFormWidget(QWidget):
         )
         
         # Raw materials section
-        layout.addWidget(QLabel("Raw Materials Inventory"))
+        layout.addWidget(QLabel(tr("Raw Materials Inventory")))
         layout.addWidget(self.raw_materials_table)
         
         # Finished feed section
-        layout.addWidget(QLabel("Finished Feed Inventory"))
+        layout.addWidget(QLabel(tr("Finished Feed Inventory")))
         layout.addWidget(self.finished_feed_table)
         
         # Summary
@@ -63,6 +72,11 @@ class InventoryFormWidget(QWidget):
         
         layout.addStretch()
         self.setLayout(layout)
+
+    def open_packaging_purchase(self):
+        dlg = PackagingPurchaseDialog(self)
+        dlg.purchase_saved.connect(self.refresh_data)
+        dlg.exec()
     
     def create_table(self, headers):
         """Create data table with consistent column stretching"""
@@ -125,4 +139,4 @@ class InventoryFormWidget(QWidget):
             summary_text = f"Total Inventory Value: Afs {totals['total_afg']:,.2f} (${totals['total_usd']:,.2f})"
             self.summary_label.setText(summary_text)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load inventory: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to load inventory: {e}")

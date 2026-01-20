@@ -1,10 +1,13 @@
 """
 Premium Party View Dialog with Ledger Management and Direct Credit/Debit
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QMessageBox, QGroupBox, QFrame, QTabWidget, QWidget,
-    QFormLayout, QDoubleSpinBox, QDateEdit, QTextEdit, QComboBox, QHeaderView
+    QFormLayout, QDoubleSpinBox, QDateEdit, QTextEdit, QComboBox, QHeaderView,
+    QLineEdit, QToolButton
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
@@ -14,6 +17,9 @@ from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.utils.currency import CurrencyConverter
 import logging
+from egg_farm_system.ui.ui_helpers import create_button
+from egg_farm_system.ui.forms.add_transaction_dialog import AddTransactionDialog
+from egg_farm_system.utils.jalali import format_value_for_ui
 
 logger = logging.getLogger(__name__)
 
@@ -95,49 +101,15 @@ class PartyViewDialog(QDialog):
         action_layout = QHBoxLayout()
         action_layout.setSpacing(10)
         
-        debit_btn = QPushButton("💰 Debit Account")
-        debit_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #C62828,
-                    stop:1 #A02020);
-                color: white;
-                font-weight: 600;
-                font-size: 11pt;
-                padding: 10px 20px;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #D32F2F,
-                    stop:1 #B02020);
-            }
-        """)
+        debit_btn = create_button(tr("💰 Debit Account"), style='danger')
         debit_btn.clicked.connect(self.show_debit_dialog)
         action_layout.addWidget(debit_btn)
         
-        credit_btn = QPushButton("💵 Credit Account")
-        credit_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #6B8E23,
-                    stop:1 #5A7A1F);
-                color: white;
-                font-weight: 600;
-                font-size: 11pt;
-                padding: 10px 20px;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #9ACD32,
-                    stop:1 #6B8E23);
-            }
-        """)
+        credit_btn = create_button(tr("💵 Credit Account"), style='success')
         credit_btn.clicked.connect(self.show_credit_dialog)
         action_layout.addWidget(credit_btn)
         
-        refresh_btn = QPushButton("🔄 Refresh")
+        refresh_btn = create_button(tr("🔄 Refresh"), style='ghost')
         refresh_btn.clicked.connect(self.load_data)
         action_layout.addWidget(refresh_btn)
         
@@ -152,10 +124,10 @@ class PartyViewDialog(QDialog):
         ledger_layout = QVBoxLayout(ledger_tab)
         
         self.ledger_table = QTableWidget()
-        self.ledger_table.setColumnCount(7)
+        self.ledger_table.setColumnCount(8)
         self.ledger_table.setHorizontalHeaderLabels([
             "Date", "Description", "Debit AFG", "Credit AFG", 
-            "Debit USD", "Credit USD", "Balance"
+            "Debit USD", "Credit USD", "Balance", "Actions"
         ])
         self.ledger_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.ledger_table.setAlternatingRowColors(True)
@@ -189,7 +161,7 @@ class PartyViewDialog(QDialog):
         btn_layout.setSpacing(10)
         btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
-        close_btn = QPushButton("Close")
+        close_btn = create_button(tr("Close"), style='ghost')
         close_btn.setMinimumWidth(100)
         close_btn.setMinimumHeight(35)
         close_btn.clicked.connect(self.accept)
@@ -245,6 +217,30 @@ class PartyViewDialog(QDialog):
         
         return card, value_label
     
+    def _apply_balance_color(self, label, balance):
+        """Apply color to balance label based on value: red if negative, green if positive, black if zero"""
+        if balance < 0:
+            label.setStyleSheet("""
+                color: #C62828;
+                font-size: 24pt;
+                font-weight: 700;
+                letter-spacing: -0.3px;
+            """)
+        elif balance > 0:
+            label.setStyleSheet("""
+                color: #2E7D32;
+                font-size: 24pt;
+                font-weight: 700;
+                letter-spacing: -0.3px;
+            """)
+        else:
+            label.setStyleSheet("""
+                color: #000000;
+                font-size: 24pt;
+                font-weight: 700;
+                letter-spacing: -0.3px;
+            """)
+    
     def _darken_color(self, hex_color, factor):
         """Darken a hex color"""
         hex_color = hex_color.lstrip('#')
@@ -271,9 +267,13 @@ class PartyViewDialog(QDialog):
                 total_debit_afg = summary['total_debit_afg']
                 total_credit_afg = summary['total_credit_afg']
                 
-                # Update values directly
+                # Update values directly with color coding
                 self.balance_afg_value.setText(f"{balance_afg:,.2f}")
+                self._apply_balance_color(self.balance_afg_value, balance_afg)
+                
                 self.balance_usd_value.setText(f"{balance_usd:,.2f}")
+                self._apply_balance_color(self.balance_usd_value, balance_usd)
+                
                 self.total_debit_value.setText(f"{total_debit_afg:,.2f}")
                 self.total_credit_value.setText(f"{total_credit_afg:,.2f}")
             
@@ -284,11 +284,14 @@ class PartyViewDialog(QDialog):
             running_balance_afg = 0
             running_balance_usd = 0
             
+            # Store entries for later reference in edit/delete
+            self.ledger_entries = all_entries
+            
             for row, entry in enumerate(all_entries):
                 running_balance_afg += (entry.debit_afg - entry.credit_afg)
                 running_balance_usd += (entry.debit_usd - entry.credit_usd)
                 
-                self.ledger_table.setItem(row, 0, QTableWidgetItem(entry.date.strftime("%Y-%m-%d %H:%M")))
+                self.ledger_table.setItem(row, 0, QTableWidgetItem(format_value_for_ui(entry.date)))
                 self.ledger_table.setItem(row, 1, QTableWidgetItem(entry.description))
                 self.ledger_table.setItem(row, 2, QTableWidgetItem(f"{entry.debit_afg:,.2f}" if entry.debit_afg > 0 else ""))
                 self.ledger_table.setItem(row, 3, QTableWidgetItem(f"{entry.credit_afg:,.2f}" if entry.credit_afg > 0 else ""))
@@ -301,23 +304,146 @@ class PartyViewDialog(QDialog):
                 elif running_balance_afg > 0 or running_balance_usd > 0:
                     balance_item.setForeground(QColor("#6B8E23"))
                 self.ledger_table.setItem(row, 6, balance_item)
+                
+                # Add action buttons (Edit and Delete)
+                action_widget = QWidget()
+                action_layout = QHBoxLayout(action_widget)
+                action_layout.setContentsMargins(4, 2, 4, 2)
+                action_layout.setSpacing(4)
+                
+                edit_btn = QToolButton()
+                edit_btn.setText("Edit")
+                edit_btn.setAutoRaise(True)
+                edit_btn.clicked.connect(lambda checked, e=entry, r=row: self.edit_transaction(e, r))
+                action_layout.addWidget(edit_btn)
+                
+                delete_btn = QToolButton()
+                delete_btn.setText("Delete")
+                delete_btn.setAutoRaise(True)
+                delete_btn.setStyleSheet("color: #C62828;")
+                delete_btn.clicked.connect(lambda checked, e=entry, r=row: self.delete_transaction(e, r))
+                action_layout.addWidget(delete_btn)
+                
+                action_layout.addStretch()
+                self.ledger_table.setCellWidget(row, 7, action_widget)
             
             # Sort by date descending (newest first)
             self.ledger_table.sortItems(0, Qt.DescendingOrder)
             
         except Exception as e:
             logger.error(f"Error loading party data: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to load party data: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to load party data: {e}")
+    
+    def edit_transaction(self, entry, row):
+        """Edit transaction entry"""
+        try:
+            # Create edit dialog
+            dialog = QDialog(self)
+            dialog.setWindowTitle(f"Edit Transaction - {format_value_for_ui(entry.date)}")
+            dialog.setMinimumWidth(500)
+            
+            layout = QFormLayout()
+            
+            date_edit = QDateEdit()
+            date_edit.setDateTime(entry.date)
+            layout.addRow("Date & Time:", date_edit)
+            
+            desc_edit = QLineEdit()
+            desc_edit.setText(entry.description)
+            layout.addRow("Description:", desc_edit)
+            
+            debit_afg_spin = QDoubleSpinBox()
+            debit_afg_spin.setValue(entry.debit_afg)
+            debit_afg_spin.setMinimum(0)
+            layout.addRow("Debit AFG:", debit_afg_spin)
+            
+            credit_afg_spin = QDoubleSpinBox()
+            credit_afg_spin.setValue(entry.credit_afg)
+            credit_afg_spin.setMinimum(0)
+            layout.addRow("Credit AFG:", credit_afg_spin)
+            
+            debit_usd_spin = QDoubleSpinBox()
+            debit_usd_spin.setValue(entry.debit_usd)
+            debit_usd_spin.setMinimum(0)
+            layout.addRow("Debit USD:", debit_usd_spin)
+            
+            credit_usd_spin = QDoubleSpinBox()
+            credit_usd_spin.setValue(entry.credit_usd)
+            credit_usd_spin.setMinimum(0)
+            layout.addRow("Credit USD:", credit_usd_spin)
+            
+            btn_layout = QHBoxLayout()
+            save_btn = QPushButton("Save")
+            cancel_btn = QPushButton("Cancel")
+            btn_layout.addStretch()
+            btn_layout.addWidget(save_btn)
+            btn_layout.addWidget(cancel_btn)
+            layout.addRow(btn_layout)
+            
+            dialog.setLayout(layout)
+            
+            def save_changes():
+                try:
+                    entry.date = date_edit.dateTime().toPython()
+                    entry.description = desc_edit.text()
+                    entry.debit_afg = debit_afg_spin.value()
+                    entry.credit_afg = credit_afg_spin.value()
+                    entry.debit_usd = debit_usd_spin.value()
+                    entry.credit_usd = credit_usd_spin.value()
+                    
+                    from egg_farm_system.database.db import DatabaseManager
+                    db = DatabaseManager()
+                    db.session.commit()
+                    
+                    dialog.accept()
+                    self.load_data()
+                    QMessageBox.information(self, tr("Success"), "Transaction updated successfully")
+                except Exception as e:
+                    logger.error(f"Error saving transaction: {e}")
+                    QMessageBox.critical(self, tr("Error"), f"Failed to save transaction: {e}")
+            
+            save_btn.clicked.connect(save_changes)
+            cancel_btn.clicked.connect(dialog.reject)
+            
+            dialog.exec()
+        except Exception as e:
+            logger.error(f"Error editing transaction: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to edit transaction: {e}")
+    
+    def delete_transaction(self, entry, row):
+        """Delete transaction entry"""
+        try:
+            reply = QMessageBox.question(
+                self, 
+                tr("Confirm Delete"),
+                f"Are you sure you want to delete this transaction?\n\n"
+                f"Date: {format_value_for_ui(entry.date)}\n"
+                f"Description: {entry.description}",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                from egg_farm_system.database.db import DatabaseManager
+                db = DatabaseManager()
+                db.session.delete(entry)
+                db.session.commit()
+                
+                self.load_data()
+                QMessageBox.information(self, tr("Success"), "Transaction deleted successfully")
+        except Exception as e:
+            logger.error(f"Error deleting transaction: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {e}")
     
     def show_debit_dialog(self):
         """Show dialog to debit party account"""
-        dialog = CreditDebitDialog(self, self.party, "Debit", self.ledger_manager, self.converter)
+        dialog = AddTransactionDialog(self, self.party, "Debit", self.ledger_manager, self.converter)
         if dialog.exec():
             self.load_data()
     
     def show_credit_dialog(self):
         """Show dialog to credit party account"""
-        dialog = CreditDebitDialog(self, self.party, "Credit", self.ledger_manager, self.converter)
+        dialog = AddTransactionDialog(self, self.party, "Credit", self.ledger_manager, self.converter)
         if dialog.exec():
             self.load_data()
 
@@ -389,31 +515,15 @@ class CreditDebitDialog(QDialog):
         btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = create_button(tr("Cancel"), style='ghost')
         cancel_btn.setMinimumWidth(100)
         cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
-        
-        save_btn = QPushButton(f"Save {self.transaction_type}")
+
+        save_btn = create_button(f"Save {self.transaction_type}", style='primary')
         save_btn.setMinimumWidth(120)
         save_btn.setMinimumHeight(35)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #8B4513,
-                    stop:1 #7A3A0F);
-                color: white;
-                font-weight: 600;
-                padding: 8px 20px;
-                border-radius: 6px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #A0522D,
-                    stop:1 #8B4513);
-            }
-        """)
         save_btn.clicked.connect(self.save_entry)
         btn_layout.addWidget(save_btn)
         
@@ -445,7 +555,7 @@ class CreditDebitDialog(QDialog):
             date = self.date_edit.date().toPython()
             
             if amount_afg <= 0 and amount_usd <= 0:
-                QMessageBox.warning(self, "Validation", "Please enter an amount")
+                QMessageBox.warning(self, tr("Validation"), "Please enter an amount")
                 return
             
             if not description:
@@ -487,7 +597,7 @@ class CreditDebitDialog(QDialog):
                     )
                 
                 session.commit()
-                QMessageBox.information(self, "Success", f"{self.transaction_type} entry saved successfully")
+                QMessageBox.information(self, tr("Success"), f"{self.transaction_type} entry saved successfully")
                 self.accept()
             except Exception as e:
                 session.rollback()
@@ -497,5 +607,5 @@ class CreditDebitDialog(QDialog):
                 
         except Exception as e:
             logger.error(f"Error saving entry: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to save entry: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to save entry: {e}")
 

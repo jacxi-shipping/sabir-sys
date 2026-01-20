@@ -1,6 +1,8 @@
 """
 Progress dialog for long-running operations
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import QProgressDialog
 from PySide6.QtCore import Qt, QTimer
 
@@ -10,7 +12,7 @@ class ProgressDialog(QProgressDialog):
     
     def __init__(self, parent=None, label_text="Processing...", minimum=0, maximum=100):
         super().__init__(parent)
-        self.setWindowTitle("Progress")
+        self.setWindowTitle(tr("Progress"))
         self.setLabelText(label_text)
         self.setMinimum(minimum)
         self.setMaximum(maximum)

@@ -1,6 +1,7 @@
 """
 Internationalization (i18n) and Translation Manager for Pashto Support
 """
+
 from PySide6.QtCore import QObject, Signal, Qt
 from PySide6.QtWidgets import QApplication
 
@@ -177,6 +178,13 @@ TRANSLATIONS = {
         "Welcome": "ښه راغلاست",
     }
 }
+
+# Load additional auto-generated Pashto translations if present
+try:
+    from egg_farm_system.utils.i18n_additional_ps import ADDITIONAL_PS
+    TRANSLATIONS.setdefault('ps', {}).update(ADDITIONAL_PS)
+except Exception:
+    pass
 
 class TranslationManager(QObject):
     language_changed = Signal(str)

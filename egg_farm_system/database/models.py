@@ -89,6 +89,7 @@ class Flock(Base):
     # Relationships
     shed = relationship("Shed", back_populates="flocks")
     mortalities = relationship("Mortality", back_populates="flock", cascade="all, delete-orphan")
+    medications = relationship("Medication", back_populates="flock", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index('idx_flock_shed_id', 'shed_id'),
@@ -99,6 +100,11 @@ class Flock(Base):
         if as_of_date is None:
             as_of_date = datetime.utcnow()
         
+        # Ensure as_of_date is a datetime for comparison
+        if hasattr(as_of_date, 'year') and not hasattr(as_of_date, 'hour'):
+             # Convert date to datetime at end of day to include all events of that day
+             as_of_date = datetime(as_of_date.year, as_of_date.month, as_of_date.day, 23, 59, 59)
+
         total_deaths = 0
         for mortality in self.mortalities:
             if mortality.date <= as_of_date:
@@ -147,6 +153,32 @@ class Mortality(Base):
         return f"<Mortality {self.flock_id} - {self.date}>"
 
 
+class Medication(Base):
+    """Medication administered to a flock"""
+    __tablename__ = "medications"
+
+    id = Column(Integer, primary_key=True)
+    flock_id = Column(Integer, ForeignKey("flocks.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
+    medication_name = Column(String(200), nullable=False)
+    dose = Column(Float, nullable=False)
+    dose_unit = Column(String(50), default="ml")
+    administered_by = Column(String(100))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    flock = relationship("Flock", back_populates="medications")
+
+    __table_args__ = (
+        Index('idx_medication_flock_id', 'flock_id'),
+        Index('idx_medication_date', 'date'),
+    )
+
+    def __repr__(self):
+        return f"<Medication {self.flock_id} - {self.medication_name} @ {self.date}>"
+
+
 class EggProduction(Base):
     """Daily egg production record"""
     __tablename__ = "egg_productions"
@@ -158,6 +190,8 @@ class EggProduction(Base):
     medium_count = Column(Integer, default=0)
     large_count = Column(Integer, default=0)
     broken_count = Column(Integer, default=0)
+    cartons_used = Column(Integer, default=0)
+    trays_used = Column(Integer, default=0)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -289,6 +323,20 @@ class FinishedFeed(Base):
     
     def __repr__(self):
         return f"<FinishedFeed {self.feed_type.value}>"
+
+
+class EggInventory(Base):
+    """Simple egg inventory by grade"""
+    __tablename__ = "egg_inventory"
+
+    id = Column(Integer, primary_key=True)
+    grade = Column(Enum(EggGrade), nullable=False, unique=True)
+    current_stock = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<EggInventory {self.grade.value} - {self.current_stock}>"
 
 
 class FeedIssue(Base):

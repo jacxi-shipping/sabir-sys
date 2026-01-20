@@ -1,6 +1,8 @@
 """
 Main application entry point
 """
+from egg_farm_system.utils.i18n import tr
+
 import sys
 import logging
 from pathlib import Path
@@ -16,6 +18,8 @@ from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.ui.main_window import MainWindow
 from egg_farm_system.ui.forms.login_dialog import LoginDialog
 from egg_farm_system.config import APP_NAME, APP_VERSION, LOGS_DIR, LOG_LEVEL, LOG_FORMAT
+from egg_farm_system.ui.ui_helpers import apply_theme
+from egg_farm_system import config as _config
 
 # Configure logging
 logging.basicConfig(
@@ -38,25 +42,11 @@ def main():
         app = QApplication(sys.argv)
         app.setApplicationName(APP_NAME)
         app.setApplicationVersion(APP_VERSION)
-        # Load global stylesheet if present
+        # Apply consolidated theme (global styles + theme rules)
         try:
-            # Handle both development and PyInstaller executable modes
-            if getattr(sys, 'frozen', False):
-                # Running as compiled executable
-                base_path = Path(sys.executable).parent
-                # Handle PyInstaller 6+ _internal folder
-                if (base_path / "_internal").exists():
-                    base_path = base_path / "_internal"
-                qss_path = base_path / "egg_farm_system" / "styles.qss"
-            else:
-                # Running as script
-                qss_path = Path(__file__).parent / "styles.qss"
-            
-            if qss_path.exists():
-                with open(qss_path, 'r', encoding='utf-8') as f:
-                    app.setStyleSheet(f.read())
-        except Exception as e:
-            logger.warning(f"Failed to load stylesheet: {e}")
+            apply_theme(app, getattr(_config, 'DEFAULT_THEME', None))
+        except Exception:
+            logger.warning("Failed to apply theme; continuing without custom stylesheet")
         
         # Initialize database
         DatabaseManager.initialize()

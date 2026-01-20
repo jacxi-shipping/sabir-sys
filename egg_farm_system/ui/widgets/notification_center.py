@@ -1,6 +1,8 @@
 """
 Notification Center Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from datetime import datetime
 from PySide6.QtWidgets import (
@@ -9,10 +11,12 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QColor, QPalette
+from egg_farm_system.ui.ui_helpers import create_button
 
 from egg_farm_system.utils.notification_manager import (
     NotificationManager, NotificationSeverity, get_notification_manager
 )
+from egg_farm_system.utils.jalali import format_value_for_ui
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +77,7 @@ class NotificationItemWidget(QFrame):
         # Footer with timestamp and action
         footer_layout = QHBoxLayout()
         
-        timestamp = self.notification.timestamp.strftime("%Y-%m-%d %H:%M")
+        timestamp = format_value_for_ui(self.notification.timestamp)
         time_label = QLabel(timestamp)
         time_label.setStyleSheet("color: #999; font-size: 9pt;")
         footer_layout.addWidget(time_label)
@@ -83,7 +87,7 @@ class NotificationItemWidget(QFrame):
         if self.notification.action_label:
             action_btn = QPushButton(self.notification.action_label)
             action_btn.setMaximumHeight(20)
-            action_btn.setStyleSheet("font-size: 9pt; padding: 2px 8px;")
+            action_btn.setProperty('class', 'ghost')
             action_btn.clicked.connect(lambda: self._on_action_clicked())
             footer_layout.addWidget(action_btn)
         
@@ -131,7 +135,7 @@ class NotificationCenterWidget(QWidget):
         # Header
         header_layout = QHBoxLayout()
         
-        title = QLabel("Notifications")
+        title = QLabel(tr("Notifications"))
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -142,28 +146,20 @@ class NotificationCenterWidget(QWidget):
         
         # Unread count badge
         self.unread_badge = QLabel("0")
-        self.unread_badge.setStyleSheet("""
-            QLabel {
-                background-color: #e74c3c;
-                color: white;
-                border-radius: 10px;
-                padding: 2px 8px;
-                font-weight: bold;
-            }
-        """)
+        self.unread_badge.setProperty('class', 'badge-unread')
         self.unread_badge.setVisible(False)
         header_layout.addWidget(self.unread_badge)
         
         # Action buttons
-        mark_all_read_btn = QPushButton("Mark All Read")
+        mark_all_read_btn = create_button(tr("Mark All Read"), style='ghost')
         mark_all_read_btn.clicked.connect(self.mark_all_read)
         header_layout.addWidget(mark_all_read_btn)
-        
-        clear_btn = QPushButton("Clear All")
+
+        clear_btn = create_button(tr("Clear All"), style='danger')
         clear_btn.clicked.connect(self.clear_all)
         header_layout.addWidget(clear_btn)
-        
-        refresh_btn = QPushButton("Refresh")
+
+        refresh_btn = create_button(tr("Refresh"), style='ghost')
         refresh_btn.clicked.connect(self.refresh_notifications)
         header_layout.addWidget(refresh_btn)
         
@@ -176,7 +172,7 @@ class NotificationCenterWidget(QWidget):
         layout.addWidget(self.notification_list)
         
         # Empty state
-        self.empty_label = QLabel("No notifications")
+        self.empty_label = QLabel(tr("No notifications"))
         self.empty_label.setAlignment(Qt.AlignCenter)
         self.empty_label.setStyleSheet("color: #999; padding: 20px;")
         layout.addWidget(self.empty_label)

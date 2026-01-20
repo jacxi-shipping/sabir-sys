@@ -1,3 +1,70 @@
+# Egg Farm System
+
+A desktop management application for small/medium poultry egg farms.
+
+This repository provides farm, flock, inventory, purchase/sales, parties, ledger, and reporting features with a PySide6 UI and an SQLite backend.
+
+## Highlights & New Features
+- Redesigned Raw Material Sale modal — clearer UX and validation.
+- New `AddTransactionDialog` supporting both Debit and Credit entries and independent AFG/USD amounts (no automatic conversion).
+- Centralized theming via `egg_farm_system/styles.qss` and `egg_farm_system/ui/ui_helpers.py` (`apply_theme()` and `create_button()`).
+- Full Pashto (`ps`) i18n additions merged (auto-generated entries added to `egg_farm_system/utils/i18n_additional_ps.py`).
+- Fixed Employees page and Farm management DB issues (eager-loading relationships to avoid DetachedInstance errors).
+- Many UI components migrated from inline `setStyleSheet()` to class-based styles for consistent theming.
+- Manager-based DB operations (`LedgerManager`, `PartyManager`, etc.) and safer session handling.
+- UI smoke tests available under `tools/` (including a Pashto smoke test that saves screenshots to `egg_farm_system/assets/screenshots/`).
+
+## Installation
+1. Install Python 3.10+.
+2. (Optional) Create a virtual environment:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+3. Install dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+## Run (development)
+From the repository root run:
+
+```powershell
+python run.py
+```
+
+On first run the app initializes the SQLite database and applies minimal migrations.
+
+## Quick Usage Notes
+- Open the Dashboard to navigate to Farms, Parties, Inventory, Sales, and Ledger.
+- To add a manual transaction: open the Parties page and click the `Add Transaction` header button — the dialog supports choosing a party, selecting Transaction Type (Debit/Credit), entering amounts (AFG/USD independently), and saving to the ledger.
+
+## Tests & Smoke Checks
+- Run the Pashto UI smoke test:
+
+```powershell
+$env:PYTHONPATH = 'C:\Users\iam_s\Desktop\sabir-farm - Copy'; python tools/ui_smoke_ps.py
+```
+
+Screenshots are saved under `egg_farm_system/assets/screenshots/` when smoke tests run.
+
+## Where to find more details
+- Full developer documentation: [DOCUMENTATION.md](DOCUMENTATION.md)
+- Key code locations:
+  - UI helpers & theming: `egg_farm_system/ui/ui_helpers.py`, `egg_farm_system/styles.qss`
+  - Add Transaction dialog: `egg_farm_system/ui/forms/add_transaction_dialog.py`
+  - Raw Material Sale modal: `egg_farm_system/ui/forms/raw_material_sale_dialog.py`
+  - i18n extras: `egg_farm_system/utils/i18n_additional_ps.py`
+
+## Contributing
+- Use 4-space indentation, wrap UI strings with `tr(...)`, and prefer `create_button()` over inline styles.
+- Run smoke tests after UI changes and add or update translations as needed.
+
+---
+If you want, I can expand this README with an ER diagram, API reference, example workflows, or developer setup tips. Tell me which you'd like next.
 # Egg Farm Management System
 
 A comprehensive Windows desktop application for managing egg farms with SQLite database and dual currency support.

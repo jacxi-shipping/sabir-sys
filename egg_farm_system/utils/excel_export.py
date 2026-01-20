@@ -1,6 +1,8 @@
 """
 Excel Export/Import utilities for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from pathlib import Path
 from datetime import datetime

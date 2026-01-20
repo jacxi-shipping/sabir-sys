@@ -1,6 +1,8 @@
 """
 Email Service for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 import smtplib
 from email.mime.text import MIMEText

@@ -1,6 +1,8 @@
 """
 Migration script to add new columns to sales table for advanced egg management
 """
+from egg_farm_system.utils.i18n import tr
+
 import sqlite3
 import logging
 from pathlib import Path

@@ -1,6 +1,8 @@
 """
 Migration script to add average cost calculation columns to raw_materials table
 """
+from egg_farm_system.utils.i18n import tr
+
 import sqlite3
 import logging
 from pathlib import Path

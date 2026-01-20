@@ -1,3 +1,4 @@
+from egg_farm_system.utils.i18n import tr
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, 
     QListWidget, QMessageBox, QTabWidget, QGroupBox, QFormLayout, 
@@ -23,7 +24,7 @@ class SettingsForm(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         
         # Title
-        title = QLabel("Settings")
+        title = QLabel(tr("Settings"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -50,7 +51,7 @@ class SettingsForm(QWidget):
         # Save All button
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        save_all_btn = QPushButton("Save All Settings")
+        save_all_btn = QPushButton(tr("Save All Settings"))
         save_all_btn.setMinimumWidth(150)
         save_all_btn.clicked.connect(self.save_all_settings)
         btn_layout.addWidget(save_all_btn)
@@ -67,8 +68,7 @@ class SettingsForm(QWidget):
         
         # Info label
         info_label = QLabel(
-            "Configure egg packaging expenses. These values are used when calculating "
-            "total costs for carton-based egg sales."
+            tr("Configure egg packaging expenses. These values are used when calculating " + "total costs for carton-based egg sales.")
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #666; padding: 8px; background-color: #f5f5f5; border-radius: 4px;")
@@ -163,15 +163,14 @@ class SettingsForm(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         
         info_label = QLabel(
-            "Advanced settings editor. Use this to view and edit all application settings "
-            "using key-value pairs. Changes are saved immediately."
+            tr("Advanced settings editor. Use this to view and edit all application settings " + "using key-value pairs. Changes are saved immediately.")
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #666; padding: 8px; background-color: #fff3cd; border-radius: 4px;")
         layout.addWidget(info_label)
         
         # Settings list
-        list_label = QLabel("All Settings:")
+        list_label = QLabel(tr("All Settings:"))
         layout.addWidget(list_label)
         
         self.settings_list = QListWidget()
@@ -184,16 +183,16 @@ class SettingsForm(QWidget):
         form_layout.setSpacing(8)
         
         self.key_edit = QLineEdit()
-        self.key_edit.setPlaceholderText("Setting key")
+        self.key_edit.setPlaceholderText(tr("Setting key"))
         form_layout.addRow("Key:", self.key_edit)
         
         self.value_edit = QLineEdit()
-        self.value_edit.setPlaceholderText("Setting value")
+        self.value_edit.setPlaceholderText(tr("Setting value"))
         form_layout.addRow("Value:", self.value_edit)
         
         self.description_edit = QTextEdit()
         self.description_edit.setMaximumHeight(60)
-        self.description_edit.setPlaceholderText("Optional description")
+        self.description_edit.setPlaceholderText(tr("Optional description"))
         form_layout.addRow("Description:", self.description_edit)
         
         form_group.setLayout(form_layout)
@@ -201,11 +200,11 @@ class SettingsForm(QWidget):
         
         # Buttons
         btn_layout = QHBoxLayout()
-        save_btn = QPushButton("Save Setting")
+        save_btn = QPushButton(tr("Save Setting"))
         save_btn.clicked.connect(self.save_setting)
-        delete_btn = QPushButton("Delete Setting")
+        delete_btn = QPushButton(tr("Delete Setting"))
         delete_btn.clicked.connect(self.delete_setting)
-        refresh_btn = QPushButton("Refresh List")
+        refresh_btn = QPushButton(tr("Refresh List"))
         refresh_btn.clicked.connect(self.load_advanced_settings)
         
         btn_layout.addWidget(save_btn)
@@ -237,7 +236,7 @@ class SettingsForm(QWidget):
             # Load advanced settings
             self.load_advanced_settings()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to load settings: {e}")
+            QMessageBox.warning(self, tr("Error"), f"Failed to load settings: {e}")
     
     def load_advanced_settings(self):
         """Load advanced settings list"""
@@ -247,7 +246,7 @@ class SettingsForm(QWidget):
                 desc = f" - {s.description}" if s.description else ""
                 self.settings_list.addItem(f"{s.key} = {s.value}{desc}")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to load settings list: {e}")
+            QMessageBox.warning(self, tr("Error"), f"Failed to load settings list: {e}")
     
     def on_setting_double_clicked(self, item):
         """Handle double-click on setting item"""
@@ -274,25 +273,25 @@ class SettingsForm(QWidget):
         description = self.description_edit.toPlainText().strip()
         
         if not key:
-            QMessageBox.warning(self, 'Validation', 'Key is required')
+            QMessageBox.warning(self, tr('Validation'), 'Key is required')
             return
         
         try:
             SettingsManager.set_setting(key, value, description if description else None)
-            QMessageBox.information(self, 'Saved', 'Setting saved successfully')
+            QMessageBox.information(self, tr('Saved'), 'Setting saved successfully')
             self.load_advanced_settings()
             # Clear form
             self.key_edit.clear()
             self.value_edit.clear()
             self.description_edit.clear()
         except Exception as e:
-            QMessageBox.critical(self, 'Error', f'Failed to save setting: {e}')
+            QMessageBox.critical(self, tr('Error'), f'Failed to save setting: {e}')
     
     def delete_setting(self):
         """Delete a setting"""
         key = self.key_edit.text().strip()
         if not key:
-            QMessageBox.warning(self, 'Validation', 'Please enter a key to delete')
+            QMessageBox.warning(self, tr('Validation'), 'Please enter a key to delete')
             return
         
         reply = QMessageBox.question(
@@ -312,17 +311,17 @@ class SettingsForm(QWidget):
                     if setting:
                         session.delete(setting)
                         session.commit()
-                        QMessageBox.information(self, 'Deleted', 'Setting deleted successfully')
+                        QMessageBox.information(self, tr('Deleted'), 'Setting deleted successfully')
                         self.load_advanced_settings()
                         self.key_edit.clear()
                         self.value_edit.clear()
                         self.description_edit.clear()
                     else:
-                        QMessageBox.warning(self, 'Not Found', f'Setting "{key}" not found')
+                        QMessageBox.warning(self, tr('Not Found'), f'Setting "{key}" not found')
                 finally:
                     session.close()
             except Exception as e:
-                QMessageBox.critical(self, 'Error', f'Failed to delete setting: {e}')
+                QMessageBox.critical(self, tr('Error'), f'Failed to delete setting: {e}')
     
     def save_all_settings(self):
         """Save all settings from all tabs"""
@@ -339,11 +338,11 @@ class SettingsForm(QWidget):
             
             QMessageBox.information(
                 self, 
-                "Success", 
+                tr("Success"), 
                 "All settings saved successfully!\n\n"
                 f"Tray Expense: {self.tray_expense_spin.value():.2f} AFG\n"
                 f"Carton Expense: {self.carton_expense_spin.value():.2f} AFG\n"
                 f"Exchange Rate: {self.exchange_rate_spin.value():.2f} AFG/USD"
             )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save settings: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to save settings: {e}")

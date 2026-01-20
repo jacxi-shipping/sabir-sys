@@ -2,6 +2,8 @@
 Advanced caching system for application performance optimization
 Includes request-scoped cache, result cache, and invalidation strategies
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Optional

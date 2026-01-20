@@ -15,13 +15,16 @@ class ExpenseManager:
     """
     Manage farm expenses
     
-    Note: This manager uses an instance-level database session. The session is created
-    in __init__ and should be closed by calling close_session() when done, or it will
-    be closed when the manager instance is garbage collected.
+    Supports context manager for safe session handling.
     """
     
-    def __init__(self):
-        self.session = DatabaseManager.get_session()
+    def __init__(self, session=None):
+        self._owned_session = False
+        if session:
+            self.session = session
+        else:
+            self.session = DatabaseManager.get_session()
+            self._owned_session = True
         
     def __enter__(self):
         return self
@@ -30,9 +33,10 @@ class ExpenseManager:
         self.close_session()
 
     def close_session(self):
-        """Close database session"""
-        if self.session:
+        """Close database session if it was created by this instance."""
+        if self._owned_session and self.session:
             self.session.close()
+            self.session = None
     
     def record_expense(self, farm_id, category, amount_afg, amount_usd, 
                       party_id=None, exchange_rate_used=78.0, date=None, description=None, payment_method="Cash"):
@@ -80,6 +84,24 @@ class ExpenseManager:
                         reference_id=expense.id,
                         session=self.session # Pass the current session
                     )
+                
+                # If payment method is Cash, create a payment record for cash flow tracking
+                if payment_method == "Cash":
+                    from egg_farm_system.database.models import Payment
+                    # For direct expenses (no party), create a dummy party for cash tracking
+                    # or just record it without party_id if allowed
+                    if party_id:
+                        cash_payment = Payment(
+                            party_id=party_id,
+                            date=date,
+                            amount_afg=amount_afg,
+                            amount_usd=amount_usd,
+                            payment_type="Paid",  # We paid cash for this expense
+                            payment_method="Cash",
+                            reference=f"Expense: {category}",
+                            exchange_rate_used=exchange_rate_used
+                        )
+                        self.session.add(cash_payment)
                 
                 self.session.commit()
                 
@@ -152,19 +174,28 @@ class PaymentManager:
     """
     Manage payments to/from parties
     
-    Note: This manager uses an instance-level database session. The session is created
-    in __init__ and should be closed by calling close_session() when done, or it will
-    be closed when the manager instance is garbage collected.
+    Supports context manager for safe session handling.
     """
     
-    def __init__(self):
-        self.session = DatabaseManager.get_session()
+    def __init__(self, session=None):
+        self._owned_session = False
+        if session:
+            self.session = session
+        else:
+            self.session = DatabaseManager.get_session()
+            self._owned_session = True
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_session()
+
+    def close_session(self):
+        """Close database session if it was created by this instance."""
+        if self._owned_session and self.session:
+            self.session.close()
+            self.session = None
     
     def record_payment(self, party_id, amount_afg, amount_usd, payment_type,
                       payment_method="Cash", reference=None, exchange_rate_used=78.0, 

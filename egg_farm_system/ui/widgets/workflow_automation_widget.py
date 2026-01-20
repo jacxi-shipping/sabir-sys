@@ -1,6 +1,8 @@
 """
 Workflow Automation Management Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QPushButton,
@@ -49,10 +51,10 @@ class TaskDialog(QDialog):
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(tr("Save"))
         save_btn.clicked.connect(self.accept)
         btn_layout.addWidget(save_btn)
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
@@ -81,7 +83,7 @@ class WorkflowAutomationWidget(QWidget):
         layout.setSpacing(15)
         
         # Title
-        title = QLabel("Workflow Automation")
+        title = QLabel(tr("Workflow Automation"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -94,15 +96,15 @@ class WorkflowAutomationWidget(QWidget):
         
         # Buttons
         btn_layout = QHBoxLayout()
-        new_task_btn = QPushButton("New Task")
+        new_task_btn = QPushButton(tr("New Task"))
         new_task_btn.clicked.connect(self.create_task)
         btn_layout.addWidget(new_task_btn)
         
-        refresh_btn = QPushButton("Refresh")
+        refresh_btn = QPushButton(tr("Refresh"))
         refresh_btn.clicked.connect(self.refresh_tasks)
         btn_layout.addWidget(refresh_btn)
         
-        run_now_btn = QPushButton("Run Pending Tasks")
+        run_now_btn = QPushButton(tr("Run Pending Tasks"))
         run_now_btn.clicked.connect(self.run_pending_tasks)
         btn_layout.addWidget(run_now_btn)
         
@@ -122,11 +124,11 @@ class WorkflowAutomationWidget(QWidget):
         
         # Action buttons
         action_layout = QHBoxLayout()
-        enable_btn = QPushButton("Enable/Disable")
+        enable_btn = QPushButton(tr("Enable/Disable"))
         enable_btn.clicked.connect(self.toggle_task)
         action_layout.addWidget(enable_btn)
         
-        delete_btn = QPushButton("Delete")
+        delete_btn = QPushButton(tr("Delete"))
         delete_btn.clicked.connect(self.delete_task)
         action_layout.addWidget(delete_btn)
         
@@ -179,14 +181,14 @@ class WorkflowAutomationWidget(QWidget):
                 enabled=data['enabled']
             )
             
-            QMessageBox.information(self, "Success", "Task created successfully")
+            QMessageBox.information(self, tr("Success"), "Task created successfully")
             self.refresh_tasks()
     
     def toggle_task(self):
         """Toggle task enabled/disabled"""
         current_row = self.tasks_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "No Selection", "Please select a task")
+            QMessageBox.warning(self, tr("No Selection"), "Please select a task")
             return
         
         task_id = self.tasks_table.item(current_row, 0).text()
@@ -199,7 +201,7 @@ class WorkflowAutomationWidget(QWidget):
         """Delete a task"""
         current_row = self.tasks_table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "No Selection", "Please select a task")
+            QMessageBox.warning(self, tr("No Selection"), "Please select a task")
             return
         
         task_id = self.tasks_table.item(current_row, 0).text()
@@ -213,12 +215,12 @@ class WorkflowAutomationWidget(QWidget):
         
         if reply == QMessageBox.Yes:
             self.workflow.unregister_task(task_id)
-            QMessageBox.information(self, "Deleted", "Task deleted successfully")
+            QMessageBox.information(self, tr("Deleted"), "Task deleted successfully")
             self.refresh_tasks()
     
     def run_pending_tasks(self):
         """Run all pending tasks"""
         self.workflow.run_pending_tasks()
-        QMessageBox.information(self, "Complete", "Pending tasks executed")
+        QMessageBox.information(self, tr("Complete"), "Pending tasks executed")
         self.refresh_tasks()
 

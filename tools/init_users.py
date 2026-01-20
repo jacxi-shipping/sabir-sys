@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
 
-# Ensure egg_farm_system package is importable
-sys.path.insert(0, str(Path(__file__).parent.parent / 'egg_farm_system'))
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database.db import DatabaseManager
-from modules.users import UserManager
+from egg_farm_system.database.db import DatabaseManager
+from egg_farm_system.modules.users import UserManager
 
 
 if __name__ == '__main__':

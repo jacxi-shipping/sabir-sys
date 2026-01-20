@@ -2,6 +2,7 @@
 Success message widget for showing operation success feedback
 """
 from PySide6.QtWidgets import QWidget, QLabel, QHBoxLayout, QPushButton
+from egg_farm_system.ui.ui_helpers import create_button
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 from PySide6.QtGui import QColor, QPainter
 
@@ -19,33 +20,10 @@ class SuccessMessage(QWidget):
         layout.setContentsMargins(15, 10, 15, 10)
         
         self.label = QLabel(message)
-        self.label.setStyleSheet("""
-            QLabel {
-                color: #155724;
-                background-color: #d4edda;
-                border: 1px solid #c3e6cb;
-                border-radius: 4px;
-                padding: 8px 12px;
-                font-size: 13px;
-            }
-        """)
+        self.label.setProperty('class', 'success-message')
         layout.addWidget(self.label)
-        
-        close_btn = QPushButton("×")
+        close_btn = create_button("×", style='ghost')
         close_btn.setFixedSize(20, 20)
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                color: #155724;
-                font-size: 18px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgba(0, 0, 0, 0.1);
-                border-radius: 10px;
-            }
-        """)
         close_btn.clicked.connect(self.hide)
         layout.addWidget(close_btn)
         

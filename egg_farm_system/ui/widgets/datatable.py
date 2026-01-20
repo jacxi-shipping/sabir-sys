@@ -1,3 +1,4 @@
+from egg_farm_system.utils.i18n import tr
 from pathlib import Path
 import logging
 import traceback
@@ -51,7 +52,7 @@ class DataTableWidget(QWidget):
 
         # Controls
         self.search = QLineEdit()
-        self.search.setPlaceholderText('Search...')
+        self.search.setPlaceholderText(tr('Search...'))
         self.search.textChanged.connect(self._on_search)
 
         self.filter_col = QComboBox()
@@ -65,20 +66,20 @@ class DataTableWidget(QWidget):
             self.page_size_combo.setCurrentText('25')
             self.page_size_combo.currentTextChanged.connect(self._on_page_size_changed)
             
-            self.page_label = QLabel("Page 1 of 1")
+            self.page_label = QLabel(tr("Page 1 of 1"))
             self.prev_btn = QPushButton("◀")
             self.prev_btn.clicked.connect(self._prev_page)
             self.next_btn = QPushButton("▶")
             self.next_btn.clicked.connect(self._next_page)
             
-            self.total_label = QLabel("Total: 0")
+            self.total_label = QLabel(tr("Total: 0"))
 
         self.export_pdf_btn = QPushButton()
-        self.export_pdf_btn.setText('Export PDF')
+        self.export_pdf_btn.setText(tr('Export PDF'))
         self.export_csv_btn = QPushButton()
-        self.export_csv_btn.setText('Export CSV')
+        self.export_csv_btn.setText(tr('Export CSV'))
         self.export_excel_btn = QPushButton()
-        self.export_excel_btn.setText('Export Excel')
+        self.export_excel_btn.setText(tr('Export Excel'))
         
         # Ensure buttons are enabled
         self.export_csv_btn.setEnabled(True)
@@ -95,7 +96,7 @@ class DataTableWidget(QWidget):
         ctrl_layout.addStretch()
         
         if self.enable_pagination:
-            ctrl_layout.addWidget(QLabel("Page size:"))
+            ctrl_layout.addWidget(QLabel(tr("Page size:")))
             ctrl_layout.addWidget(self.page_size_combo)
             ctrl_layout.addWidget(self.total_label)
             ctrl_layout.addWidget(self.prev_btn)
@@ -114,7 +115,7 @@ class DataTableWidget(QWidget):
         empty_layout = QVBoxLayout()
         empty_layout.setAlignment(Qt.AlignCenter)
         empty_layout.setSpacing(10)
-        empty_label = QLabel("No data available")
+        empty_label = QLabel(tr("No data available"))
         empty_label.setAlignment(Qt.AlignCenter)
         empty_font = QFont()
         empty_font.setPointSize(14)
@@ -427,7 +428,7 @@ class DataTableWidget(QWidget):
             )
         except Exception as e:
             logger.exception(f"Error exporting PDF: {e}")
-            QMessageBox.critical(self, "Export Error", f"Failed to export PDF: {e}")
+            QMessageBox.critical(self, tr("Export Error"), f"Failed to export PDF: {e}")
 
     def export_csv(self, path=None, export_filtered=True, export_selected=False):
         """Export to CSV with options for filtered/selected data"""
@@ -437,7 +438,7 @@ class DataTableWidget(QWidget):
             # Check if there's any data to export
             if self.model.rowCount() == 0:
                 logger.warning("No data to export")
-                QMessageBox.warning(self, "No Data", "There is no data to export.")
+                QMessageBox.warning(self, tr("No Data"), "There is no data to export.")
                 return
             
             if path is None:
@@ -457,7 +458,7 @@ class DataTableWidget(QWidget):
             # Get visible columns only
             visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
             if not visible_cols:
-                QMessageBox.warning(self, "No Columns", "No visible columns to export.")
+                QMessageBox.warning(self, tr("No Columns"), "No visible columns to export.")
                 return
             
             headers = [self.model.headerData(i, Qt.Horizontal) or f"Column {i+1}" for i in visible_cols]
@@ -489,10 +490,10 @@ class DataTableWidget(QWidget):
                                    for c in visible_cols]
                             writer.writerow(row)
             
-            QMessageBox.information(self, "Success", f"Data exported to {path}")
+            QMessageBox.information(self, tr("Success"), f"Data exported to {path}")
         except Exception as e:
             logger.exception(f"Error exporting CSV: {e}")
-            QMessageBox.critical(self, "Export Error", f"Failed to export CSV: {e}")
+            QMessageBox.critical(self, tr("Export Error"), f"Failed to export CSV: {e}")
     
     def export_excel(self, path=None, export_filtered=True, export_selected=False):
         """Export to Excel with options for filtered/selected data"""
@@ -501,13 +502,13 @@ class DataTableWidget(QWidget):
             # Check if there's any data to export
             if self.model.rowCount() == 0:
                 logger.warning("No data to export")
-                QMessageBox.warning(self, "No Data", "There is no data to export.")
+                QMessageBox.warning(self, tr("No Data"), "There is no data to export.")
                 return
             
             from egg_farm_system.utils.excel_export import ExcelExporter
         except ImportError:
             logger.error("Excel export requires openpyxl")
-            QMessageBox.critical(self, "Missing Dependency", "Excel export requires openpyxl. Please install it with: pip install openpyxl")
+            QMessageBox.critical(self, tr("Missing Dependency"), "Excel export requires openpyxl. Please install it with: pip install openpyxl")
             return
         
         if path is None:
@@ -530,7 +531,7 @@ class DataTableWidget(QWidget):
         # Get visible columns only
         visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
         if not visible_cols:
-            QMessageBox.warning(self, "No Columns", "No visible columns to export.")
+            QMessageBox.warning(self, tr("No Columns"), "No visible columns to export.")
             return
         
         headers = [self.model.headerData(i, Qt.Horizontal) or f"Column {i+1}" for i in visible_cols]
@@ -562,7 +563,7 @@ class DataTableWidget(QWidget):
         try:
             exporter = ExcelExporter()
             exporter.export_table_data(headers, rows, Path(path), "Data")
-            QMessageBox.information(self, "Success", f"Data exported to {path}")
+            QMessageBox.information(self, tr("Success"), f"Data exported to {path}")
         except Exception as e:
             logger.exception(f"Error exporting Excel: {e}")
-            QMessageBox.critical(self, "Export Error", f"Failed to export Excel: {e}")
+            QMessageBox.critical(self, tr("Export Error"), f"Failed to export Excel: {e}")

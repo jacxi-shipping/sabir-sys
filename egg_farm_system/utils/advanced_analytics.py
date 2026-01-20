@@ -1,6 +1,8 @@
 """
 Advanced Analytics Module for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
@@ -229,11 +231,13 @@ class FinancialAnalytics:
                 
                 for issue in feed_issues:
                     # Estimate cost based on feed type
-                    feed = self.session.query(FinishedFeed).filter_by(feed_type=issue.feed_type).first()
-                    if feed:
-                        cost_per_kg = feed.cost_per_kg_afg
-                        feed_costs_afg += issue.quantity_kg * cost_per_kg
-                        feed_costs_usd += issue.quantity_kg * (feed.cost_per_kg_afg / 78.0)  # Approximate
+                    # Use relationship to get feed_type
+                    if issue.feed:
+                        feed = self.session.query(FinishedFeed).filter_by(feed_type=issue.feed.feed_type).first()
+                        if feed:
+                            cost_per_kg = feed.cost_per_kg_afg
+                            feed_costs_afg += issue.quantity_kg * cost_per_kg
+                            feed_costs_usd += issue.quantity_kg * (feed.cost_per_kg_afg / 78.0)  # Approximate
             
             # Expenses
             expenses = self.session.query(Expense).filter(
@@ -428,7 +432,7 @@ class InventoryAnalytics:
             # Calculate total value
             items = []
             for material in materials:
-                value = material.current_stock * material.cost_per_unit_afg
+                value = material.current_stock * material.cost_afg
                 items.append({
                     'name': material.name,
                     'value': value,

@@ -1,6 +1,8 @@
 """
 Widget for Production Analytics Reports
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QComboBox,
     QDateEdit, QPushButton, QLabel, QGroupBox, QMessageBox
@@ -13,7 +15,7 @@ class ProductionAnalyticsWidget(QWidget):
     def __init__(self, session):
         super().__init__()
         self.session = session
-        self.setWindowTitle("Production Analytics")
+        self.setWindowTitle(tr("Production Analytics"))
 
         self.setup_ui()
         self.load_flocks()
@@ -35,16 +37,16 @@ class ProductionAnalyticsWidget(QWidget):
         filters_group.setLayout(filters_layout)
         main_layout.addWidget(filters_group)
 
-        self.calculate_button = QPushButton("Calculate Analytics")
+        self.calculate_button = QPushButton(tr("Calculate Analytics"))
         self.calculate_button.clicked.connect(self.run_calculations)
         main_layout.addWidget(self.calculate_button)
 
         # --- FCR Group ---
         fcr_group = QGroupBox("Feed Conversion Ratio (FCR)")
         fcr_layout = QFormLayout()
-        self.fcr_result_label = QLabel("FCR (kg/dozen): Not calculated")
-        self.feed_result_label = QLabel("Total Feed (kg): Not calculated")
-        self.eggs_result_label = QLabel("Total Eggs: Not calculated")
+        self.fcr_result_label = QLabel(tr("FCR (kg/dozen): Not calculated"))
+        self.feed_result_label = QLabel(tr("Total Feed (kg): Not calculated"))
+        self.eggs_result_label = QLabel(tr("Total Eggs: Not calculated"))
         fcr_layout.addRow(self.fcr_result_label)
         fcr_layout.addRow(self.feed_result_label)
         fcr_layout.addRow(self.eggs_result_label)
@@ -55,7 +57,7 @@ class ProductionAnalyticsWidget(QWidget):
         hdp_group = QGroupBox("Hen-Day Production (HDP)")
         hdp_layout = QFormLayout()
         self.hdp_result_label = QLabel("HDP (%): Not calculated")
-        self.avg_birds_label = QLabel("Avg. Live Birds: Not calculated")
+        self.avg_birds_label = QLabel(tr("Avg. Live Birds: Not calculated"))
         hdp_layout.addRow(self.hdp_result_label)
         hdp_layout.addRow(self.avg_birds_label)
         hdp_group.setLayout(hdp_layout)
@@ -65,8 +67,8 @@ class ProductionAnalyticsWidget(QWidget):
         mortality_group = QGroupBox("Mortality")
         mortality_layout = QFormLayout()
         self.mortality_rate_label = QLabel("Mortality Rate (%): Not calculated")
-        self.total_deaths_label = QLabel("Total Deaths: Not calculated")
-        self.start_birds_label = QLabel("Birds at Start: Not calculated")
+        self.total_deaths_label = QLabel(tr("Total Deaths: Not calculated"))
+        self.start_birds_label = QLabel(tr("Birds at Start: Not calculated"))
         mortality_layout.addRow(self.mortality_rate_label)
         mortality_layout.addRow(self.total_deaths_label)
         mortality_layout.addRow(self.start_birds_label)
@@ -87,7 +89,7 @@ class ProductionAnalyticsWidget(QWidget):
         end_date = self.end_date_edit.date().toPython()
 
         if not flock_id:
-            QMessageBox.warning(self, "Warning", "Please select a flock.")
+            QMessageBox.warning(self, tr("Warning"), "Please select a flock.")
             return
 
         # FCR Calculation

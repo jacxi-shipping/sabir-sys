@@ -23,25 +23,12 @@ class LoadingOverlay(QWidget):
         # Loading label
         self.label = QLabel(message)
         self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("""
-            QLabel {
-                background-color: rgba(255, 255, 255, 240);
-                border-radius: 8px;
-                padding: 20px;
-                font-size: 14px;
-                font-weight: bold;
-                color: #333;
-            }
-        """)
+        self.label.setProperty('class', 'loading-label')
         layout.addWidget(self.label)
         self.setLayout(layout)
         
         # Set background
-        self.setStyleSheet("""
-            LoadingOverlay {
-                background-color: rgba(0, 0, 0, 100);
-            }
-        """)
+        self.setProperty('class', 'loading-overlay')
         
         self.hide()
     

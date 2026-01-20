@@ -2,7 +2,7 @@
 Flock management module
 """
 from datetime import datetime
-from egg_farm_system.database.models import Flock, Mortality
+from egg_farm_system.database.models import Flock, Mortality, Medication
 from egg_farm_system.database.db import DatabaseManager
 import logging
 
@@ -82,6 +82,41 @@ class FlockManager:
             return session.query(Mortality).filter(Mortality.flock_id == flock_id).all()
         except Exception as e:
             logger.error(f"Error getting mortalities: {e}")
+            return []
+        finally:
+            session.close()
+
+    def add_medication(self, flock_id, date, medication_name, dose, dose_unit='ml', administered_by=None, notes=None):
+        """Record a medication administered to a flock"""
+        session = DatabaseManager.get_session()
+        try:
+            med = Medication(
+                flock_id=flock_id,
+                date=date,
+                medication_name=medication_name,
+                dose=dose,
+                dose_unit=dose_unit,
+                administered_by=administered_by,
+                notes=notes
+            )
+            session.add(med)
+            session.commit()
+            logger.info(f"Medication recorded: {medication_name} for flock {flock_id}")
+            return med
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error recording medication: {e}")
+            raise
+        finally:
+            session.close()
+
+    def get_medications(self, flock_id):
+        """Get medication records for a flock"""
+        session = DatabaseManager.get_session()
+        try:
+            return session.query(Medication).filter(Medication.flock_id == flock_id).all()
+        except Exception as e:
+            logger.error(f"Error getting medications: {e}")
             return []
         finally:
             session.close()

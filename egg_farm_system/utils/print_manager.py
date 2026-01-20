@@ -1,6 +1,8 @@
 """
 Print Manager for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any

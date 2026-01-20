@@ -105,3 +105,9 @@ class CollapsibleGroup(QWidget):
         arrow = "▼" if self.is_expanded else "▶"
         self.header_btn.setText(f"{arrow} {self.title}")
 
+    def setTitle(self, title):
+        """Set the group's title and update header button text"""
+        self.title = title
+        arrow = "▼" if self.is_expanded else "▶"
+        self.header_btn.setText(f"{arrow} {self.title}")
+

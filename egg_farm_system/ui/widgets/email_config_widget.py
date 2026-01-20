@@ -1,6 +1,8 @@
 """
 Email Configuration Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QPushButton,
@@ -28,7 +30,7 @@ class EmailConfigWidget(QWidget):
         layout.setSpacing(15)
         
         # Title
-        title = QLabel("Email Configuration")
+        title = QLabel(tr("Email Configuration"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -40,7 +42,7 @@ class EmailConfigWidget(QWidget):
         config_layout = QFormLayout()
         
         self.smtp_server_edit = QLineEdit()
-        self.smtp_server_edit.setPlaceholderText("smtp.gmail.com")
+        self.smtp_server_edit.setPlaceholderText(tr("smtp.gmail.com"))
         config_layout.addRow("SMTP Server:", self.smtp_server_edit)
         
         self.smtp_port_spin = QSpinBox()
@@ -49,16 +51,16 @@ class EmailConfigWidget(QWidget):
         config_layout.addRow("SMTP Port:", self.smtp_port_spin)
         
         self.username_edit = QLineEdit()
-        self.username_edit.setPlaceholderText("your-email@gmail.com")
+        self.username_edit.setPlaceholderText(tr("your-email@gmail.com"))
         config_layout.addRow("Username/Email:", self.username_edit)
         
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
-        self.password_edit.setPlaceholderText("Your email password or app password")
+        self.password_edit.setPlaceholderText(tr("Your email password or app password"))
         config_layout.addRow("Password:", self.password_edit)
         
         self.from_email_edit = QLineEdit()
-        self.from_email_edit.setPlaceholderText("Optional - defaults to username")
+        self.from_email_edit.setPlaceholderText(tr("Optional - defaults to username"))
         config_layout.addRow("From Email:", self.from_email_edit)
         
         self.use_tls_check = QCheckBox("Use TLS/STARTTLS")
@@ -70,11 +72,11 @@ class EmailConfigWidget(QWidget):
         
         # Buttons
         btn_layout = QHBoxLayout()
-        save_btn = QPushButton("Save Configuration")
+        save_btn = QPushButton(tr("Save Configuration"))
         save_btn.clicked.connect(self.save_config)
         btn_layout.addWidget(save_btn)
         
-        test_btn = QPushButton("Test Connection")
+        test_btn = QPushButton(tr("Test Connection"))
         test_btn.clicked.connect(self.test_connection)
         btn_layout.addWidget(test_btn)
         
@@ -115,10 +117,10 @@ class EmailConfigWidget(QWidget):
             self.username_edit.setText(self.email_service.smtp_username)
             self.from_email_edit.setText(self.email_service.from_email)
             self.use_tls_check.setChecked(self.email_service.use_tls)
-            self.status_label.setText("✓ Email is configured")
+            self.status_label.setText(tr("✓ Email is configured"))
             self.status_label.setStyleSheet("color: green; padding: 10px;")
         else:
-            self.status_label.setText("Email is not configured. Please enter your SMTP settings.")
+            self.status_label.setText(tr("Email is not configured. Please enter your SMTP settings."))
             self.status_label.setStyleSheet("color: orange; padding: 10px;")
     
     def save_config(self):
@@ -131,7 +133,7 @@ class EmailConfigWidget(QWidget):
         use_tls = self.use_tls_check.isChecked()
         
         if not smtp_server or not username or not password:
-            QMessageBox.warning(self, "Validation", "Please fill in all required fields")
+            QMessageBox.warning(self, tr("Validation"), "Please fill in all required fields")
             return
         
         try:
@@ -144,13 +146,13 @@ class EmailConfigWidget(QWidget):
                 use_tls=use_tls
             )
             
-            QMessageBox.information(self, "Success", "Email configuration saved successfully")
-            self.status_label.setText("✓ Email configuration saved")
+            QMessageBox.information(self, tr("Success"), "Email configuration saved successfully")
+            self.status_label.setText(tr("✓ Email configuration saved"))
             self.status_label.setStyleSheet("color: green; padding: 10px;")
         
         except Exception as e:
             logger.error(f"Error saving email config: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to save configuration:\n{str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to save configuration:\n{str(e)}")
     
     def test_connection(self):
         """Test email connection"""
@@ -158,17 +160,17 @@ class EmailConfigWidget(QWidget):
         self.save_config()
         
         if not self.email_service.is_configured():
-            QMessageBox.warning(self, "Not Configured", "Please configure email settings first")
+            QMessageBox.warning(self, tr("Not Configured"), "Please configure email settings first")
             return
         
-        QMessageBox.information(self, "Testing", "Testing email connection...")
+        QMessageBox.information(self, tr("Testing"), "Testing email connection...")
         
         if self.email_service.test_connection():
-            QMessageBox.information(self, "Success", "Email connection test successful!")
-            self.status_label.setText("✓ Email connection test successful")
+            QMessageBox.information(self, tr("Success"), "Email connection test successful!")
+            self.status_label.setText(tr("✓ Email connection test successful"))
             self.status_label.setStyleSheet("color: green; padding: 10px;")
         else:
-            QMessageBox.critical(self, "Failed", "Email connection test failed. Please check your settings.")
-            self.status_label.setText("✗ Email connection test failed")
+            QMessageBox.critical(self, tr("Failed"), "Email connection test failed. Please check your settings.")
+            self.status_label.setText(tr("✗ Email connection test failed"))
             self.status_label.setStyleSheet("color: red; padding: 10px;")
 

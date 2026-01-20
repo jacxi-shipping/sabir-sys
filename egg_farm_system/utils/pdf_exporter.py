@@ -1,6 +1,8 @@
 """
 Professional PDF exporter for tables and reports using ReportLab
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 import os
 from datetime import datetime

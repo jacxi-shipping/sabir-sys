@@ -1,6 +1,8 @@
 """
 Feed manufacturing and management module
 """
+from egg_farm_system.utils.i18n import tr
+
 from datetime import datetime
 from egg_farm_system.database.models import (
     RawMaterial, FeedFormula, FeedFormulation, FeedBatch, FinishedFeed, FeedIssue

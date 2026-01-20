@@ -37,6 +37,12 @@ if errorlevel 1 (
 )
 
 echo.
+echo Copying documentation files...
+copy USER_AGREEMENT.md dist\
+copy README.md dist\
+copy LICENSE dist\
+
+echo.
 echo ========================================
 echo Build completed successfully!
 echo ========================================

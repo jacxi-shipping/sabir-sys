@@ -1,6 +1,8 @@
 """
 Employee and Salary Management Module
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from datetime import datetime, date
 from egg_farm_system.database.db import DatabaseManager

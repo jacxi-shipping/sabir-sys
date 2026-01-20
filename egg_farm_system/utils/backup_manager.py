@@ -1,6 +1,8 @@
 """
 Backup and Restore Manager for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import shutil
 import zipfile
 from pathlib import Path

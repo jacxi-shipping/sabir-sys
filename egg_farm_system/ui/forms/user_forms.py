@@ -1,3 +1,4 @@
+from egg_farm_system.utils.i18n import tr
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, QLineEdit,
     QLabel, QMessageBox, QDialog, QFormLayout
@@ -9,7 +10,7 @@ from egg_farm_system.ui.forms.password_change_dialog import PasswordChangeDialog
 class NewUserDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('New User')
+        self.setWindowTitle(tr('New User'))
         layout = QFormLayout()
         self.username = QLineEdit()
         self.password = QLineEdit()
@@ -22,11 +23,11 @@ class NewUserDialog(QDialog):
         btn_h.setSpacing(10)
         btn_h.setContentsMargins(0, 10, 0, 0)
         btn_h.addStretch()
-        save = QPushButton('Create')
+        save = QPushButton(tr('Create'))
         save.setMinimumWidth(100)
         save.setMinimumHeight(35)
         save.clicked.connect(self.accept)
-        cancel = QPushButton('Cancel')
+        cancel = QPushButton(tr('Cancel'))
         cancel.setMinimumWidth(100)
         cancel.setMinimumHeight(35)
         cancel.clicked.connect(self.reject)
@@ -48,11 +49,11 @@ class UserManagementForm(QWidget):
         layout.addWidget(self.list)
 
         btn_h = QHBoxLayout()
-        add_btn = QPushButton('Add User')
+        add_btn = QPushButton(tr('Add User'))
         add_btn.clicked.connect(self.add_user)
-        del_btn = QPushButton('Delete Selected')
+        del_btn = QPushButton(tr('Delete Selected'))
         del_btn.clicked.connect(self.delete_selected)
-        pwd_btn = QPushButton('Change Password')
+        pwd_btn = QPushButton(tr('Change Password'))
         pwd_btn.clicked.connect(self.change_selected_password)
         btn_h.addWidget(add_btn)
         btn_h.addWidget(del_btn)
@@ -74,10 +75,10 @@ class UserManagementForm(QWidget):
             password = dlg.password.text()
             full = dlg.full_name.text().strip()
             if not username or not password:
-                QMessageBox.warning(self, 'Validation', 'Username and password required')
+                QMessageBox.warning(self, tr('Validation'), 'Username and password required')
                 return
             UserManager.create_user(username, password, full)
-            QMessageBox.information(self, 'Created', 'User created')
+            QMessageBox.information(self, tr('Created'), 'User created')
             self.load_users()
 
     def delete_selected(self):
@@ -86,17 +87,17 @@ class UserManagementForm(QWidget):
             return
         user_id = int(item.text().split(':', 1)[0])
         if UserManager.delete_user(user_id):
-            QMessageBox.information(self, 'Deleted', 'User deleted')
+            QMessageBox.information(self, tr('Deleted'), 'User deleted')
             self.load_users()
         else:
-            QMessageBox.warning(self, 'Error', 'Failed to delete user')
+            QMessageBox.warning(self, tr('Error'), 'Failed to delete user')
 
     def change_selected_password(self):
         item = self.list.currentItem()
         if not item:
-            QMessageBox.warning(self, 'Selection', 'Select a user')
+            QMessageBox.warning(self, tr('Selection'), 'Select a user')
             return
         user_id = int(item.text().split(':', 1)[0])
         dlg = PasswordChangeDialog(self, target_user_id=user_id, force=True)
         if dlg.exec():
-            QMessageBox.information(self, 'Success', 'Password updated')
+            QMessageBox.information(self, tr('Success'), 'Password updated')

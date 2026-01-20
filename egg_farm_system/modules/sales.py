@@ -10,6 +10,7 @@ from egg_farm_system.utils.advanced_caching import CacheInvalidationManager
 from egg_farm_system.utils.performance_monitoring import measure_time
 from egg_farm_system.utils.audit_trail import get_audit_trail, ActionType
 import logging
+from egg_farm_system.modules.inventory import InventoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,21 @@ class RawMaterialSaleManager:
                     session=self.session
                 )
                 
+                # If payment method is Cash, create a payment record for cash flow tracking
+                if payment_method == "Cash":
+                    from egg_farm_system.database.models import Payment
+                    cash_payment = Payment(
+                        party_id=party_id,
+                        date=date,
+                        amount_afg=total_afg,
+                        amount_usd=total_usd,
+                        payment_type="Received",  # We received cash from customer
+                        payment_method="Cash",
+                        reference=f"Raw Material Sale #{raw_material_sale.id}",
+                        exchange_rate_used=exchange_rate_used
+                    )
+                    self.session.add(cash_payment)
+                
                 self.session.commit()
                 
                 # Invalidate caches after successful save
@@ -183,7 +199,9 @@ class SalesManager:
                 )
                 self.session.add(sale)
                 self.session.flush()  # Get sale ID
-                
+                # Consume eggs from inventory
+                inv_mgr = InventoryManager()
+                inv_mgr.consume_eggs(self.session, quantity)
                 # Post to ledger: Debit party, Credit sales
                 ledger_manager = LedgerManager() # Instantiate LedgerManager
                 ledger_manager.post_entry(
@@ -269,6 +287,16 @@ class SalesManager:
             )
             self.session.add(sale)
             self.session.flush()  # Get sale ID
+
+            # Consume eggs and packaging
+            inv_mgr = InventoryManager()
+            inv_mgr.consume_eggs(self.session, eggs)
+            # Consume cartons/trays as integer quantities
+            try:
+                inv_mgr.consume_packaging(self.session, cartons_needed=cartons, trays_needed=0)
+            except Exception:
+                # If packaging consumption fails, rollback will occur in outer exception handler
+                raise
             
             # Post to ledger: Debit party, Credit sales
             ledger_manager = LedgerManager()
@@ -283,6 +311,21 @@ class SalesManager:
                 reference_id=sale.id,
                 session=self.session
             )
+            
+            # If payment method is Cash, create a payment record for cash flow tracking
+            if payment_method == "Cash":
+                from egg_farm_system.database.models import Payment
+                cash_payment = Payment(
+                    party_id=party_id,
+                    date=date,
+                    amount_afg=total_afg,
+                    amount_usd=total_usd,
+                    payment_type="Received",  # We received cash from customer
+                    payment_method="Cash",
+                    reference=f"Sale #{sale.id}",
+                    exchange_rate_used=exchange_rate_used
+                )
+                self.session.add(cash_payment)
             
             self.session.commit()
             

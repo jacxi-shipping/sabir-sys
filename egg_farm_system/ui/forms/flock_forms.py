@@ -1,9 +1,12 @@
 """
 Flock management forms
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QMessageBox, QDialog, QFormLayout, QDateEdit, QSpinBox, QLineEdit, QToolButton
+    QMessageBox, QDialog, QFormLayout, QDateEdit, QSpinBox, QLineEdit, QToolButton,
+    QTabWidget
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QIcon, QStandardItem
@@ -37,9 +40,9 @@ class FlockDialog(QDialog):
         layout.addRow("Initial Count:", self.count_spin)
         
         buttons = QHBoxLayout()
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(tr("Save"))
         save_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
         buttons.addWidget(save_btn)
         buttons.addWidget(cancel_btn)
@@ -63,7 +66,7 @@ class FlockManagementWidget(QWidget):
         
         # Header
         header = QHBoxLayout()
-        title = QLabel("Flock Management")
+        title = QLabel(tr("Flock Management"))
         font = QFont()
         font.setPointSize(14)
         font.setBold(True)
@@ -71,7 +74,7 @@ class FlockManagementWidget(QWidget):
         header.addWidget(title)
         header.addStretch()
         
-        refresh_btn = QPushButton("Refresh")
+        refresh_btn = QPushButton(tr("Refresh"))
         refresh_btn.clicked.connect(self.refresh_flocks)
         header.addWidget(refresh_btn)
         layout.addLayout(header)
@@ -83,13 +86,13 @@ class FlockManagementWidget(QWidget):
         self.shed_combo = QComboBox()
         self.shed_combo.currentIndexChanged.connect(self.refresh_flocks)
         
-        filter_layout.addWidget(QLabel("Farm:"))
+        filter_layout.addWidget(QLabel(tr("Farm:")))
         filter_layout.addWidget(self.farm_combo)
-        filter_layout.addWidget(QLabel("Shed:"))
+        filter_layout.addWidget(QLabel(tr("Shed:")))
         filter_layout.addWidget(self.shed_combo)
         filter_layout.addStretch()
         
-        self.add_btn = QPushButton("Add Flock")
+        self.add_btn = QPushButton(tr("Add Flock"))
         self.add_btn.clicked.connect(self.add_flock)
         self.add_btn.setEnabled(False)
         filter_layout.addWidget(self.add_btn)
@@ -102,6 +105,22 @@ class FlockManagementWidget(QWidget):
         self.table.view.setColumnHidden(0, True)
         layout.addWidget(self.table)
 
+        # Details tabs (Medications / Mortalities)
+        self.details_tabs = QTabWidget()
+        # Medications table
+        self.meds_table = DataTableWidget(enable_pagination=False)
+        self.meds_table.set_headers(["ID", "Date", "Medication", "Dose", "Unit", "Administered By", "Notes"])
+        self.details_tabs.addTab(self.meds_table, tr("Medications"))
+        # Mortalities table
+        self.morts_table = DataTableWidget(enable_pagination=False)
+        self.morts_table.set_headers(["ID", "Date", "Count", "Notes"])
+        self.details_tabs.addTab(self.morts_table, tr("Mortalities"))
+
+        layout.addWidget(self.details_tabs)
+
+        # Wire selection to load details
+        self.table.row_selected.connect(self._on_flock_selected)
+
     def refresh_farms(self):
         self.farm_combo.blockSignals(True)
         self.farm_combo.clear()
@@ -110,7 +129,7 @@ class FlockManagementWidget(QWidget):
                 for farm in fm.get_all_farms():
                     self.farm_combo.addItem(farm.name, farm.id)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load farms: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to load farms: {e}")
         self.farm_combo.blockSignals(False)
         self.refresh_sheds()
 
@@ -124,7 +143,7 @@ class FlockManagementWidget(QWidget):
                     for shed in sm.get_sheds_by_farm(farm_id):
                         self.shed_combo.addItem(shed.name, shed.id)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to load sheds: {e}")
+                QMessageBox.critical(self, tr("Error"), f"Failed to load sheds: {e}")
         self.shed_combo.blockSignals(False)
         self.refresh_flocks()
 
@@ -158,18 +177,67 @@ class FlockManagementWidget(QWidget):
                 edit_btn.clicked.connect(lambda checked=False, f=flock: self.edit_flock(f))
                 delete_btn = QToolButton(); delete_btn.setIcon(QIcon(get_asset_path('icon_delete.svg')))
                 delete_btn.clicked.connect(lambda checked=False, f=flock: self.delete_flock(f))
+                # Mortality and Medication actions
+                mort_btn = QToolButton(); mort_btn.setIcon(QIcon(get_asset_path('icon_alert.svg')))
+                mort_btn.setToolTip(tr('Record Mortality'))
+                mort_btn.clicked.connect(lambda checked=False, f=flock: self.record_mortality(f))
+                med_btn = QToolButton(); med_btn.setIcon(QIcon(get_asset_path('icon_medical.svg')))
+                med_btn.setToolTip(tr('Record Medication'))
+                med_btn.clicked.connect(lambda checked=False, f=flock: self.record_medication(f))
                 
                 container = QWidget()
                 h = QHBoxLayout(container)
                 h.setContentsMargins(0, 0, 0, 0)
                 h.addWidget(edit_btn)
                 h.addWidget(delete_btn)
+                h.addWidget(mort_btn)
+                h.addWidget(med_btn)
                 h.addStretch()
                 
                 proxy_idx = self.table.proxy.mapFromSource(self.table.model.index(row, 6))
                 self.table.view.setIndexWidget(proxy_idx, container)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load flocks: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to load flocks: {e}")
+
+    def _on_flock_selected(self, source_row_index: int):
+        """Load medications and mortalities for selected flock row (source model index)."""
+        try:
+            # flock id is stored in column 0 as string
+            item = self.table.model.item(source_row_index, 0)
+            if not item:
+                # clear tables
+                self.meds_table.clear()
+                self.morts_table.clear()
+                return
+            flock_id = int(item.text())
+            fm = FlockManager()
+            meds = fm.get_medications(flock_id)
+            morts = fm.get_mortalities(flock_id)
+
+            med_rows = []
+            for m in meds:
+                med_rows.append([
+                    m.id,
+                    getattr(m.date, 'date', lambda: m.date)() if hasattr(m.date, 'date') else str(m.date),
+                    m.medication_name,
+                    m.dose,
+                    m.dose_unit,
+                    m.administered_by or '',
+                    m.notes or ''
+                ])
+            self.meds_table.set_rows(med_rows)
+
+            mort_rows = []
+            for mt in morts:
+                mort_rows.append([
+                    mt.id,
+                    getattr(mt.date, 'date', lambda: mt.date)() if hasattr(mt.date, 'date') else str(mt.date),
+                    mt.count,
+                    mt.notes or ''
+                ])
+            self.morts_table.set_rows(mort_rows)
+        except Exception as e:
+            QMessageBox.critical(self, tr("Error"), f"Failed to load flock details: {e}")
 
     def add_flock(self):
         shed_id = self.shed_combo.currentData()
@@ -181,9 +249,9 @@ class FlockManagementWidget(QWidget):
                 fm = FlockManager()
                 fm.create_flock(shed_id, **data)
                 self.refresh_flocks()
-                QMessageBox.information(self, "Success", "Flock created successfully")
+                QMessageBox.information(self, tr("Success"), "Flock created successfully")
             except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+                QMessageBox.critical(self, tr("Error"), str(e))
 
     def edit_flock(self, flock):
         dialog = FlockDialog(flock.shed_id, flock, self)
@@ -193,9 +261,9 @@ class FlockManagementWidget(QWidget):
                 fm = FlockManager()
                 fm.update_flock(flock.id, **data)
                 self.refresh_flocks()
-                QMessageBox.information(self, "Success", "Flock updated successfully")
+                QMessageBox.information(self, tr("Success"), "Flock updated successfully")
             except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+                QMessageBox.critical(self, tr("Error"), str(e))
 
     def delete_flock(self, flock):
         reply = QMessageBox.question(self, "Confirm Delete", f"Delete flock '{flock.name}'? This cannot be undone.")
@@ -204,6 +272,18 @@ class FlockManagementWidget(QWidget):
                 fm = FlockManager()
                 fm.delete_flock(flock.id)
                 self.refresh_flocks()
-                QMessageBox.information(self, "Success", "Flock deleted successfully")
+                QMessageBox.information(self, tr("Success"), "Flock deleted successfully")
             except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+                QMessageBox.critical(self, tr("Error"), str(e))
+
+    def record_mortality(self, flock):
+        from egg_farm_system.ui.forms.flock_mortality_dialog import MortalityDialog
+        dialog = MortalityDialog(flock.id, parent=self)
+        dialog.mortality_saved.connect(self.refresh_flocks)
+        dialog.exec()
+
+    def record_medication(self, flock):
+        from egg_farm_system.ui.forms.flock_medication_dialog import MedicationDialog
+        dialog = MedicationDialog(flock.id, parent=self)
+        dialog.medication_saved.connect(self.refresh_flocks)
+        dialog.exec()

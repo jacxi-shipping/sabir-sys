@@ -2,6 +2,8 @@
 Egg Expense Management Widget
 Allows setting tray and carton expenses
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton,
     QDoubleSpinBox, QMessageBox, QGroupBox, QSizePolicy
@@ -31,7 +33,7 @@ class EggExpenseWidget(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         
         # Title
-        title = QLabel("Egg Expense Management")
+        title = QLabel(tr("Egg Expense Management"))
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -40,8 +42,7 @@ class EggExpenseWidget(QWidget):
         
         # Info label
         info_label = QLabel(
-            "Set the expenses for trays and cartons used in egg packaging.\n"
-            "These expenses will be automatically calculated when selling eggs by carton."
+            tr("Set the expenses for trays and cartons used in egg packaging.\n" + "These expenses will be automatically calculated when selling eggs by carton.")
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #666; padding: 8px;")
@@ -117,11 +118,11 @@ class EggExpenseWidget(QWidget):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
-        self.save_btn = QPushButton("Save Expenses")
+        self.save_btn = QPushButton(tr("Save Expenses"))
         self.save_btn.setMinimumWidth(150)
         self.save_btn.clicked.connect(self.save_expenses)
         
-        self.reset_btn = QPushButton("Reset")
+        self.reset_btn = QPushButton(tr("Reset"))
         self.reset_btn.setMinimumWidth(100)
         self.reset_btn.clicked.connect(self.load_current_expenses)
         
@@ -186,12 +187,12 @@ class EggExpenseWidget(QWidget):
             
             QMessageBox.information(
                 self,
-                "Success",
+                tr("Success"),
                 f"Expenses saved successfully!\n\n"
                 f"Tray Expense: {tray_expense:.2f} AFG\n"
                 f"Carton Expense: {carton_expense:.2f} AFG"
             )
         except Exception as e:
             logger.error(f"Error saving expenses: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to save expenses: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to save expenses: {str(e)}")
 

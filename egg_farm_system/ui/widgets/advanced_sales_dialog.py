@@ -1,12 +1,14 @@
 """
 Advanced Sales Dialog with Carton-based Selling
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton,
-    QDoubleSpinBox, QComboBox, QDateTimeEdit, QMessageBox, QGroupBox,
+    QDoubleSpinBox, QComboBox, QMessageBox, QGroupBox,
     QGridLayout, QLineEdit, QTextEdit
 )
-from PySide6.QtCore import Qt, QDateTime, Signal, QTimer
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QFont
 from datetime import datetime
 import logging
@@ -15,6 +17,7 @@ from egg_farm_system.utils.egg_management import EggManagementSystem
 from egg_farm_system.modules.sales import SalesManager
 from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.modules.farms import FarmManager
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateTimeEdit
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +72,7 @@ class AdvancedSalesDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         
         # Title
-        title = QLabel("Egg Sale - Carton Based")
+        title = QLabel(tr("Egg Sale - Carton Based"))
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -83,9 +86,8 @@ class AdvancedSalesDialog(QDialog):
         basic_layout.setContentsMargins(12, 12, 12, 12)
         basic_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
-        self.date_edit = QDateTimeEdit()
-        self.date_edit.setDateTime(QDateTime.currentDateTime())
-        self.date_edit.setCalendarPopup(True)
+        self.date_edit = JalaliDateTimeEdit()
+        self.date_edit.setDateTime(datetime.now())
         self.date_edit.setMinimumWidth(200)
         
         self.party_combo = QComboBox()
@@ -113,7 +115,7 @@ class AdvancedSalesDialog(QDialog):
         carton_layout.setContentsMargins(12, 12, 12, 12)
         
         # Carton quantity
-        carton_label = QLabel("Cartons:")
+        carton_label = QLabel(tr("Cartons:"))
         carton_label.setMinimumWidth(100)
         carton_layout.addWidget(carton_label, 0, 0)
         self.carton_spin = QDoubleSpinBox()
@@ -126,7 +128,7 @@ class AdvancedSalesDialog(QDialog):
         carton_layout.addWidget(self.carton_spin, 0, 1)
         
         # Egg grade
-        grade_label = QLabel("Egg Grade:")
+        grade_label = QLabel(tr("Egg Grade:"))
         grade_label.setMinimumWidth(100)
         carton_layout.addWidget(grade_label, 0, 2)
         self.grade_combo = QComboBox()
@@ -135,7 +137,7 @@ class AdvancedSalesDialog(QDialog):
         carton_layout.addWidget(self.grade_combo, 0, 3)
         
         # Calculated eggs display
-        self.eggs_label = QLabel("= 0 eggs")
+        self.eggs_label = QLabel(tr("= 0 eggs"))
         eggs_font = QFont()
         eggs_font.setBold(True)
         self.eggs_label.setFont(eggs_font)
@@ -143,7 +145,7 @@ class AdvancedSalesDialog(QDialog):
         carton_layout.addWidget(self.eggs_label, 1, 0, 1, 2)
         
         # Tray conversion display
-        self.tray_label = QLabel("= 0 trays")
+        self.tray_label = QLabel(tr("= 0 trays"))
         self.tray_label.setMinimumWidth(100)
         carton_layout.addWidget(self.tray_label, 1, 2, 1, 2)
         
@@ -188,17 +190,17 @@ class AdvancedSalesDialog(QDialog):
         expense_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         # Tray expense (auto-calculated)
-        self.tray_expense_label = QLabel("0.00 AFG")
+        self.tray_expense_label = QLabel(tr("0.00 AFG"))
         self.tray_expense_label.setMinimumWidth(150)
         expense_layout.addRow("Tray Expense:", self.tray_expense_label)
         
         # Carton expense (auto-calculated)
-        self.carton_expense_label = QLabel("0.00 AFG")
+        self.carton_expense_label = QLabel(tr("0.00 AFG"))
         self.carton_expense_label.setMinimumWidth(150)
         expense_layout.addRow("Carton Expense:", self.carton_expense_label)
         
         # Total expense
-        self.total_expense_label = QLabel("0.00 AFG")
+        self.total_expense_label = QLabel(tr("0.00 AFG"))
         expense_font = QFont()
         expense_font.setBold(True)
         self.total_expense_label.setFont(expense_font)
@@ -215,11 +217,11 @@ class AdvancedSalesDialog(QDialog):
         summary_layout.setContentsMargins(12, 12, 12, 12)
         summary_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
-        self.egg_cost_label = QLabel("0.00 AFG")
+        self.egg_cost_label = QLabel(tr("0.00 AFG"))
         self.egg_cost_label.setMinimumWidth(150)
         summary_layout.addRow("Egg Cost:", self.egg_cost_label)
         
-        self.total_cost_label = QLabel("0.00 AFG")
+        self.total_cost_label = QLabel(tr("0.00 AFG"))
         cost_font = QFont()
         cost_font.setBold(True)
         cost_font.setPointSize(11)
@@ -227,7 +229,7 @@ class AdvancedSalesDialog(QDialog):
         self.total_cost_label.setMinimumWidth(150)
         summary_layout.addRow("Total Cost (Eggs + Expenses):", self.total_cost_label)
         
-        self.selling_price_label = QLabel("0.00 AFG")
+        self.selling_price_label = QLabel(tr("0.00 AFG"))
         selling_font = QFont()
         selling_font.setBold(True)
         selling_font.setPointSize(11)
@@ -236,7 +238,7 @@ class AdvancedSalesDialog(QDialog):
         self.selling_price_label.setMinimumWidth(150)
         summary_layout.addRow("Selling Price:", self.selling_price_label)
         
-        self.profit_label = QLabel("0.00 AFG")
+        self.profit_label = QLabel(tr("0.00 AFG"))
         profit_font = QFont()
         profit_font.setBold(True)
         profit_font.setPointSize(11)
@@ -248,7 +250,7 @@ class AdvancedSalesDialog(QDialog):
         layout.addWidget(summary_group)
         
         # Notes
-        notes_label = QLabel("Notes:")
+        notes_label = QLabel(tr("Notes:"))
         self.notes_edit = QTextEdit()
         self.notes_edit.setMaximumHeight(60)
         layout.addWidget(notes_label)
@@ -260,10 +262,10 @@ class AdvancedSalesDialog(QDialog):
         btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
-        self.save_btn = QPushButton("Save Sale")
+        self.save_btn = QPushButton(tr("Save Sale"))
         self.save_btn.setMinimumWidth(120)
         self.save_btn.setMinimumHeight(35)
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton(tr("Cancel"))
         self.cancel_btn.setMinimumWidth(120)
         self.cancel_btn.setMinimumHeight(35)
         
@@ -286,9 +288,8 @@ class AdvancedSalesDialog(QDialog):
     def load_data(self):
         """Load existing sale data if editing"""
         if self.sale:
-            self.date_edit.setDateTime(QDateTime.fromString(
-                self.sale.date.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss"
-            ))
+            # `sale.date` is a Python datetime stored in DB (Gregorian)
+            self.date_edit.setDateTime(self.sale.date)
             
             # Find party index
             for i in range(self.party_combo.count()):
@@ -380,15 +381,15 @@ class AdvancedSalesDialog(QDialog):
         try:
             # Validation
             if self.party_combo.currentData() is None:
-                QMessageBox.warning(self, "Validation Error", "Please select a customer.")
+                QMessageBox.warning(self, tr("Validation Error"), "Please select a customer.")
                 return
             
             if self.carton_spin.value() <= 0:
-                QMessageBox.warning(self, "Validation Error", "Carton quantity must be greater than 0.")
+                QMessageBox.warning(self, tr("Validation Error"), "Carton quantity must be greater than 0.")
                 return
             
             if self.rate_per_egg_afg.value() <= 0:
-                QMessageBox.warning(self, "Validation Error", "Rate per egg must be greater than 0.")
+                QMessageBox.warning(self, tr("Validation Error"), "Rate per egg must be greater than 0.")
                 return
             
             # Get values
@@ -424,7 +425,7 @@ class AdvancedSalesDialog(QDialog):
                     sale = session.query(self.sale.__class__).filter_by(id=self.sale.id).first()
                     if sale:
                         sale.party_id = self.party_combo.currentData()
-                        sale.date = self.date_edit.dateTime().toPython()
+                        sale.date = self.date_edit.dateTime()
                         sale.quantity = eggs
                         sale.cartons = cartons
                         sale.egg_grade = grade
@@ -442,7 +443,7 @@ class AdvancedSalesDialog(QDialog):
                     session.close()
             else:
                 # Create new sale
-                self.sales_manager.record_sale_advanced(
+                    self.sales_manager.record_sale_advanced(
                     party_id=self.party_combo.currentData(),
                     cartons=cartons,
                     eggs=eggs,
@@ -451,17 +452,17 @@ class AdvancedSalesDialog(QDialog):
                     rate_usd=rate_usd,
                     tray_expense_afg=tray_expense,
                     carton_expense_afg=carton_expense,
-                    date=self.date_edit.dateTime().toPython(),
+                    date=self.date_edit.dateTime(),
                     notes=self.notes_edit.toPlainText(),
                     exchange_rate_used=exchange_rate,
                     payment_method=self.payment_method_combo.currentText()
                 )
             
-            QMessageBox.information(self, "Success", "Sale recorded successfully!")
+            QMessageBox.information(self, tr("Success"), "Sale recorded successfully!")
             self.sale_saved.emit()
             self.accept()
         
         except Exception as e:
             logger.error(f"Error saving sale: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to save sale: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to save sale: {str(e)}")
 

@@ -93,12 +93,61 @@ class PurchaseManager:
                 session=self.session  # Pass session for transactional consistency
             )
             
+            # If payment method is Cash, create a payment record for cash flow tracking
+            if payment_method == "Cash":
+                from egg_farm_system.database.models import Payment
+                cash_payment = Payment(
+                    party_id=party_id,
+                    date=date,
+                    amount_afg=total_afg,
+                    amount_usd=total_usd,
+                    payment_type="Paid",  # We paid cash to supplier
+                    payment_method="Cash",
+                    reference=f"Purchase #{purchase.id}",
+                    exchange_rate_used=exchange_rate_used
+                )
+                self.session.add(cash_payment)
+            
             self.session.commit()
             logger.info(f"Purchase recorded: {quantity}kg from party {party_id}")
             return purchase
         except Exception as e:
             self.session.rollback()
             logger.error(f"Error recording purchase: {e}")
+            raise
+
+    def record_packaging_purchase(self, party_id, material_name, quantity, rate_afg, rate_usd,
+                                  exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+        """Convenience wrapper to purchase packaging items (Carton/Tray) by name.
+
+        If the `RawMaterial` doesn't exist, it will be created with unit='pcs'.
+        """
+        try:
+            # Basic validation
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than 0")
+
+            # Ensure material exists (Carton / Tray)
+            material = self.session.query(RawMaterial).filter(RawMaterial.name == material_name).first()
+            if not material:
+                material = RawMaterial(name=material_name, unit='pcs', current_stock=0)
+                self.session.add(material)
+                self.session.flush()
+
+            # Use existing record_purchase to handle ledger and stock updates
+            return self.record_purchase(
+                party_id=party_id,
+                material_id=material.id,
+                quantity=quantity,
+                rate_afg=rate_afg,
+                rate_usd=rate_usd,
+                exchange_rate_used=exchange_rate_used,
+                date=date,
+                notes=notes,
+                payment_method=payment_method
+            )
+        except Exception as e:
+            logger.error(f"Error recording packaging purchase: {e}")
             raise
     
     def get_purchases(self, party_id=None, material_id=None, start_date=None, end_date=None):
