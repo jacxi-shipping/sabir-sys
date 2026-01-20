@@ -111,46 +111,27 @@ class EggManagementSystem:
         Get available eggs by grade (not yet sold)
         
         Args:
-            farm_id: Farm ID
+            farm_id: Farm ID (Note: EggInventory is currently global, so farm_id is unused but kept for API compatibility)
             grade: Egg grade (small, medium, large, broken)
             
         Returns:
             Available count
         """
         try:
-            from egg_farm_system.database.models import Shed, Sale
-            from egg_farm_system.modules.sales import SalesManager
+            from egg_farm_system.database.models import EggInventory, EggGrade
             
-            # Get all sheds for farm
-            sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
-            shed_ids = [s.id for s in sheds]
-            
-            if not shed_ids:
-                return 0
-            
-            # Get total production by grade
-            grade_field_map = {
-                'small': 'small_count',
-                'medium': 'medium_count',
-                'large': 'large_count',
-                'broken': 'broken_count'
+            grade_map = {
+                'small': EggGrade.SMALL,
+                'medium': EggGrade.MEDIUM,
+                'large': EggGrade.LARGE,
+                'broken': EggGrade.BROKEN
             }
             
-            if grade not in grade_field_map:
+            if grade not in grade_map:
                 return 0
-            
-            # Sum production
-            total_produced = 0
-            productions = self.session.query(EggProduction).filter(
-                EggProduction.shed_id.in_(shed_ids)
-            ).all()
-            
-            for prod in productions:
-                total_produced += getattr(prod, grade_field_map[grade])
-            
-            # Subtract sold eggs (simplified - would need to track by grade in sales)
-            # For now, return total produced (sales don't track by grade currently)
-            return total_produced
+                
+            inv = self.session.query(EggInventory).filter(EggInventory.grade == grade_map[grade]).first()
+            return inv.current_stock if inv else 0
         
         except Exception as e:
             logger.error(f"Error getting available eggs: {e}")
@@ -159,25 +140,23 @@ class EggManagementSystem:
     def get_egg_stock_summary(self, farm_id: int) -> Dict[str, int]:
         """Get egg stock summary by grade"""
         try:
-            from egg_farm_system.database.models import Shed
+            from egg_farm_system.database.models import EggInventory, EggGrade
             
-            sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
-            shed_ids = [s.id for s in sheds]
-            
-            if not shed_ids:
-                return {'small': 0, 'medium': 0, 'large': 0, 'broken': 0, 'total': 0, 'usable': 0}
-            
-            productions = self.session.query(EggProduction).filter(
-                EggProduction.shed_id.in_(shed_ids)
-            ).all()
-            
+            # Initialize with zeros
             summary = {'small': 0, 'medium': 0, 'large': 0, 'broken': 0}
             
-            for prod in productions:
-                summary['small'] += prod.small_count
-                summary['medium'] += prod.medium_count
-                summary['large'] += prod.large_count
-                summary['broken'] += prod.broken_count
+            # Query current stock from EggInventory
+            inventories = self.session.query(EggInventory).all()
+            
+            for inv in inventories:
+                if inv.grade == EggGrade.SMALL:
+                    summary['small'] = inv.current_stock
+                elif inv.grade == EggGrade.MEDIUM:
+                    summary['medium'] = inv.current_stock
+                elif inv.grade == EggGrade.LARGE:
+                    summary['large'] = inv.current_stock
+                elif inv.grade == EggGrade.BROKEN:
+                    summary['broken'] = inv.current_stock
             
             summary['total'] = sum(summary.values())
             summary['usable'] = summary['small'] + summary['medium'] + summary['large']
