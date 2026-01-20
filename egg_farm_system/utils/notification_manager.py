@@ -52,21 +52,34 @@ class NotificationManager:
         self._listeners: List[callable] = []
         self._max_notifications = 100
     
-    def add_notification(self, title: str, message: str, severity: NotificationSeverity = NotificationSeverity.INFO,
-                        action_url: Optional[str] = None, action_label: Optional[str] = None) -> Notification:
+    def add_notification(self, title: str, message: str, severity=None,
+                        action_url: Optional[str] = None, action_label: Optional[str] = None, data: Optional[dict] = None) -> Notification:
         """
         Add a new notification
         
         Args:
             title: Notification title
             message: Notification message
-            severity: Severity level
+            severity: Severity level (can be string or NotificationSeverity enum)
             action_url: Optional action URL/module
             action_label: Optional action label
+            data: Optional additional data
             
         Returns:
             Created notification
         """
+        # Handle string severity from alert system
+        if isinstance(severity, str):
+            severity_map = {
+                'info': NotificationSeverity.INFO,
+                'warning': NotificationSeverity.WARNING,
+                'critical': NotificationSeverity.CRITICAL,
+                'success': NotificationSeverity.SUCCESS
+            }
+            severity = severity_map.get(severity.lower(), NotificationSeverity.INFO)
+        elif severity is None:
+            severity = NotificationSeverity.INFO
+        
         notification = Notification(
             id=f"notif_{datetime.now().timestamp()}",
             title=title,

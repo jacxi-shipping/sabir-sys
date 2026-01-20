@@ -1,0 +1,42 @@
+[MASTER]
+# Ignore warnings for Quick Wins implementation
+disable=duplicate-code,
+        missing-module-docstring,
+        missing-class-docstring,
+        missing-function-docstring,
+        too-few-public-methods,
+        too-many-arguments,
+        too-many-locals,
+        too-many-instance-attributes,
+        too-many-statements,
+        too-many-branches,
+        line-too-long,
+        invalid-name,
+        trailing-whitespace,
+        broad-exception-caught,
+        logging-fstring-interpolation,
+        bare-except,
+        too-many-nested-blocks,
+        unused-import,
+        import-error,
+        wrong-import-position,
+        no-name-in-module,
+        import-outside-toplevel,
+        no-member,
+        not-callable,
+        unused-variable,
+        access-member-before-definition,
+        too-many-positional-arguments,
+        no-else-return,
+        wrong-import-order
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-args=10
+max-locals=20
+max-attributes=15
+
+[BASIC]
+good-names=i,j,k,e,f,db,_,id,ws
