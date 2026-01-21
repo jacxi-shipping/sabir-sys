@@ -35,33 +35,48 @@ class KPIWidget(QWidget):
         layout = QVBoxLayout(self)
         
         # Title
-        title_label = QLabel(title)
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 14px; color: #666;")
-        layout.addWidget(title_label)
+        self.title_label = QLabel(title)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 14px; color: #666;")
+        layout.addWidget(self.title_label)
         
         # Value
-        value_label = QLabel(f"{value:,.0f} {unit}" if unit else f"{value:,.0f}")
-        value_label.setAlignment(Qt.AlignCenter)
-        value_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #333;")
-        layout.addWidget(value_label)
+        self.value_label = QLabel(f"{value:,.0f} {unit}" if unit else f"{value:,.0f}")
+        self.value_label.setAlignment(Qt.AlignCenter)
+        self.value_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #333;")
+        layout.addWidget(self.value_label)
         
         # Trend indicator
-        trend_colors = {
+        self.trend_colors = {
             "up": "#28a745",
             "down": "#dc3545", 
             "neutral": "#6c757d"
         }
-        trend_indicators = {
+        self.trend_indicators = {
             "up": "↗",
             "down": "↘",
             "neutral": "→"
         }
         
-        trend_label = QLabel(f"{trend_indicators[trend]} Trend")
-        trend_label.setAlignment(Qt.AlignCenter)
-        trend_label.setStyleSheet(f"font-size: 12px; color: {trend_colors[trend]};")
-        layout.addWidget(trend_label)
+        self.trend_label = QLabel(f"{self.trend_indicators[trend]} Trend")
+        self.trend_label.setAlignment(Qt.AlignCenter)
+        self.trend_label.setStyleSheet(f"font-size: 12px; color: {self.trend_colors[trend]};")
+        layout.addWidget(self.trend_label)
+
+    def update_value(self, value, unit="", trend=None):
+        """Update KPI value and optionally trend"""
+        if isinstance(value, (int, float, np.integer, np.floating)):
+            self.value_label.setText(f"{value:,.0f} {unit}" if unit else f"{value:,.0f}")
+        else:
+            self.value_label.setText(str(value))
+        
+        if trend and trend in self.trend_indicators:
+            self.trend_label.setText(f"{self.trend_indicators[trend]} Trend")
+            self.trend_label.setStyleSheet(f"font-size: 12px; color: {self.trend_colors[trend]};")
+
+    def update_trend_color(self, color):
+        """Update trend indicator color"""
+        self.trend_label.setStyleSheet(f"font-size: 12px; color: {color};")
 
 class ProductionForecastWidget(QWidget):
     """Production forecasting visualization widget"""
@@ -156,8 +171,7 @@ class ProductionForecastWidget(QWidget):
         try:
             if 'error' in forecast_data:
                 self.plot_widget.clear()
-                self.plot_widget.addLabel(text=f"Forecast Error: {forecast_data['error']}", 
-                                        color='red', anchor=(0.5, 0.5))
+                self.plot_widget.setTitle(f"Forecast Error: {forecast_data['error']}")
                 return
             
             # Update title with farm info
@@ -258,8 +272,7 @@ class ProductionForecastWidget(QWidget):
     def handle_forecast_error(self, error_message):
         """Handle forecast errors"""
         self.plot_widget.clear()
-        self.plot_widget.addLabel(text=f"Forecast Error:\n{error_message}", 
-                                color='red', anchor=(0.5, 0.5))
+        self.plot_widget.setTitle(f"Forecast Error: {error_message}")
 
 class InventoryOptimizationWidget(QWidget):
     """Inventory optimization and ABC analysis widget"""

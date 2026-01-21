@@ -12,7 +12,7 @@ import logging
 
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import (
-    Farm, Sale, Purchase, Expense, LedgerEntry, Party, Payment
+    Farm, Sale, Purchase, Expense, Ledger, Party, Payment
 )
 from egg_farm_system.utils.performance_monitoring import measure_time
 
@@ -507,7 +507,7 @@ class FinancialPlanner:
                 "cash_flow_analysis": {
                     "peak_financing_need": round(abs(min_cash_flow)) if min_cash_flow < 0 else 0,
                     "average_monthly_operating_flow": round(total_operating_flow / 12),
-                    "cash_flow_seasonality": "high" if max(m["operating_cash_flow"] for m in monthly_cash_flow.values()) / abs(min(m["operating_cash_flow"] for m in monthly_cash_flow.values())) > 2 else "moderate"
+                    "cash_flow_seasonality": "high" if (min_val := abs(min(m["operating_cash_flow"] for m in monthly_cash_flow.values()))) > 0 and max(m["operating_cash_flow"] for m in monthly_cash_flow.values()) / min_val > 2 else "moderate"
                 },
                 "recommendations": self._generate_cash_flow_recommendations(monthly_cash_flow)
             }

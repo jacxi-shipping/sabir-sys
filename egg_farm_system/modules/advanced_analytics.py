@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import (
     Farm, Shed, EggProduction, Sale, Purchase, Expense, FeedIssue, 
-    RawMaterial, FinishedFeed, LedgerEntry
+    RawMaterial, FinishedFeed, Ledger
 )
 from egg_farm_system.utils.performance_monitoring import measure_time
 import logging

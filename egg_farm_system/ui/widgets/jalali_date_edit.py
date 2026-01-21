@@ -47,15 +47,19 @@ class JalaliDateEdit(QWidget):
         self.display = QLineEdit(self)
         self.display.setReadOnly(True)
         h.addWidget(self.display)
-        btn = QToolButton(self)
-        btn.setText("⋯")
-        btn.clicked.connect(self._open_picker)
-        h.addWidget(btn)
+        self.btn = QToolButton(self)
+        self.btn.setText("⋯")
+        self.btn.clicked.connect(self._open_picker)
+        h.addWidget(self.btn)
 
         if initial:
             self.setDate(initial)
         else:
             self.setDate(date.today())
+
+    def setReadOnly(self, read_only: bool):
+        self.display.setReadOnly(read_only)
+        self.btn.setEnabled(not read_only)
 
     def date(self) -> Optional[date]:
         return self._date

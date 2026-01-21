@@ -98,7 +98,7 @@ class ProductionDropAlert(AlertRule):
         start_date = end_date - timedelta(days=days - 1)
         
         total = session.query(func.sum(
-            EggProduction.small + EggProduction.medium + EggProduction.large
+            EggProduction.small_count + EggProduction.medium_count + EggProduction.large_count
         )).join(Shed).filter(
             Shed.farm_id == farm_id,
             EggProduction.date >= start_date,
@@ -322,7 +322,12 @@ class FlockAgeAlert(AlertRule):
             flocks = session.query(Flock).all()
             
             for flock in flocks:
-                age_days = (datetime.now().date() - flock.start_date).days
+                # Handle potential mixed date/datetime from SQLAlchemy
+                start_date = flock.start_date
+                if isinstance(start_date, datetime):
+                    start_date = start_date.date()
+                
+                age_days = (datetime.now().date() - start_date).days
                 age_weeks = age_days / 7
                 
                 # Check for feed change milestones (within 1 week)
