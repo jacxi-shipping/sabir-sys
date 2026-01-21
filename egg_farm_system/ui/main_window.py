@@ -718,12 +718,39 @@ class MainWindow(QMainWindow):
         self._add_to_history("Backup & Restore", "backup_restore", self.load_backup_restore)
     
     def load_analytics(self):
-        """Load analytics dashboard"""
-        from egg_farm_system.ui.widgets.analytics_dashboard import AnalyticsDashboardWidget
-        analytics_widget = AnalyticsDashboardWidget(self.get_current_farm_id())
-        self.replace_content(analytics_widget)
-        self._update_breadcrumbs("Analytics", "analytics")
-        self._add_to_history("Analytics", "analytics", self.load_analytics)
+        """Load advanced analytics dashboard with predictive analytics and forecasting"""
+        # Create tabbed analytics dashboard
+        from PySide6.QtWidgets import QTabWidget
+        from egg_farm_system.ui.advanced_dashboard import (
+            ProductionForecastWidget, 
+            InventoryOptimizationWidget,
+            FinancialDashboardWidget
+        )
+        
+        # Create main analytics container
+        analytics_container = QWidget()
+        layout = QVBoxLayout(analytics_container)
+        
+        # Create tab widget for different analytics
+        tab_widget = QTabWidget()
+        
+        # Production Forecast Tab
+        production_widget = ProductionForecastWidget(self.get_current_farm_id())
+        tab_widget.addTab(production_widget, "Production Forecast")
+        
+        # Inventory Optimization Tab
+        inventory_widget = InventoryOptimizationWidget(self.get_current_farm_id())
+        tab_widget.addTab(inventory_widget, "Inventory Optimization")
+        
+        # Financial Dashboard Tab
+        financial_widget = FinancialDashboardWidget(self.get_current_farm_id())
+        tab_widget.addTab(financial_widget, "Financial Planning")
+        
+        layout.addWidget(tab_widget)
+        
+        self.replace_content(analytics_container)
+        self._update_breadcrumbs("Advanced Analytics", "analytics")
+        self._add_to_history("Advanced Analytics", "analytics", self.load_analytics)
     
     def load_cash_flow(self):
         """Load cash flow management widget"""

@@ -15,6 +15,11 @@ from egg_farm_system.modules.sales import SalesManager
 from egg_farm_system.modules.inventory import InventoryManager
 from egg_farm_system.ui.widgets.charts import TimeSeriesChart
 from egg_farm_system.ui.widgets.forecasting import ForecastingWidget
+from egg_farm_system.ui.advanced_dashboard import (
+    ProductionForecastWidget, 
+    InventoryOptimizationWidget,
+    FinancialDashboardWidget
+)
 from egg_farm_system.utils.advanced_caching import dashboard_cache, CacheInvalidationManager
 from egg_farm_system.utils.performance_monitoring import measure_time
 from egg_farm_system.utils.i18n import tr, get_i18n
