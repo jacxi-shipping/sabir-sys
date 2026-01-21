@@ -1,13 +1,25 @@
-from egg_farm_system.utils.i18n import tr
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-    QListWidget, QMessageBox, QTabWidget, QGroupBox, QFormLayout, 
-    QDoubleSpinBox, QTextEdit, QSizePolicy
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
 from egg_farm_system.modules.settings import SettingsManager
 from egg_farm_system.utils.egg_management import EggManagementSystem
+from egg_farm_system.utils.i18n import tr
 
 
 class SettingsForm(QWidget):
@@ -71,7 +83,7 @@ class SettingsForm(QWidget):
             tr("Configure egg packaging expenses. These values are used when calculating " + "total costs for carton-based egg sales.")
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; padding: 8px; background-color: #f5f5f5; border-radius: 4px;")
+        info_label.setProperty('class', 'info-banner')
         layout.addWidget(info_label)
         
         # Egg Expense Settings Group
@@ -119,7 +131,7 @@ class SettingsForm(QWidget):
             f"• Total expense = Tray expense + Carton expense"
         )
         conversion_info.setWordWrap(True)
-        conversion_info.setStyleSheet("padding: 8px; background-color: #e8f4f8; border-radius: 4px;")
+        conversion_info.setProperty('class', 'info-banner-secondary')
         info_layout.addWidget(conversion_info)
         
         info_group.setLayout(info_layout)
@@ -166,7 +178,7 @@ class SettingsForm(QWidget):
             tr("Advanced settings editor. Use this to view and edit all application settings " + "using key-value pairs. Changes are saved immediately.")
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; padding: 8px; background-color: #fff3cd; border-radius: 4px;")
+        info_label.setProperty('class', 'warning-banner')
         layout.addWidget(info_label)
         
         # Settings list

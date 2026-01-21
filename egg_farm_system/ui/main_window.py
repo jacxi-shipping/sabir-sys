@@ -55,8 +55,11 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.app_version = app_version
         
-        # Initialize Theme - Default to Farm theme
-        self.current_theme = ThemeManager.FARM
+        # Initialize Theme - Load from settings or use default
+        from egg_farm_system.modules.settings import SettingsManager
+        saved_theme = SettingsManager.get_setting('app_theme', ThemeManager.FARM)
+        self.current_theme = saved_theme if saved_theme in [ThemeManager.LIGHT, ThemeManager.DARK, ThemeManager.FARM] else ThemeManager.FARM
+        ThemeManager.set_current_theme(self.current_theme)
         ThemeManager.apply_theme(sys.modules['__main__'].app if hasattr(sys.modules['__main__'], 'app') else self, self.current_theme)
 
         # Initialize I18n
@@ -161,9 +164,9 @@ class MainWindow(QMainWindow):
                     if widget.property("full_text"):
                         widget.setProperty("full_text", new_text)
                         if not self.sidebar.property('collapsed'):
-                             widget.setText(new_text)
+                            widget.setText(new_text)
                         else:
-                             widget.setToolTip(new_text)
+                            widget.setToolTip(new_text)
                 elif isinstance(widget, QLabel):
                     widget.setText(tr(key))
                 
@@ -202,11 +205,7 @@ class MainWindow(QMainWindow):
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
         sidebar.setFixedWidth(SIDEBAR_WIDTH) # Fix width to prevent squashing
-        sidebar.setStyleSheet("""
-            QFrame#sidebar {
-                background-color: #2c3e50;
-            }
-        """)
+        # No hardcoded styles - let theme handle it
 
         # Scroll area for navigation
         scroll = QScrollArea()
@@ -228,16 +227,7 @@ class MainWindow(QMainWindow):
         self.collapse_btn.setObjectName("collapse_btn")
         self.collapse_btn.setFixedSize(35, 35)
         self.collapse_btn.setCursor(Qt.PointingHandCursor)
-        self.collapse_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.1);
-            }
-        """)
+        # Remove hardcoded styles - global theme handles it
         # Load chevron icons
         from egg_farm_system.config import get_asset_path
         self._chev_left = Path(get_asset_path('icon_chevron_left.svg'))
@@ -255,18 +245,8 @@ class MainWindow(QMainWindow):
         # Farm selector
         self.farm_combo = QComboBox()
         self.farm_combo.setMinimumHeight(35)
-        self.farm_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #34495e;
-                color: white;
-                border: 1px solid #4a5f7f;
-                border-radius: 4px;
-                padding: 5px;
-            }
-            QComboBox:hover {
-                background-color: #3d566e;
-            }
-        """)
+        self.farm_combo.setProperty('class', 'sidebar-combo')
+        # No hardcoded styles - global theme handles it
         self.farm_combo.currentIndexChanged.connect(self.on_farm_changed)
         self.refresh_farm_list()
         self.farm_combo_widget = self.farm_combo
@@ -281,21 +261,9 @@ class MainWindow(QMainWindow):
         dashboard_btn = QPushButton(tr("Dashboard"))
         dashboard_btn.setProperty("i18n_key", "Dashboard")
         dashboard_btn.setProperty("full_text", "Dashboard")
+        dashboard_btn.setProperty('class', 'sidebar-dashboard')
         dashboard_btn.setMinimumHeight(40)
-        dashboard_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 15px;
-                border: none;
-                background-color: #3498db;
-                color: white;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        # No hardcoded styles - global theme handles it
         dashboard_btn.clicked.connect(lambda: self._safe_load(self.load_dashboard))
         layout.addWidget(dashboard_btn)
 
@@ -374,46 +342,15 @@ class MainWindow(QMainWindow):
         notif_layout = QHBoxLayout()
         self.notification_btn = QPushButton(f"🔔 {tr('Notifications')}")
         self.notification_btn.setProperty("i18n_key", "Notifications")
+        self.notification_btn.setProperty('class', 'sidebar-action')
         self.notification_btn.setMinimumHeight(42)
-        self.notification_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #34495e,
-                    stop:1 #2c3e50);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #3d566e,
-                    stop:1 #34495e);
-            }
-        """)
         self.notification_btn.clicked.connect(self.show_notifications)
         notif_layout.addWidget(self.notification_btn)
         
         # Notification badge
         self.notification_badge = QLabel("0")
         self.notification_badge.setObjectName('notification_badge')
-        self.notification_badge.setStyleSheet("""
-            QLabel {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e74c3c,
-                    stop:1 #c0392b);
-                color: white;
-                border-radius: 12px;
-                padding: 3px 8px;
-                font-weight: 700;
-                font-size: 9pt;
-                min-width: 22px;
-                min-height: 22px;
-            }
-        """)
+        self.notification_badge.setProperty('class', 'badge-unread')
         self.notification_badge.setVisible(False)
         self.notification_badge.setAlignment(Qt.AlignCenter)
         notif_layout.addWidget(self.notification_badge)
@@ -421,76 +358,22 @@ class MainWindow(QMainWindow):
         
         # Language Switcher
         self.lang_btn = QPushButton(tr("🌐 پښتو"))
+        self.lang_btn.setProperty('class', 'sidebar-action')
         self.lang_btn.setMinimumHeight(42)
-        self.lang_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #34495e,
-                    stop:1 #2c3e50);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #3d566e,
-                    stop:1 #34495e);
-            }
-        """)
         self.lang_btn.clicked.connect(self.toggle_language)
         bottom_layout.addWidget(self.lang_btn)
 
         # Theme toggle
         self.theme_btn = QPushButton(f"🎨 {tr('Farm Theme')}")
+        self.theme_btn.setProperty('class', 'sidebar-action')
         self.theme_btn.setMinimumHeight(42)
-        self.theme_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #34495e,
-                    stop:1 #2c3e50);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #3d566e,
-                    stop:1 #34495e);
-            }
-        """)
         self.theme_btn.clicked.connect(self.toggle_theme)
         bottom_layout.addWidget(self.theme_btn)
         
         # Logout button
         logout_btn = QPushButton(f"🚪 {tr('Logout')}")
+        logout_btn.setProperty('class', 'sidebar-logout')
         logout_btn.setMinimumHeight(42)
-        logout_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e74c3c,
-                    stop:1 #c0392b);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ec7063,
-                    stop:1 #e74c3c);
-            }
-        """)
         logout_btn.clicked.connect(self._on_logout)
         self.logout_button = logout_btn
         bottom_layout.addWidget(logout_btn)
@@ -1041,6 +924,8 @@ class MainWindow(QMainWindow):
     def toggle_theme(self):
         """Cycle through available themes: Farm -> Light -> Dark -> Farm"""
         from PySide6.QtWidgets import QApplication
+        from egg_farm_system.modules.settings import SettingsManager
+
         if self.current_theme == ThemeManager.FARM:
             self.current_theme = ThemeManager.LIGHT
             theme_name = "Light Theme"
@@ -1050,7 +935,10 @@ class MainWindow(QMainWindow):
         else:
             self.current_theme = ThemeManager.FARM
             theme_name = "Farm Theme"
-            
+
+        SettingsManager.set_setting('app_theme', self.current_theme, 'Application theme: farm/light/dark')
+        ThemeManager.set_current_theme(self.current_theme)
+
         app = QApplication.instance()
         if app:
             ThemeManager.apply_theme(app, self.current_theme)

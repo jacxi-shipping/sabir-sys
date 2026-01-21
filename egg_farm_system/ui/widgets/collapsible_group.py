@@ -30,24 +30,7 @@ class CollapsibleGroup(QWidget):
         self.header_btn = QPushButton(f"{arrow} {self.title}")
         self.header_btn.setCheckable(True)
         self.header_btn.setChecked(self.is_expanded)
-        self.header_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 15px;
-                font-weight: bold;
-                font-size: 11pt;
-                border: none;
-                background-color: #34495e;
-                color: white;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #2c3e50;
-            }
-            QPushButton:checked {
-                background-color: #2c3e50;
-            }
-        """)
+        self.header_btn.setProperty('class', 'nav-group-header')
         self.header_btn.clicked.connect(self.toggle)
         layout.addWidget(self.header_btn)
         
@@ -65,24 +48,7 @@ class CollapsibleGroup(QWidget):
         """Add a button to the collapsible group"""
         btn = QPushButton(text)
         btn.setMinimumHeight(38)
-        btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 20px 10px 30px;
-                border: none;
-                background-color: transparent;
-                color: #654321;
-                border-radius: 6px;
-                font-weight: 500;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background-color: rgba(139, 69, 19, 0.15);
-                color: #8B4513;
-                border-left: 3px solid #8B4513;
-                padding-left: 27px;
-            }
-        """)
+        btn.setProperty('class', 'nav-group-item')
         
         if icon_path:
             from egg_farm_system.config import get_asset_path
@@ -110,4 +76,3 @@ class CollapsibleGroup(QWidget):
         self.title = title
         arrow = "▼" if self.is_expanded else "▶"
         self.header_btn.setText(f"{arrow} {self.title}")
-

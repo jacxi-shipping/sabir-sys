@@ -103,7 +103,11 @@ class FinancialReportWidget(QWidget):
         net_profit = pnl_data['net_profit']
         self.net_profit_label.setText(f"Net Profit: {net_profit:,.2f} AFN")
         
-        self.net_profit_label.setStyleSheet("color: green;" if net_profit >= 0 else "color: red;")
+        # Use theme-aware state property instead of hardcoded colors
+        self.net_profit_label.setProperty('state', 'success' if net_profit >= 0 else 'error')
+        # Force style refresh
+        self.net_profit_label.style().unpolish(self.net_profit_label)
+        self.net_profit_label.style().polish(self.net_profit_label)
 
     def update_cash_flow_labels(self, cash_data):
         self.inflows_label.setText(f"Total Cash Inflows: {cash_data['total_inflows']:,.2f} AFN")
@@ -112,7 +116,11 @@ class FinancialReportWidget(QWidget):
         net_cash_flow = cash_data['net_cash_flow']
         self.net_cash_flow_label.setText(f"Net Cash Flow: {net_cash_flow:,.2f} AFN")
         
-        self.net_cash_flow_label.setStyleSheet("color: green;" if net_cash_flow >= 0 else "color: red;")
+        # Use theme-aware state property instead of hardcoded colors
+        self.net_cash_flow_label.setProperty('state', 'success' if net_cash_flow >= 0 else 'error')
+        # Force style refresh
+        self.net_cash_flow_label.style().unpolish(self.net_cash_flow_label)
+        self.net_cash_flow_label.style().polish(self.net_cash_flow_label)
 
     def set_farm_id(self, farm_id):
         self.farm_id = farm_id
@@ -125,12 +133,18 @@ class FinancialReportWidget(QWidget):
         self.gross_profit_label.setText(tr("Gross Profit: Not calculated"))
         self.expenses_label.setText(tr("Operating Expenses: Not calculated"))
         self.net_profit_label.setText(tr("Net Profit: Not calculated"))
-        self.net_profit_label.setStyleSheet("")
+        self.net_profit_label.setProperty('state', None)
+        # Force style refresh
+        self.net_profit_label.style().unpolish(self.net_profit_label)
+        self.net_profit_label.style().polish(self.net_profit_label)
         # Clear Cash Flow
         self.inflows_label.setText(tr("Total Cash Inflows: Not calculated"))
         self.outflows_label.setText(tr("Total Cash Outflows: Not calculated"))
         self.net_cash_flow_label.setText(tr("Net Cash Flow: Not calculated"))
-        self.net_cash_flow_label.setStyleSheet("")
+        self.net_cash_flow_label.setProperty('state', None)
+        # Force style refresh
+        self.net_cash_flow_label.style().unpolish(self.net_cash_flow_label)
+        self.net_cash_flow_label.style().polish(self.net_cash_flow_label)
 
     def closeEvent(self, event):
         self.session.close()
