@@ -1,16 +1,22 @@
 """
 Widget for viewing financial reports like P&L and Cash Flow.
 """
-from egg_farm_system.utils.i18n import tr
-
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout, QDateEdit, 
-    QPushButton, QLabel, QGroupBox, QMessageBox
-)
 from PySide6.QtCore import QDate
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QDateEdit,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.financial_reports import FinancialReportGenerator
+from egg_farm_system.utils.i18n import tr
 
 class FinancialReportWidget(QWidget):
     def __init__(self, farm_id=None):

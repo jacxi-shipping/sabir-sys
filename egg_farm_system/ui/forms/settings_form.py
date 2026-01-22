@@ -27,6 +27,16 @@ class SettingsForm(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.tabs = None
+        self.tray_expense_spin = None
+        self.carton_expense_spin = None
+        self.exchange_rate_spin = None
+        self.settings_list = None
+        self.key_edit = None
+        self.value_edit = None
+        self.description_edit = None
+
         self.init_ui()
         self.load_settings()
 
@@ -121,14 +131,14 @@ class SettingsForm(QWidget):
         info_layout.setSpacing(8)
         
         conversion_info = QLabel(
-            f"<b>Egg Conversion:</b><br>"
-            f"• 30 eggs = 1 tray<br>"
-            f"• 180 eggs = 1 carton (6 trays)<br>"
-            f"• 1 carton uses 7 trays for packaging<br><br>"
-            f"<b>Expense Calculation:</b><br>"
-            f"• Tray expense = (Cartons × 7) × Tray Expense<br>"
-            f"• Carton expense = Cartons × Carton Expense<br>"
-            f"• Total expense = Tray expense + Carton expense"
+            "<b>Egg Conversion:</b><br>"
+            "• 30 eggs = 1 tray<br>"
+            "• 180 eggs = 1 carton (6 trays)<br>"
+            "• 1 carton uses 7 trays for packaging<br><br>"
+            "<b>Expense Calculation:</b><br>"
+            "• Tray expense = (Cartons × 7) × Tray Expense<br>"
+            "• Carton expense = Cartons × Carton Expense<br>"
+            "• Total expense = Tray expense + Carton expense"
         )
         conversion_info.setWordWrap(True)
         conversion_info.setProperty('class', 'info-banner-secondary')

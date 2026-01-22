@@ -233,6 +233,6 @@ class NotificationCenterWidget(QWidget):
         self.notification_manager.mark_as_read(notification_id)
         self.refresh_notifications()
     
-    def _on_notification_changed(self, notification=None):
+    def _on_notification_changed(self, _notification=None):
         """Handle notification changes"""
         self.refresh_notifications()

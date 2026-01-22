@@ -1,6 +1,9 @@
 """
 Theme management for the Egg Farm System
 """
+
+# pylint: disable=too-many-lines
+
 from pathlib import Path
 
 from PySide6.QtGui import QColor, QPalette
