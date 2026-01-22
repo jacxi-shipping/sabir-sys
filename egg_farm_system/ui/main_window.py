@@ -1,18 +1,36 @@
 """
 Main application window
 """
+
+# pylint: disable=too-many-lines,too-many-public-methods
+
 import sys
 import logging
 from datetime import datetime
 from pathlib import Path
-from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLayout,
-    QPushButton, QLabel, QComboBox, QMessageBox, QTabWidget, QStyle, QSizePolicy,
-    QGraphicsOpacityEffect, QDialog, QScrollArea
-)
-import traceback
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Slot, QTimer
-from PySide6.QtGui import QIcon, QFont, QAction
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFrame,
+    QGraphicsOpacityEffect,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QStyle,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
+import traceback
+from PySide6.QtGui import QAction, QFont, QIcon, QKeySequence, QShortcut
 
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.farms import FarmManager
@@ -40,7 +58,6 @@ from egg_farm_system.ui.animation_helper import AnimationHelper
 from egg_farm_system.ui.widgets.command_palette import CommandPalette
 from egg_farm_system.ui.widgets.import_wizard import ImportWizard
 from egg_farm_system.utils.alert_scheduler import AlertScheduler
-from PySide6.QtGui import QShortcut, QKeySequence
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +71,13 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, WINDOW_WIDTH, WINDOW_HEIGHT)
         self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.app_version = app_version
+        self.anim = None
         
-        # Initialize Theme - Default to Farm theme
-        self.current_theme = ThemeManager.FARM
+        # Initialize Theme - Load from settings or use default
+        from egg_farm_system.modules.settings import SettingsManager
+        saved_theme = SettingsManager.get_setting('app_theme', ThemeManager.FARM)
+        self.current_theme = saved_theme if saved_theme in [ThemeManager.LIGHT, ThemeManager.DARK, ThemeManager.FARM] else ThemeManager.FARM
+        ThemeManager.set_current_theme(self.current_theme)
         ThemeManager.apply_theme(sys.modules['__main__'].app if hasattr(sys.modules['__main__'], 'app') else self, self.current_theme)
 
         # Initialize I18n
@@ -161,9 +182,9 @@ class MainWindow(QMainWindow):
                     if widget.property("full_text"):
                         widget.setProperty("full_text", new_text)
                         if not self.sidebar.property('collapsed'):
-                             widget.setText(new_text)
+                            widget.setText(new_text)
                         else:
-                             widget.setToolTip(new_text)
+                            widget.setToolTip(new_text)
                 elif isinstance(widget, QLabel):
                     widget.setText(tr(key))
                 
@@ -202,11 +223,7 @@ class MainWindow(QMainWindow):
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
         sidebar.setFixedWidth(SIDEBAR_WIDTH) # Fix width to prevent squashing
-        sidebar.setStyleSheet("""
-            QFrame#sidebar {
-                background-color: #2c3e50;
-            }
-        """)
+        # No hardcoded styles - let theme handle it
 
         # Scroll area for navigation
         scroll = QScrollArea()
@@ -228,16 +245,7 @@ class MainWindow(QMainWindow):
         self.collapse_btn.setObjectName("collapse_btn")
         self.collapse_btn.setFixedSize(35, 35)
         self.collapse_btn.setCursor(Qt.PointingHandCursor)
-        self.collapse_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.1);
-            }
-        """)
+        # Remove hardcoded styles - global theme handles it
         # Load chevron icons
         from egg_farm_system.config import get_asset_path
         self._chev_left = Path(get_asset_path('icon_chevron_left.svg'))
@@ -255,18 +263,8 @@ class MainWindow(QMainWindow):
         # Farm selector
         self.farm_combo = QComboBox()
         self.farm_combo.setMinimumHeight(35)
-        self.farm_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #34495e;
-                color: white;
-                border: 1px solid #4a5f7f;
-                border-radius: 4px;
-                padding: 5px;
-            }
-            QComboBox:hover {
-                background-color: #3d566e;
-            }
-        """)
+        self.farm_combo.setProperty('class', 'sidebar-combo')
+        # No hardcoded styles - global theme handles it
         self.farm_combo.currentIndexChanged.connect(self.on_farm_changed)
         self.refresh_farm_list()
         self.farm_combo_widget = self.farm_combo
@@ -281,21 +279,9 @@ class MainWindow(QMainWindow):
         dashboard_btn = QPushButton(tr("Dashboard"))
         dashboard_btn.setProperty("i18n_key", "Dashboard")
         dashboard_btn.setProperty("full_text", "Dashboard")
+        dashboard_btn.setProperty('class', 'sidebar-dashboard')
         dashboard_btn.setMinimumHeight(40)
-        dashboard_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 15px;
-                border: none;
-                background-color: #3498db;
-                color: white;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        # No hardcoded styles - global theme handles it
         dashboard_btn.clicked.connect(lambda: self._safe_load(self.load_dashboard))
         layout.addWidget(dashboard_btn)
 
@@ -374,46 +360,15 @@ class MainWindow(QMainWindow):
         notif_layout = QHBoxLayout()
         self.notification_btn = QPushButton(f"🔔 {tr('Notifications')}")
         self.notification_btn.setProperty("i18n_key", "Notifications")
+        self.notification_btn.setProperty('class', 'sidebar-action')
         self.notification_btn.setMinimumHeight(42)
-        self.notification_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #34495e,
-                    stop:1 #2c3e50);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #3d566e,
-                    stop:1 #34495e);
-            }
-        """)
         self.notification_btn.clicked.connect(self.show_notifications)
         notif_layout.addWidget(self.notification_btn)
         
         # Notification badge
         self.notification_badge = QLabel("0")
         self.notification_badge.setObjectName('notification_badge')
-        self.notification_badge.setStyleSheet("""
-            QLabel {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e74c3c,
-                    stop:1 #c0392b);
-                color: white;
-                border-radius: 12px;
-                padding: 3px 8px;
-                font-weight: 700;
-                font-size: 9pt;
-                min-width: 22px;
-                min-height: 22px;
-            }
-        """)
+        self.notification_badge.setProperty('class', 'badge-unread')
         self.notification_badge.setVisible(False)
         self.notification_badge.setAlignment(Qt.AlignCenter)
         notif_layout.addWidget(self.notification_badge)
@@ -421,76 +376,22 @@ class MainWindow(QMainWindow):
         
         # Language Switcher
         self.lang_btn = QPushButton(tr("🌐 پښتو"))
+        self.lang_btn.setProperty('class', 'sidebar-action')
         self.lang_btn.setMinimumHeight(42)
-        self.lang_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #34495e,
-                    stop:1 #2c3e50);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #3d566e,
-                    stop:1 #34495e);
-            }
-        """)
         self.lang_btn.clicked.connect(self.toggle_language)
         bottom_layout.addWidget(self.lang_btn)
 
         # Theme toggle
         self.theme_btn = QPushButton(f"🎨 {tr('Farm Theme')}")
+        self.theme_btn.setProperty('class', 'sidebar-action')
         self.theme_btn.setMinimumHeight(42)
-        self.theme_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #34495e,
-                    stop:1 #2c3e50);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #3d566e,
-                    stop:1 #34495e);
-            }
-        """)
         self.theme_btn.clicked.connect(self.toggle_theme)
         bottom_layout.addWidget(self.theme_btn)
         
         # Logout button
         logout_btn = QPushButton(f"🚪 {tr('Logout')}")
+        logout_btn.setProperty('class', 'sidebar-logout')
         logout_btn.setMinimumHeight(42)
-        logout_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 10px 18px;
-                border: none;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e74c3c,
-                    stop:1 #c0392b);
-                color: white;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ec7063,
-                    stop:1 #e74c3c);
-            }
-        """)
         logout_btn.clicked.connect(self._on_logout)
         self.logout_button = logout_btn
         bottom_layout.addWidget(logout_btn)
@@ -720,11 +621,10 @@ class MainWindow(QMainWindow):
     def load_analytics(self):
         """Load advanced analytics dashboard with predictive analytics and forecasting"""
         # Create tabbed analytics dashboard
-        from PySide6.QtWidgets import QTabWidget
         from egg_farm_system.ui.advanced_dashboard import (
-            ProductionForecastWidget, 
+            ProductionForecastWidget,
             InventoryOptimizationWidget,
-            FinancialDashboardWidget
+            FinancialDashboardWidget,
         )
         
         # Create main analytics container
@@ -786,7 +686,6 @@ class MainWindow(QMainWindow):
     
     def show_notifications(self):
         """Show notification center"""
-        from PySide6.QtWidgets import QDialog
         dialog = QDialog(self)
         dialog.setWindowTitle(tr("Notifications"))
         dialog.setMinimumSize(500, 600)
@@ -821,10 +720,14 @@ class MainWindow(QMainWindow):
         else:
             self.notification_badge.setVisible(False)
     
-    def _on_notification_changed(self, notification=None):
+    def _on_notification_changed(self, _notification=None):
         """Handle notification changes"""
         self._update_notification_badge()
     
+    def _check_alerts_now(self):
+        """Check alerts now"""
+        self.alert_scheduler.check_now()
+
     def _setup_keyboard_shortcuts(self):
         """Setup keyboard shortcuts"""
         shortcuts = {
@@ -967,19 +870,21 @@ class MainWindow(QMainWindow):
             # When collapsing: Hide text immediately, then shrink
             # When expanding: Expand, then show text (or just let layout handle it with clipping?)
             # Simplest approach: Hide/Show text labels on buttons.
-            
+
             for btn in self.sidebar.findChildren(QPushButton):
-                if btn.objectName() == 'collapse_btn': continue
-                
+                if btn.objectName() == 'collapse_btn':
+                    continue
+
                 full_text = btn.property('full_text')
-                if not full_text: continue
-                
-                if new_state: # Collapsing
-                    btn.setText("") # Remove text
-                    btn.setToolTip(full_text) # Add tooltip
-                else: # Expanding
-                    btn.setText(full_text) # Restore text
-                    btn.setToolTip("") # Remove tooltip
+                if not full_text:
+                    continue
+
+                if new_state:  # Collapsing
+                    btn.setText("")  # Remove text
+                    btn.setToolTip(full_text)  # Add tooltip
+                else:  # Expanding
+                    btn.setText(full_text)  # Restore text
+                    btn.setToolTip("")  # Remove tooltip
 
             # Hide/Show Farm Combo and Labels
             if hasattr(self, 'farm_combo_widget'):
@@ -1040,7 +945,8 @@ class MainWindow(QMainWindow):
 
     def toggle_theme(self):
         """Cycle through available themes: Farm -> Light -> Dark -> Farm"""
-        from PySide6.QtWidgets import QApplication
+        from egg_farm_system.modules.settings import SettingsManager
+
         if self.current_theme == ThemeManager.FARM:
             self.current_theme = ThemeManager.LIGHT
             theme_name = "Light Theme"
@@ -1050,7 +956,10 @@ class MainWindow(QMainWindow):
         else:
             self.current_theme = ThemeManager.FARM
             theme_name = "Farm Theme"
-            
+
+        SettingsManager.set_setting('app_theme', self.current_theme, 'Application theme: farm/light/dark')
+        ThemeManager.set_current_theme(self.current_theme)
+
         app = QApplication.instance()
         if app:
             ThemeManager.apply_theme(app, self.current_theme)
@@ -1104,7 +1013,7 @@ class MainWindow(QMainWindow):
         )
         palette.exec()
     
-    def execute_command(self, command_id: str, data: dict):
+    def execute_command(self, command_id: str, _data: dict):
         """Execute command from palette"""
         command_map = {
             # Navigation
@@ -1132,7 +1041,7 @@ class MainWindow(QMainWindow):
             # Tools
             'refresh_dashboard': self._refresh_current_page,
             'import_data': self.show_import_wizard,
-            'check_alerts': lambda: self.alert_scheduler.check_now(),
+            'check_alerts': self._check_alerts_now,
             'backup_database': self.load_backup_restore,
         }
         

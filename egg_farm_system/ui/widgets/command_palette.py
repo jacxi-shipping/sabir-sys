@@ -65,55 +65,19 @@ class CommandPalette(QDialog):
         
         # Header
         header = QLabel(" Quick Actions (Ctrl+K)")
-        header.setStyleSheet("""
-            QLabel {
-                background-color: #4CAF50;
-                color: white;
-                padding: 10px;
-                font-weight: bold;
-                font-size: 11pt;
-            }
-        """)
+        header.setProperty('class', 'command-palette-header')
         layout.addWidget(header)
         
         # Search box
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Type to search commands...")
-        self.search_box.setStyleSheet("""
-            QLineEdit {
-                border: none;
-                border-bottom: 2px solid #4CAF50;
-                padding: 12px;
-                font-size: 11pt;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border-bottom: 2px solid #388E3C;
-            }
-        """)
+        self.search_box.setProperty('class', 'command-palette-search')
         self.search_box.textChanged.connect(self.filter_commands)
         layout.addWidget(self.search_box)
         
         # Command list
         self.command_list = QListWidget()
-        self.command_list.setStyleSheet("""
-            QListWidget {
-                border: none;
-                background-color: white;
-                outline: none;
-            }
-            QListWidget::item {
-                padding: 10px;
-                border-bottom: 1px solid #f0f0f0;
-            }
-            QListWidget::item:hover {
-                background-color: #f5f5f5;
-            }
-            QListWidget::item:selected {
-                background-color: #e8f5e9;
-                color: #1b5e20;
-            }
-        """)
+        self.command_list.setProperty('class', 'command-palette-list')
         self.command_list.itemActivated.connect(self.execute_command)
         self.command_list.setMinimumHeight(300)
         self.command_list.setMaximumHeight(400)
@@ -121,15 +85,7 @@ class CommandPalette(QDialog):
         
         # Footer with hint
         footer = QLabel("↵ Enter to execute • Esc to close")
-        footer.setStyleSheet("""
-            QLabel {
-                background-color: #f8f9fa;
-                color: #666;
-                padding: 8px;
-                font-size: 9pt;
-                border-top: 1px solid #e0e0e0;
-            }
-        """)
+        footer.setProperty('class', 'command-palette-footer')
         footer.setAlignment(Qt.AlignCenter)
         layout.addWidget(footer)
         

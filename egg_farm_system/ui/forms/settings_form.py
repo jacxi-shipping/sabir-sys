@@ -1,13 +1,25 @@
-from egg_farm_system.utils.i18n import tr
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-    QListWidget, QMessageBox, QTabWidget, QGroupBox, QFormLayout, 
-    QDoubleSpinBox, QTextEdit, QSizePolicy
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
 from egg_farm_system.modules.settings import SettingsManager
 from egg_farm_system.utils.egg_management import EggManagementSystem
+from egg_farm_system.utils.i18n import tr
 
 
 class SettingsForm(QWidget):
@@ -15,6 +27,16 @@ class SettingsForm(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.tabs = None
+        self.tray_expense_spin = None
+        self.carton_expense_spin = None
+        self.exchange_rate_spin = None
+        self.settings_list = None
+        self.key_edit = None
+        self.value_edit = None
+        self.description_edit = None
+
         self.init_ui()
         self.load_settings()
 
@@ -71,7 +93,7 @@ class SettingsForm(QWidget):
             tr("Configure egg packaging expenses. These values are used when calculating " + "total costs for carton-based egg sales.")
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; padding: 8px; background-color: #f5f5f5; border-radius: 4px;")
+        info_label.setProperty('class', 'info-banner')
         layout.addWidget(info_label)
         
         # Egg Expense Settings Group
@@ -109,17 +131,17 @@ class SettingsForm(QWidget):
         info_layout.setSpacing(8)
         
         conversion_info = QLabel(
-            f"<b>Egg Conversion:</b><br>"
-            f"• 30 eggs = 1 tray<br>"
-            f"• 180 eggs = 1 carton (6 trays)<br>"
-            f"• 1 carton uses 7 trays for packaging<br><br>"
-            f"<b>Expense Calculation:</b><br>"
-            f"• Tray expense = (Cartons × 7) × Tray Expense<br>"
-            f"• Carton expense = Cartons × Carton Expense<br>"
-            f"• Total expense = Tray expense + Carton expense"
+            "<b>Egg Conversion:</b><br>"
+            "• 30 eggs = 1 tray<br>"
+            "• 180 eggs = 1 carton (6 trays)<br>"
+            "• 1 carton uses 7 trays for packaging<br><br>"
+            "<b>Expense Calculation:</b><br>"
+            "• Tray expense = (Cartons × 7) × Tray Expense<br>"
+            "• Carton expense = Cartons × Carton Expense<br>"
+            "• Total expense = Tray expense + Carton expense"
         )
         conversion_info.setWordWrap(True)
-        conversion_info.setStyleSheet("padding: 8px; background-color: #e8f4f8; border-radius: 4px;")
+        conversion_info.setProperty('class', 'info-banner-secondary')
         info_layout.addWidget(conversion_info)
         
         info_group.setLayout(info_layout)
@@ -166,7 +188,7 @@ class SettingsForm(QWidget):
             tr("Advanced settings editor. Use this to view and edit all application settings " + "using key-value pairs. Changes are saved immediately.")
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; padding: 8px; background-color: #fff3cd; border-radius: 4px;")
+        info_label.setProperty('class', 'warning-banner')
         layout.addWidget(info_label)
         
         # Settings list
