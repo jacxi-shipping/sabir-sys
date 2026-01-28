@@ -76,6 +76,15 @@ class UserManager:
         if not user:
             return False
         return _verify_password(user.password_hash, password)
+    
+    @staticmethod
+    def get_user_by_id(user_id: int):
+        """Get user by ID"""
+        session = DatabaseManager.get_session()
+        try:
+            return session.query(User).filter(User.id == user_id).first()
+        finally:
+            session.close()
 
     @staticmethod
     def validate_password_policy(password: str) -> bool:

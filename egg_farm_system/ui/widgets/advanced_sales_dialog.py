@@ -477,7 +477,12 @@ class AdvancedSalesDialog(QDialog):
             self.sale_saved.emit()
             self.accept()
         
+        except ValueError as e:
+            # User-friendly error for validation and stock issues
+            logger.warning(f"Validation error saving sale: {e}")
+            QMessageBox.warning(self, tr("Validation Error"), str(e))
         except Exception as e:
-            logger.error(f"Error saving sale: {e}")
-            QMessageBox.critical(self, tr("Error"), f"Failed to save sale: {str(e)}")
+            # Unexpected errors
+            logger.error(f"Error saving sale: {e}", exc_info=True)
+            QMessageBox.critical(self, tr("Error"), f"Failed to save sale: {str(e)}\n\nPlease check the logs for details.")
 
