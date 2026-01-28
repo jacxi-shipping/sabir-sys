@@ -76,8 +76,8 @@ class MainWindow(QMainWindow):
         
         # Initialize Theme - Load from settings or use default
         from egg_farm_system.modules.settings import SettingsManager
-        saved_theme = SettingsManager.get_setting('app_theme', ThemeManager.FARM)
-        self.current_theme = saved_theme if saved_theme in [ThemeManager.LIGHT, ThemeManager.DARK, ThemeManager.FARM] else ThemeManager.FARM
+        saved_theme = SettingsManager.get_setting('app_theme', ThemeManager.LIGHT)
+        self.current_theme = saved_theme if saved_theme in [ThemeManager.LIGHT, ThemeManager.DARK] else ThemeManager.LIGHT
         ThemeManager.set_current_theme(self.current_theme)
         ThemeManager.apply_theme(sys.modules['__main__'].app if hasattr(sys.modules['__main__'], 'app') else self, self.current_theme)
 
@@ -406,26 +406,12 @@ class MainWindow(QMainWindow):
         self.lang_btn.clicked.connect(self.toggle_language)
         bottom_layout.addWidget(self.lang_btn)
 
-        # Theme toggle
-        self.theme_btn = QPushButton(f"🎨 {tr('Farm Theme')}")
-        self.theme_btn.setProperty('class', 'sidebar-action')
-        self.theme_btn.setMinimumHeight(42)
-        self.theme_btn.clicked.connect(self.toggle_theme)
-        bottom_layout.addWidget(self.theme_btn)
-        
-        # Logout button
-        self.logout_btn = QPushButton(f"🚪 {tr('Logout')}")
-        self.logout_btn.setProperty("i18n_key", "Logout")
-        self.logout_btn.setProperty('class', 'sidebar-logout')
-        self.logout_btn.setMinimumHeight(42)
-        self.logout_btn.clicked.connect(self.logout)
-        bottom_layout.addWidget(self.logout_btn)
-        
         # Logout button
         logout_btn = QPushButton(f"🚪 {tr('Logout')}")
+        logout_btn.setProperty("i18n_key", "Logout")
         logout_btn.setProperty('class', 'sidebar-logout')
         logout_btn.setMinimumHeight(42)
-        logout_btn.clicked.connect(self._on_logout)
+        logout_btn.clicked.connect(self.logout)
         self.logout_button = logout_btn
         bottom_layout.addWidget(logout_btn)
         
@@ -996,20 +982,17 @@ class MainWindow(QMainWindow):
             logger.exception(f"Failed to toggle sidebar: {e}")
 
     def toggle_theme(self):
-        """Cycle through available themes: Farm -> Light -> Dark -> Farm"""
+        """Toggle between Light and Dark themes."""
         from egg_farm_system.modules.settings import SettingsManager
 
-        if self.current_theme == ThemeManager.FARM:
-            self.current_theme = ThemeManager.LIGHT
-            theme_name = "Light Theme"
-        elif self.current_theme == ThemeManager.LIGHT:
+        if self.current_theme == ThemeManager.LIGHT:
             self.current_theme = ThemeManager.DARK
             theme_name = "Dark Theme"
         else:
-            self.current_theme = ThemeManager.FARM
-            theme_name = "Farm Theme"
+            self.current_theme = ThemeManager.LIGHT
+            theme_name = "Light Theme"
 
-        SettingsManager.set_setting('app_theme', self.current_theme, 'Application theme: farm/light/dark')
+        SettingsManager.set_setting('app_theme', self.current_theme, 'Application theme: light/dark')
         ThemeManager.set_current_theme(self.current_theme)
 
         app = QApplication.instance()
