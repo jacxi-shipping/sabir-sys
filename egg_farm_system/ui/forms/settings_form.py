@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
@@ -19,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from egg_farm_system.modules.settings import SettingsManager
 from egg_farm_system.utils.egg_management import EggManagementSystem
-from egg_farm_system.utils.i18n import tr
+from egg_farm_system.utils.i18n import tr, get_i18n
 
 
 class SettingsForm(QWidget):
@@ -36,6 +37,7 @@ class SettingsForm(QWidget):
         self.key_edit = None
         self.value_edit = None
         self.description_edit = None
+        self.language_combo = None
 
         self.init_ui()
         self.load_settings()
@@ -158,8 +160,37 @@ class SettingsForm(QWidget):
         layout.setSpacing(16)
         layout.setContentsMargins(16, 16, 16, 16)
         
+        # Language Settings Group
+        language_group = QGroupBox(tr("Language Settings"))
+        language_layout = QFormLayout()
+        language_layout.setSpacing(12)
+        
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("English", "en")
+        self.language_combo.addItem("پښتو (Pashto)", "ps")
+        
+        # Set current language
+        current_lang = get_i18n().current_lang
+        index = self.language_combo.findData(current_lang)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
+        
+        self.language_combo.currentIndexChanged.connect(self.on_language_changed)
+        language_layout.addRow(tr("Interface Language:"), self.language_combo)
+        
+        language_info = QLabel(
+            tr("Note: Changing the language will update the interface immediately. "
+               "The application will switch to Right-to-Left layout for Pashto.")
+        )
+        language_info.setWordWrap(True)
+        language_info.setProperty('class', 'info-banner-secondary')
+        language_layout.addRow("", language_info)
+        
+        language_group.setLayout(language_layout)
+        layout.addWidget(language_group)
+        
         # Exchange Rate Group
-        exchange_group = QGroupBox("Currency Settings")
+        exchange_group = QGroupBox(tr("Currency Settings"))
         exchange_layout = QFormLayout()
         exchange_layout.setSpacing(12)
         
@@ -168,7 +199,7 @@ class SettingsForm(QWidget):
         self.exchange_rate_spin.setMaximum(1000)
         self.exchange_rate_spin.setDecimals(2)
         self.exchange_rate_spin.setSuffix(" AFG per USD")
-        exchange_layout.addRow("Exchange Rate (AFG/USD):", self.exchange_rate_spin)
+        exchange_layout.addRow(tr("Exchange Rate (AFG/USD):"), self.exchange_rate_spin)
         
         exchange_group.setLayout(exchange_layout)
         layout.addWidget(exchange_group)
@@ -176,6 +207,26 @@ class SettingsForm(QWidget):
         layout.addStretch()
         widget.setLayout(layout)
         return widget
+    
+    def on_language_changed(self, index):
+        """Handle language change"""
+        lang_code = self.language_combo.itemData(index)
+        if lang_code:
+            i18n = get_i18n()
+            i18n.set_language(lang_code)
+            
+            # Save to settings
+            SettingsManager.set_setting('language', lang_code)
+            
+            # Show message to user
+            QMessageBox.information(
+                self,
+                tr("Language Changed"),
+                tr("Language has been changed to {0}. Some parts of the interface will update immediately, "
+                   "while others may require restarting the application.").format(
+                    "Pashto" if lang_code == "ps" else "English"
+                )
+            )
     
     def create_advanced_settings_tab(self):
         """Create advanced settings tab with raw key-value editor"""

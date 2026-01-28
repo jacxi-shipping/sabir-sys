@@ -48,9 +48,37 @@ def main():
         except Exception:
             logger.warning("Failed to apply theme; continuing without custom stylesheet")
         
+        # Load language preference
+        try:
+            from egg_farm_system.modules.settings import SettingsManager
+            from egg_farm_system.utils.i18n import get_i18n
+            from PySide6.QtCore import Qt
+            
+            saved_lang = SettingsManager.get_setting('language', 'en')
+            i18n = get_i18n()
+            i18n.set_language(saved_lang)
+            
+            # Set layout direction
+            if saved_lang == 'ps':
+                app.setLayoutDirection(Qt.RightToLeft)
+            else:
+                app.setLayoutDirection(Qt.LeftToRight)
+            
+            logger.info(f"Language set to: {saved_lang}")
+        except Exception as e:
+            logger.warning(f"Failed to load language preference: {e}")
+        
         # Initialize database
         DatabaseManager.initialize()
         logger.info("Database initialized")
+        
+        # Run database migrations
+        try:
+            from egg_farm_system.database.migrate_add_farm_id import migrate_add_farm_id
+            migrate_add_farm_id()
+            logger.info("Database migrations completed")
+        except Exception as e:
+            logger.warning(f"Database migration failed (may already be applied): {e}")
 
         # Show login dialog and require successful auth before showing main UI
         login = LoginDialog()

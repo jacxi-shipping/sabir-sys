@@ -58,8 +58,8 @@ class AdvancedSalesDialog(QDialog):
         self.payment_method_combo.setEnabled(True)
         self.carton_spin.setEnabled(True)
         self.grade_combo.setEnabled(True)
-        self.rate_per_egg_afg.setEnabled(True)
-        self.rate_per_egg_usd.setEnabled(True)
+        self.rate_per_carton_afg.setEnabled(True)
+        self.rate_per_carton_usd.setEnabled(True)
         self.notes_edit.setEnabled(True)
         
         # Set focus to carton field
@@ -161,24 +161,29 @@ class AdvancedSalesDialog(QDialog):
         pricing_layout.setContentsMargins(12, 12, 12, 12)
         pricing_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
-        self.rate_per_egg_afg = QDoubleSpinBox()
-        self.rate_per_egg_afg.setMinimum(0)
-        self.rate_per_egg_afg.setMaximum(1000)
-        self.rate_per_egg_afg.setDecimals(2)
-        self.rate_per_egg_afg.setSuffix(" AFG/egg")
-        self.rate_per_egg_afg.setKeyboardTracking(True)
-        self.rate_per_egg_afg.setMinimumWidth(150)
+        self.rate_per_carton_afg = QDoubleSpinBox()
+        self.rate_per_carton_afg.setMinimum(0)
+        self.rate_per_carton_afg.setMaximum(100000)
+        self.rate_per_carton_afg.setDecimals(2)
+        self.rate_per_carton_afg.setSuffix(" AFG/carton")
+        self.rate_per_carton_afg.setKeyboardTracking(True)
+        self.rate_per_carton_afg.setMinimumWidth(150)
         
-        self.rate_per_egg_usd = QDoubleSpinBox()
-        self.rate_per_egg_usd.setMinimum(0)
-        self.rate_per_egg_usd.setMaximum(100)
-        self.rate_per_egg_usd.setDecimals(2)
-        self.rate_per_egg_usd.setSuffix(" USD/egg")
-        self.rate_per_egg_usd.setKeyboardTracking(True)
-        self.rate_per_egg_usd.setMinimumWidth(150)
+        self.rate_per_carton_usd = QDoubleSpinBox()
+        self.rate_per_carton_usd.setMinimum(0)
+        self.rate_per_carton_usd.setMaximum(10000)
+        self.rate_per_carton_usd.setDecimals(2)
+        self.rate_per_carton_usd.setSuffix(" USD/carton")
+        self.rate_per_carton_usd.setKeyboardTracking(True)
+        self.rate_per_carton_usd.setMinimumWidth(150)
         
-        pricing_layout.addRow("Rate per Egg (AFG):", self.rate_per_egg_afg)
-        pricing_layout.addRow("Rate per Egg (USD):", self.rate_per_egg_usd)
+        # Display calculated rate per egg
+        self.rate_per_egg_label = QLabel(tr("Rate per egg: 0.00 AFG/egg, 0.00 USD/egg"))
+        self.rate_per_egg_label.setStyleSheet("color: #666; font-style: italic;")
+        
+        pricing_layout.addRow("Rate per Carton (AFG):", self.rate_per_carton_afg)
+        pricing_layout.addRow("Rate per Carton (USD):", self.rate_per_carton_usd)
+        pricing_layout.addRow("", self.rate_per_egg_label)
         pricing_group.setLayout(pricing_layout)
         layout.addWidget(pricing_group)
         
@@ -281,8 +286,8 @@ class AdvancedSalesDialog(QDialog):
     def setup_connections(self):
         """Setup signal connections"""
         self.carton_spin.valueChanged.connect(self.update_calculations)
-        self.rate_per_egg_afg.valueChanged.connect(self.update_calculations)
-        self.rate_per_egg_usd.valueChanged.connect(self.update_calculations)
+        self.rate_per_carton_afg.valueChanged.connect(self.update_calculations)
+        self.rate_per_carton_usd.valueChanged.connect(self.update_calculations)
         self.grade_combo.currentTextChanged.connect(self.update_calculations)
     
     def load_data(self):
@@ -316,8 +321,11 @@ class AdvancedSalesDialog(QDialog):
                 if index >= 0:
                     self.grade_combo.setCurrentIndex(index)
             
-            self.rate_per_egg_afg.setValue(self.sale.rate_afg)
-            self.rate_per_egg_usd.setValue(self.sale.rate_usd)
+            # Calculate rate per carton from per-egg rate (for backward compatibility)
+            if self.sale.rate_afg:
+                eggs_per_carton = EggManagementSystem.EGGS_PER_CARTON
+                self.rate_per_carton_afg.setValue(self.sale.rate_afg * eggs_per_carton)
+                self.rate_per_carton_usd.setValue(self.sale.rate_usd * eggs_per_carton)
             
             if self.sale.notes:
                 self.notes_edit.setPlainText(self.sale.notes)
@@ -335,24 +343,31 @@ class AdvancedSalesDialog(QDialog):
             self.eggs_label.setText(f"= {eggs:,} eggs")
             self.tray_label.setText(f"= {trays:.2f} trays")
             
-            # Get expenses
-            tray_expense_per_tray = self.egg_manager.get_tray_expense()
-            carton_expense_per_carton = self.egg_manager.get_carton_expense()
+            # Get rate per carton and calculate rate per egg
+            rate_per_carton_afg = self.rate_per_carton_afg.value()
+            rate_per_carton_usd = self.rate_per_carton_usd.value()
+            eggs_per_carton = EggManagementSystem.EGGS_PER_CARTON
             
-            # Calculate expenses (7 trays per carton for packaging)
-            trays_needed = cartons * EggManagementSystem.TRAYS_EXPENSE_PER_CARTON
-            tray_expense = trays_needed * tray_expense_per_tray
-            carton_expense = cartons * carton_expense_per_carton
-            total_expense = tray_expense + carton_expense
+            rate_per_egg_afg = rate_per_carton_afg / eggs_per_carton if eggs_per_carton > 0 else 0
+            rate_per_egg_usd = rate_per_carton_usd / eggs_per_carton if eggs_per_carton > 0 else 0
             
-            # Update expense labels
+            # Update calculated rate per egg display
+            self.rate_per_egg_label.setText(
+                f"Rate per egg: {rate_per_egg_afg:.2f} AFG/egg, {rate_per_egg_usd:.4f} USD/egg"
+            )
+            
+            # Get expenses (Note: expenses removed since packaging consumed during production)
+            tray_expense = 0
+            carton_expense = 0
+            total_expense = 0
+            
+            # Update expense labels (kept for UI consistency but showing zero)
             self.tray_expense_label.setText(f"{tray_expense:,.2f} AFG")
             self.carton_expense_label.setText(f"{carton_expense:,.2f} AFG")
             self.total_expense_label.setText(f"{total_expense:,.2f} AFG")
             
             # Calculate costs
-            rate_per_egg = self.rate_per_egg_afg.value()
-            egg_cost = eggs * rate_per_egg
+            egg_cost = eggs * rate_per_egg_afg
             total_cost = egg_cost + total_expense
             
             # Update cost labels
@@ -360,7 +375,7 @@ class AdvancedSalesDialog(QDialog):
             self.total_cost_label.setText(f"{total_cost:,.2f} AFG")
             
             # Calculate selling price and profit
-            selling_price = eggs * rate_per_egg  # Selling price (without expenses)
+            selling_price = eggs * rate_per_egg_afg  # Selling price
             profit = selling_price - total_cost
             
             self.selling_price_label.setText(f"{selling_price:,.2f} AFG")
@@ -388,24 +403,23 @@ class AdvancedSalesDialog(QDialog):
                 QMessageBox.warning(self, tr("Validation Error"), "Carton quantity must be greater than 0.")
                 return
             
-            if self.rate_per_egg_afg.value() <= 0:
-                QMessageBox.warning(self, tr("Validation Error"), "Rate per egg must be greater than 0.")
+            if self.rate_per_carton_afg.value() <= 0:
+                QMessageBox.warning(self, tr("Validation Error"), "Rate per carton must be greater than 0.")
                 return
             
             # Get values
             cartons = self.carton_spin.value()
             eggs = self.egg_manager.cartons_to_eggs(cartons)
             grade = self.grade_combo.currentText().lower()
-            rate_afg = self.rate_per_egg_afg.value()
-            rate_usd = self.rate_per_egg_usd.value()
             
-            # Calculate expenses
-            tray_expense_per_tray = self.egg_manager.get_tray_expense()
-            carton_expense_per_carton = self.egg_manager.get_carton_expense()
-            trays_needed = cartons * EggManagementSystem.TRAYS_EXPENSE_PER_CARTON
-            tray_expense = trays_needed * tray_expense_per_tray
-            carton_expense = cartons * carton_expense_per_carton
-            total_expense = tray_expense + carton_expense
+            # Calculate rate per egg from rate per carton
+            eggs_per_carton = EggManagementSystem.EGGS_PER_CARTON
+            rate_afg = self.rate_per_carton_afg.value() / eggs_per_carton if eggs_per_carton > 0 else 0
+            rate_usd = self.rate_per_carton_usd.value() / eggs_per_carton if eggs_per_carton > 0 else 0
+            
+            # No expenses since packaging consumed during production
+            tray_expense = 0
+            carton_expense = 0
             
             # Calculate totals
             total_afg = eggs * rate_afg
@@ -435,7 +449,7 @@ class AdvancedSalesDialog(QDialog):
                         sale.total_usd = total_usd
                         sale.tray_expense_afg = tray_expense
                         sale.carton_expense_afg = carton_expense
-                        sale.total_expense_afg = total_expense
+                        sale.total_expense_afg = tray_expense + carton_expense
                         sale.payment_method = self.payment_method_combo.currentText()
                         sale.notes = self.notes_edit.toPlainText()
                         session.commit()
@@ -443,7 +457,7 @@ class AdvancedSalesDialog(QDialog):
                     session.close()
             else:
                 # Create new sale
-                    self.sales_manager.record_sale_advanced(
+                self.sales_manager.record_sale_advanced(
                     party_id=self.party_combo.currentData(),
                     cartons=cartons,
                     eggs=eggs,
@@ -455,14 +469,20 @@ class AdvancedSalesDialog(QDialog):
                     date=self.date_edit.dateTime(),
                     notes=self.notes_edit.toPlainText(),
                     exchange_rate_used=exchange_rate,
-                    payment_method=self.payment_method_combo.currentText()
+                    payment_method=self.payment_method_combo.currentText(),
+                    farm_id=self.farm_id  # Pass farm_id for filtering
                 )
             
             QMessageBox.information(self, tr("Success"), "Sale recorded successfully!")
             self.sale_saved.emit()
             self.accept()
         
+        except ValueError as e:
+            # User-friendly error for validation and stock issues
+            logger.warning(f"Validation error saving sale: {e}")
+            QMessageBox.warning(self, tr("Validation Error"), str(e))
         except Exception as e:
-            logger.error(f"Error saving sale: {e}")
-            QMessageBox.critical(self, tr("Error"), f"Failed to save sale: {str(e)}")
+            # Unexpected errors
+            logger.error(f"Error saving sale: {e}", exc_info=True)
+            QMessageBox.critical(self, tr("Error"), f"Failed to save sale: {str(e)}\n\nPlease check the logs for details.")
 

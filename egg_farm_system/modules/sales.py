@@ -1,7 +1,7 @@
 """
 Sales module with auto ledger posting and performance optimizations
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from egg_farm_system.database.models import Sale, EggProduction
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.ledger import LedgerManager
@@ -165,28 +165,45 @@ class SalesManager:
         self.close_session()
     
     def record_sale(self, party_id, quantity, rate_afg, rate_usd, 
-                    exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+                    exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Record egg sale and post to ledger"""
         try:
             with measure_time(f"record_sale_party_{party_id}"):
-                # Input validation
+                # Enhanced input validation
+                if not party_id or party_id <= 0:
+                    raise ValueError("Invalid party ID")
                 if quantity <= 0:
                     raise ValueError("Quantity must be greater than 0")
+                if quantity > 1_000_000:  # Reasonable upper limit
+                    raise ValueError("Quantity exceeds maximum allowed (1,000,000)")
                 if rate_afg < 0:
                     raise ValueError("Rate (AFG) cannot be negative")
+                if rate_afg > 100_000:  # Reasonable upper limit per egg
+                    raise ValueError("Rate (AFG) exceeds maximum allowed")
                 if rate_usd < 0:
                     raise ValueError("Rate (USD) cannot be negative")
                 if exchange_rate_used <= 0:
                     raise ValueError("Exchange rate must be greater than 0")
+                if exchange_rate_used > 1000:  # Sanity check
+                    raise ValueError("Exchange rate seems unreasonable")
+                if notes and len(notes) > 1000:
+                    raise ValueError("Notes too long (max 1000 characters)")
+                if payment_method not in ["Cash", "Credit"]:
+                    raise ValueError("Payment method must be 'Cash' or 'Credit'")
                 
                 if date is None:
                     date = datetime.utcnow()
+                
+                # Validate date not too far in the future
+                if date > datetime.utcnow() + timedelta(days=1):
+                    raise ValueError("Sale date cannot be more than 1 day in the future")
                 
                 total_afg = quantity * rate_afg
                 total_usd = quantity * rate_usd
                 
                 sale = Sale(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     quantity=quantity,
                     rate_afg=rate_afg,
@@ -242,7 +259,7 @@ class SalesManager:
     
     def record_sale_advanced(self, party_id, cartons, eggs, grade, rate_afg, rate_usd,
                             tray_expense_afg=0, carton_expense_afg=0,
-                            exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+                            exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Record advanced egg sale with carton and expense tracking"""
         try:
             # Input validation
@@ -270,6 +287,7 @@ class SalesManager:
             
             sale = Sale(
                 party_id=party_id,
+                farm_id=farm_id,
                 date=date,
                 quantity=eggs,
                 cartons=cartons,
@@ -288,15 +306,10 @@ class SalesManager:
             self.session.add(sale)
             self.session.flush()  # Get sale ID
 
-            # Consume eggs and packaging
+            # Consume eggs only (packaging was already consumed during production)
             inv_mgr = InventoryManager()
             inv_mgr.consume_eggs(self.session, eggs)
-            # Consume cartons/trays as integer quantities
-            try:
-                inv_mgr.consume_packaging(self.session, cartons_needed=cartons, trays_needed=0)
-            except Exception:
-                # If packaging consumption fails, rollback will occur in outer exception handler
-                raise
+            # NOTE: Cartons/trays are NOT consumed here - they're consumed during egg production
             
             # Post to ledger: Debit party, Credit sales
             ledger_manager = LedgerManager()

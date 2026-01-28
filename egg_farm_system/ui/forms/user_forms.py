@@ -85,12 +85,35 @@ class UserManagementForm(QWidget):
         item = self.list.currentItem()
         if not item:
             return
+        
         user_id = int(item.text().split(':', 1)[0])
-        if UserManager.delete_user(user_id):
-            QMessageBox.information(self, tr('Deleted'), 'User deleted')
-            self.load_users()
-        else:
-            QMessageBox.warning(self, tr('Error'), 'Failed to delete user')
+        
+        # Get user details for confirmation
+        user = UserManager.get_user_by_id(user_id)
+        if not user:
+            QMessageBox.warning(self, tr('Error'), 'User not found')
+            return
+        
+        # Confirmation dialog
+        reply = QMessageBox.question(
+            self,
+            tr('Confirm Deletion'),
+            tr(f'Are you sure you want to delete user "{user.username}"?\n\nThis action cannot be undone.'),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        try:
+            if UserManager.delete_user(user_id):
+                QMessageBox.information(self, tr('Deleted'), 'User deleted successfully')
+                self.load_users()
+            else:
+                QMessageBox.warning(self, tr('Error'), 'Failed to delete user')
+        except Exception as e:
+            QMessageBox.critical(self, tr('Error'), f'Failed to delete user: {str(e)}')
 
     def change_selected_password(self):
         item = self.list.currentItem()

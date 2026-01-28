@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  egg-farm-system:
+    build: .
+    container_name: egg-farm-management
+    volumes:
+      - ./data:/data
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_QPA_PLATFORM=xcb
+    network_mode: host
+    restart: unless-stopped

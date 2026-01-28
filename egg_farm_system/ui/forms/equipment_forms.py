@@ -6,10 +6,13 @@ from egg_farm_system.utils.i18n import tr
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox,
     QDialog, QFormLayout, QLineEdit, QTableWidget, QTableWidgetItem,
-    QDoubleSpinBox, QHeaderView, QComboBox, QDateEdit, QTextEdit
+    QDoubleSpinBox, QHeaderView, QComboBox, QTextEdit
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date
 
 from egg_farm_system.modules.equipments import EquipmentManager
 from egg_farm_system.database.models import EquipmentStatus
@@ -25,8 +28,7 @@ class EquipmentDialog(QDialog):
 
         self.name_edit = QLineEdit(equipment.name if equipment else "")
         self.description_edit = QTextEdit(equipment.description if equipment else "")
-        self.purchase_date_edit = QDateEdit(equipment.purchase_date if equipment else QDate.currentDate())
-        self.purchase_date_edit.setCalendarPopup(True)
+        self.purchase_date_edit = JalaliDateEdit(initial=equipment.purchase_date if equipment else date.today())
         self.purchase_price_spin = QDoubleSpinBox()
         self.purchase_price_spin.setRange(0, 100_000_000)
         self.purchase_price_spin.setValue(equipment.purchase_price if equipment else 0)
@@ -62,7 +64,7 @@ class EquipmentDialog(QDialog):
         return {
             "name": self.name_edit.text(),
             "description": self.description_edit.toPlainText(),
-            "purchase_date": self.purchase_date_edit.date().toPython(),
+            "purchase_date": self.purchase_date_edit.date(),
             "purchase_price": self.purchase_price_spin.value(),
             "status": EquipmentStatus(self.status_combo.currentText())
         }

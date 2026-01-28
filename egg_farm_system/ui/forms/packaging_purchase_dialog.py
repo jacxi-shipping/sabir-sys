@@ -19,8 +19,9 @@ class PackagingPurchaseDialog(QDialog):
 
     purchase_saved = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, farm_id=None):
         super().__init__(parent)
+        self.farm_id = farm_id
         self.setWindowTitle(tr("Purchase Packaging"))
         self.setModal(True)
         self.setMinimumWidth(480)
@@ -55,19 +56,27 @@ class PackagingPurchaseDialog(QDialog):
         self.quantity_spin = QSpinBox()
         self.quantity_spin.setMinimum(1)
         self.quantity_spin.setMaximum(1_000_000)
+        self.quantity_spin.valueChanged.connect(self._update_calculated_rate)
         form.addRow(tr("Quantity (pcs):"), self.quantity_spin)
 
-        self.rate_afg_spin = QDoubleSpinBox()
-        self.rate_afg_spin.setMinimum(0.0)
-        self.rate_afg_spin.setMaximum(1_000_000.0)
-        self.rate_afg_spin.setDecimals(2)
-        form.addRow(tr("Rate (AFG):"), self.rate_afg_spin)
+        # Changed from rate per unit to total amount
+        self.total_afg_spin = QDoubleSpinBox()
+        self.total_afg_spin.setMinimum(0.0)
+        self.total_afg_spin.setMaximum(10_000_000.0)
+        self.total_afg_spin.setDecimals(2)
+        self.total_afg_spin.valueChanged.connect(self._update_calculated_rate)
+        form.addRow(tr("Total Amount (AFG):"), self.total_afg_spin)
 
-        self.rate_usd_spin = QDoubleSpinBox()
-        self.rate_usd_spin.setMinimum(0.0)
-        self.rate_usd_spin.setMaximum(1_000_000.0)
-        self.rate_usd_spin.setDecimals(2)
-        form.addRow(tr("Rate (USD):"), self.rate_usd_spin)
+        self.total_usd_spin = QDoubleSpinBox()
+        self.total_usd_spin.setMinimum(0.0)
+        self.total_usd_spin.setMaximum(10_000_000.0)
+        self.total_usd_spin.setDecimals(2)
+        self.total_usd_spin.valueChanged.connect(self._update_calculated_rate)
+        form.addRow(tr("Total Amount (USD):"), self.total_usd_spin)
+        
+        # Display calculated rate per unit
+        self.calc_rate_label = QLabel(tr("Rate/unit will be calculated"))
+        form.addRow(tr("Calculated Rate:"), self.calc_rate_label)
 
         self.notes_edit = QTextEdit()
         self.notes_edit.setMaximumHeight(80)
@@ -118,7 +127,24 @@ class PackagingPurchaseDialog(QDialog):
             self.current_stock_label.setText(tr("N/A"))
 
     def _connect(self):
-        pass
+        self.material_combo.currentIndexChanged.connect(self._update_stock_display)
+        
+    def _update_calculated_rate(self):
+        """Calculate rate per unit from total amount and quantity"""
+        qty = self.quantity_spin.value()
+        if qty <= 0:
+            self.calc_rate_label.setText(tr("Rate/unit will be calculated"))
+            return
+            
+        total_afg = self.total_afg_spin.value()
+        total_usd = self.total_usd_spin.value()
+        
+        rate_afg = total_afg / qty if qty > 0 else 0
+        rate_usd = total_usd / qty if qty > 0 else 0
+        
+        self.calc_rate_label.setText(
+            f"AFG: {rate_afg:.2f}/pc, USD: {rate_usd:.2f}/pc"
+        )
 
     def _validate(self):
         if self.party_combo.currentIndex() < 0:
@@ -136,9 +162,13 @@ class PackagingPurchaseDialog(QDialog):
         party_id = self.party_combo.currentData()
         material_name = self.material_combo.currentText()
         qty = self.quantity_spin.value()
-        rate_afg = self.rate_afg_spin.value()
-        rate_usd = self.rate_usd_spin.value()
+        total_afg = self.total_afg_spin.value()
+        total_usd = self.total_usd_spin.value()
         notes = self.notes_edit.toPlainText().strip() or None
+        
+        # Calculate rate per unit from total
+        rate_afg = total_afg / qty if qty > 0 else 0
+        rate_usd = total_usd / qty if qty > 0 else 0
 
         try:
             pm = PurchaseManager()
@@ -149,9 +179,10 @@ class PackagingPurchaseDialog(QDialog):
                     quantity=qty,
                     rate_afg=rate_afg,
                     rate_usd=rate_usd,
-                    exchange_rate_used=rate_afg and (rate_afg / (rate_usd or 1)) or 1.0,
+                    exchange_rate_used=rate_afg / rate_usd if rate_usd > 0 else 1.0,
                     notes=notes,
-                    payment_method='Cash'
+                    payment_method='Cash',
+                    farm_id=self.farm_id  # Pass farm_id for filtering
                 )
             finally:
                 pm.close_session()

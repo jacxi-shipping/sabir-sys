@@ -18,8 +18,9 @@ from egg_farm_system.ui.ui_helpers import create_button
 class InventoryFormWidget(QWidget):
     """Inventory management widget"""
     
-    def __init__(self):
+    def __init__(self, farm_id=None):
         super().__init__()
+        self.farm_id = farm_id
         self.inventory_manager = InventoryManager()
         self.init_ui()
         self.refresh_data()
@@ -74,7 +75,7 @@ class InventoryFormWidget(QWidget):
         self.setLayout(layout)
 
     def open_packaging_purchase(self):
-        dlg = PackagingPurchaseDialog(self)
+        dlg = PackagingPurchaseDialog(self, farm_id=self.farm_id)
         dlg.purchase_saved.connect(self.refresh_data)
         dlg.exec()
     

@@ -2,10 +2,13 @@ from egg_farm_system.utils.i18n import tr
 import logging
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton,
-    QDoubleSpinBox, QComboBox, QDateTimeEdit, QMessageBox, QTextEdit, QSizePolicy
+    QDoubleSpinBox, QComboBox, QMessageBox, QTextEdit, QSizePolicy
 )
-from PySide6.QtCore import Qt, QDateTime, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateTimeEdit
+from datetime import datetime
 
 from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.modules.feed_mill import RawMaterialManager
@@ -49,8 +52,7 @@ class RawMaterialSaleDialog(QDialog):
         form.setHorizontalSpacing(12)
 
         # Date
-        self.date_edit = QDateTimeEdit(QDateTime.currentDateTime())
-        self.date_edit.setCalendarPopup(True)
+        self.date_edit = JalaliDateTimeEdit(initial=datetime.now())
         form.addRow(tr("Date:"), self.date_edit)
 
         # Customer
@@ -252,7 +254,7 @@ class RawMaterialSaleDialog(QDialog):
                     rate_afg=rate_afg,
                     rate_usd=rate_usd,
                     exchange_rate_used=self.exchange_rate,
-                    date=self.date_edit.dateTime().toPython(),
+                    date=self.date_edit.dateTime(),
                     payment_method=payment_method,
                     notes=notes,
                 )

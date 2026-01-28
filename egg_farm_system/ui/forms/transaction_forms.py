@@ -6,9 +6,9 @@ from egg_farm_system.utils.i18n import tr
 from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QMessageBox, QDialog, QFormLayout, QDoubleSpinBox, QDateTimeEdit, QComboBox, QSpinBox, QSizePolicy
+    QMessageBox, QDialog, QFormLayout, QDoubleSpinBox, QComboBox, QSpinBox, QSizePolicy
 )
-from PySide6.QtCore import Qt, QDateTime, QSize, QTimer
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QIcon
 from pathlib import Path
 from egg_farm_system.ui.widgets.datatable import DataTableWidget
@@ -614,9 +614,7 @@ class PurchaseDialog(QDialog):
             return
         
         try:
-            self.date_edit.setDateTime(QDateTime.fromString(
-                self.purchase.date.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss"
-            ))
+            self.date_edit.setDateTime(self.purchase.date)
             
             # Find party index
             for i in range(self.party_combo.count()):
@@ -739,10 +737,7 @@ class ExpenseDialog(QDialog):
         
         layout = QFormLayout()
         
-        self.date_edit = QDateTimeEdit()
-        self.date_edit.setDateTime(QDateTime.currentDateTime())
-        self.date_edit.setCalendarPopup(True)
-        self.date_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.date_edit = JalaliDateTimeEdit(initial=datetime.now())
         
         self.category_combo = QComboBox()
         for category in EXPENSE_CATEGORIES:
@@ -824,9 +819,7 @@ class ExpenseDialog(QDialog):
             return
         
         try:
-            self.date_edit.setDateTime(QDateTime.fromString(
-                self.expense.date.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss"
-            ))
+            self.date_edit.setDateTime(self.expense.date)
             
             # Find category index
             index = self.category_combo.findText(self.expense.category)
@@ -883,7 +876,7 @@ class ExpenseDialog(QDialog):
                         expense.amount_afg = self.amount_afg_spin.value()
                         expense.amount_usd = self.amount_usd_spin.value()
                         expense.party_id = self.party_combo.currentData()
-                        expense.date = self.date_edit.dateTime().toPython()
+                        expense.date = self.date_edit.dateTime()
                         expense.payment_method = self.payment_method_combo.currentText()
                         session.commit()
                         message = "Expense updated successfully."
@@ -898,7 +891,7 @@ class ExpenseDialog(QDialog):
                         self.amount_afg_spin.value(),
                         self.amount_usd_spin.value(),
                         party_id=self.party_combo.currentData(),
-                        date=self.date_edit.dateTime().toPython(),
+                        date=self.date_edit.dateTime(),
                         payment_method=self.payment_method_combo.currentText()
                     )
                 message = "Expense recorded successfully."

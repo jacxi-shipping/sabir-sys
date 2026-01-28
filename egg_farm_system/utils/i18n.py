@@ -176,6 +176,222 @@ TRANSLATIONS = {
         "Username": "کارن نوم",
         "Password": "پټنوم",
         "Welcome": "ښه راغلاست",
+        "Login Failed": "ننوتل پاتې راغی",
+        "Account Locked": "حساب قفل شوی",
+        "Too many failed login attempts. Account locked for 15 minutes.": "د ناکامه ننوتلو ډیرې هڅې. حساب د 15 دقیقو لپاره قفل شو.",
+        
+        # --- User Management ---
+        "New User": "نوی کاروونکی",
+        "Add User": "کاروونکی اضافه کړئ",
+        "Role": "رول",
+        "Change Password": "پټنوم بدل کړئ",
+        "Old Password": "پخوانی پټنوم",
+        "New Password": "نوی پټنوم",
+        "Confirm Password": "پټنوم تایید کړئ",
+        
+        # --- Common Forms ---
+        "Required field": "اړین فیلډ",
+        "Optional": "اختیاري",
+        "(optional)": "(اختیاري)",
+        "Description (optional)": "تفصیل (اختیاري)",
+        "Select": "انتخاب",
+        "Selection": "انتخاب",
+        "Choose": "غوره کړئ",
+        "Browse": "لټون",
+        "Apply": "تطبیق",
+        "Reset": "بیا تنظیم",
+        "Confirm": "تایید",
+        "Submit": "وسپارئ",
+        "Yes": "هو",
+        "No": "نه",
+        "OK": "سمه ده",
+        
+        # --- Farm & Shed Management ---
+        "Add New Farm": "نوی فارم اضافه کړئ",
+        "Add a new farm": "یو نوی فارم اضافه کړئ",
+        "Add a new shed": "یو نوی شیډ اضافه کړئ",
+        "Shed": "شیډ",
+        "Capacity must be greater than 0.": "ظرفیت باید له 0 څخه زیات وي.",
+        "birds": "مرغۍ",
+        
+        # --- Flock Management ---
+        "Add Flock": "رمه اضافه کړئ",
+        "Record Mortality": "مړینه ثبت کړئ",
+        "Record Medication": "درمل ثبت کړئ",
+        "Failed to record mortality": "د مړینې ثبت کول پاتې راغی",
+        "Failed to record medication": "د درملو ثبت کول پاتې راغی",
+        "Count:": "شمیر:",
+        "Dose Unit:": "د دوا واحد:",
+        "Administered By:": "د خوا پر لاره اچول شوی:",
+        "Days:": "ورځې:",
+        
+        # --- Production Forms ---
+        "Collected:": "راټول شوي:",
+        "Broken:": "ماتې:",
+        "Cartons:": "کارتنونه:",
+        "Cartons: 0.00": "کارتنونه: 0.00",
+        "Checking stock...": "موجودي کتل کیږي...",
+        "Current Stock:": "اوسنی موجودي:",
+        "Current stock: N/A": "اوسنی موجودي: شتون نلري",
+        
+        # --- Sales & Purchases ---
+        "Calculated Rate:": "محاسبه شوی نرخ:",
+        "At least one rate (AFG or USD) must be greater than 0.": "لږ تر لږه یو نرخ (افغانۍ یا ډالر) باید له 0 څخه زیات وي.",
+        "Customer:": "پیرودونکی:",
+        "Address:": "پته:",
+        "Conversion Preview": "د بدلون مخکتنه",
+        
+        # --- Party Management ---
+        "Add New Party": "نوی ګوند اضافه کړئ",
+        "Add a new party (Ctrl+N)": "یو نوی ګوند اضافه کړئ (Ctrl+N)",
+        "Add credit/debit transaction to a party": "یوې ګوند ته کریډیټ/ډیبټ معامله اضافه کړئ",
+        "Add Party Transaction": "د ګوند معامله اضافه کړئ",
+        "Credit": "کریډیټ (امانت)",
+        
+        # --- Inventory & Materials ---
+        "Add Material": "مواد اضافه کړئ",
+        "Add Ingredient": "جزء اضافه کړئ",
+        "Add Equipment": "تجهیزات اضافه کړئ",
+        "Available: N/A": "دسترس: شتون نلري",
+        "Available: 0.00 units": "دسترس: 0.00 واحدونه",
+        
+        # --- Analytics & Reports ---
+        "ABC Analysis": "ABC تحلیل",
+        "Advanced Analytics": "پرمختللي تحلیلونه",
+        "Analytics & Forecasting": "تحلیلونه او وړاندوینه",
+        "Calculate Analytics": "تحلیلونه محاسبه کړئ",
+        "Calculate ROI": "ROI محاسبه کړئ",
+        "Cost Breakdown": "د لګښت تفصیل",
+        "Compare Sheds": "شیډونه پرتله کړئ",
+        "Daily Egg Production (Last 30 Days)": "ورځنی هګیو تولید (تیرې 30 ورځې)",
+        "Avg. Live Birds: Not calculated": "اوسط ژوندي مرغۍ: محاسبه شوي نه دي",
+        "Birds at Start: Not calculated": "په پیل کې مرغۍ: محاسبه شوي نه دي",
+        "Cost of Goods Sold (Feed): Not calculated": "د پلورل شوي توکو قیمت (خواړه): محاسبه شوي نه دي",
+        "Analyze Anomalies": "بې نظمۍ تحلیل کړئ",
+        "Analysis Period:": "د تحلیل موده:",
+        
+        # --- Backup & Restore ---
+        "Backup & Restore": "بیک اپ او بیا رغونه",
+        "Create Backup Now": "اوس بیک اپ جوړ کړئ",
+        "Creating Backup": "بیک اپ جوړیږي",
+        "Available Backups:": "دسترس بیک اپونه:",
+        "Confirm Restore": "بیا رغونه تایید کړئ",
+        "Cleanup Old Backups": "زاړه بیک اپونه پاک کړئ",
+        "Cleanup Complete": "پاکول بشپړ شول",
+        
+        # --- Email & Settings ---
+        "Email Config": "د بریښنالیک تنظیم",
+        "Settings": "تنظیمات",
+        "All Settings:": "ټول تنظیمات:",
+        "Advanced settings editor. Use this to view and edit all application settings ": "پرمختللي تنظیماتو ایډیټر. دا د ټولو اپلیکیشن تنظیماتو لیدو او سمولو لپاره وکاروئ ",
+        "Save All Settings": "ټول تنظیمات ثبت کړئ",
+        "Configure egg packaging expenses. These values are used when calculating ": "د هګیو بسته بندۍ لګښتونه تنظیم کړئ. دا ارزښتونه د محاسبې پرمهال کارول کیږي ",
+        
+        # --- Workflow & Automation ---
+        "Workflow Automation": "د کار جریان اتومات",
+        "Audit Trail": "د پلټنې لار",
+        "Audit Log Details": "د پلټنې ریکارډ تفصیلات",
+        "Action Type:": "د عمل ډول:",
+        "Date & Time:": "نیټه او وخت:",
+        
+        # --- Messages & Dialogs ---
+        "Confirm Deletion": "د حذف تایید",
+        "Are you sure you want to delete": "ایا تاسو ډاډه یاست چې غواړئ حذف کړئ",
+        "This action cannot be undone": "دا عمل بیرته نه راګرځي",
+        "Access Denied": "لاسرسی منع شوی",
+        "Admin only": "یوازې اډمین",
+        "Complete": "بشپړ",
+        "Failed": "پاتې راغی",
+        "Created": "جوړ شو",
+        "Deleted": "حذف شو",
+        "Not Found": "ونه موندل شو",
+        
+        # --- Common UI Actions ---
+        "Delete Selected": "انتخاب شوي حذف کړئ",
+        "Edit Selected": "انتخاب شوي سمول کړئ",
+        "Delete Setting": "تنظیم حذف کړئ",
+        "Delete Failed": "حذف کول پاتې راغی",
+        "Clear All": "ټول پاک کړئ",
+        "Refresh": "تازه کړئ",
+        "Search...": "لټون...",
+        "View": "کتل",
+        
+        # --- Employee Management ---
+        "Add Employee": "کارمند اضافه کړئ",
+        "Employee & Salary Management": "د کارمندانو او معاش مدیریت",
+        "Employee Management": "د کارمندانو مدیریت",
+        
+        # --- Egg Management ---
+        "Egg Sale - Carton Based": "د هګیو پلور - د کارتن پر بنسټ",
+        "Egg Stock Management": "د هګیو موجودي مدیریت",
+        "Egg Production Tracking": "د هګیو تولید تعقیب",
+        "Egg Production Forecast (Next 7 Days)": "د هګیو تولید وړاندوینه (راتلونکې 7 ورځې)",
+        "Egg Expense Management": "د هګیو لګښت مدیریت",
+        "Egg Grade:": "د هګیو درجه:",
+        "0 eggs": "0 هګۍ",
+        "<b>Eggs</b>": "<b>هګۍ</b>",
+        "= 0 eggs": "= 0 هګۍ",
+        
+        # --- Trays & Cartons ---
+        "0 trays": "0 کریتونه",
+        "<b>Trays</b>": "<b>کریتونه</b>",
+        "= 0 trays": "= 0 کریتونه",
+        "= 0.00 trays": "= 0.00 کریتونه",
+        "= 0.00 cartons": "= 0.00 کارتنونه",
+        "<b>Grade</b>": "<b>درجه</b>",
+        "<b>Total:</b>": "<b>ټول:</b>",
+        
+        # --- Numbers & Amounts ---
+        "0.00": "0.00",
+        "0.00 AFG": "0.00 افغانۍ",
+        "0.00 USD": "0.00 ډالر",
+        "Amount (AFG):": "مقدار (افغانۍ):",
+        "Amount (AFG): <span style='color: red;'>*</span>": "مقدار (افغانۍ): <span style='color: red;'>*</span>",
+        "Amount (USD):": "مقدار (ډالر):",
+        "Category: <span style='color: red;'>*</span>": "کټګوري: <span style='color: red;'>*</span>",
+        "Date: <span style='color: red;'>*</span>": "نیټه: <span style='color: red;'>*</span>",
+        "Date:": "نیټه:",
+        
+        # --- Additional UI Elements ---
+        "Add Transaction": "معامله اضافه کړئ",
+        "Add any additional notes here...": "دلته کوم اضافي یادښتونه اضافه کړئ...",
+        "Any additional notes...": "کوم اضافي یادښتونه...",
+        "Cash Flow Management": "د نغدو جریان مدیریت",
+        "Daily Average: 0": "ورځنی اوسط: 0",
+        "Current Balance: N/A": "اوسنی بیلنس: شتون نلري",
+        "Avg Price: N/A": "اوسط قیمت: شتون نلري",
+        
+        # --- Export Options ---
+        "Export CSV": "CSV صادرول",
+        "Export Excel": "Excel صادرول", 
+        "Export PDF": "PDF صادرول",
+        
+        # --- Additional Common ---
+        "Create": "جوړول",
+        "Change": "بدلول",
+        "Enable/Disable": "فعالول/غیرفعالول",
+        "Validation": "تایید",
+        
+        # --- Language Settings ---
+        "Language Settings": "د ژبې تنظیمات",
+        "Interface Language:": "د انٹرفیس ژبه:",
+        "Note: Changing the language will update the interface immediately. The application will switch to Right-to-Left layout for Pashto.": "یادښت: د ژبې بدلول به سمدستي انټرفیس تازه کړي. اپلیکیشن به د پښتو لپاره ښي څخه کیڼ ته ترتیب ته بدل شي.",
+        "Language Changed": "ژبه بدله شوه",
+        "Language has been changed to {0}. Some parts of the interface will update immediately, while others may require restarting the application.": "ژبه {0} ته بدله شوه. د انټرفیس ځینې برخې به سمدستي تازه شي، پداسې حال کې چې نورې ممکن د اپلیکیشن بیا پیل کولو ته اړتیا ولري.",
+        
+        # --- Currency Settings ---
+        "Currency Settings": "د اسعارو تنظیمات",
+        "Exchange Rate (AFG/USD):": "د تبادلې نرخ (افغانۍ/ډالر):",
+        
+        # --- Additional Settings ---
+        "Egg Management": "د هګیو مدیریت",
+        "Egg Packaging Expenses": "د هګیو بسته بندۍ لګښتونه",
+        "Tray Expense:": "د کریټ لګښت:",
+        "Carton Expense:": "د کارټن لګښت:",
+        "Conversion Information": "د بدلون معلومات",
+        "General": "عمومي",
+        "Advanced": "پرمختللي",
+        "Save All Settings": "ټول تنظیمات ثبت کړئ",
     }
 }
 

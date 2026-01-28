@@ -130,6 +130,11 @@ class DataValidator:
                     errors.append(f"Row {idx}: Date is required")
                     continue
                 
+                # Farm name is required
+                if not row.get('farm_name') or not str(row.get('farm_name')).strip():
+                    errors.append(f"Row {idx}: Farm name is required")
+                    continue
+                
                 # Validate date
                 try:
                     if isinstance(row['date'], str):
@@ -164,7 +169,7 @@ class DataValidator:
                     errors.append(f"Row {idx}: Amount (AFG) must be a valid number")
                     continue
                 
-                # Validate USD amount if provided
+                # Validate USD amount if provided, otherwise default to 0
                 amount_usd = 0
                 if row.get('amount_usd'):
                     try:
@@ -184,7 +189,7 @@ class DataValidator:
                 # Clean and prepare data
                 validated_row = {
                     'date': expense_date,
-                    'farm_name': str(row.get('farm_name', '')).strip() if row.get('farm_name') else None,
+                    'farm_name': str(row['farm_name']).strip(),
                     'category': category,
                     'amount_afg': amount_afg,
                     'amount_usd': amount_usd,
