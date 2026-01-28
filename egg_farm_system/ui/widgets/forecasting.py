@@ -1,6 +1,8 @@
 """
 Forecasting widget for egg production.
 """
+from egg_farm_system.utils.i18n import tr
+
 from datetime import datetime, timedelta, date
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QComboBox
 from PySide6.QtCore import Qt
@@ -24,7 +26,7 @@ class ForecastingWidget(QWidget):
         
         # Header
         header_layout = QHBoxLayout()
-        title = QLabel("Egg Production Forecast (Next 7 Days)")
+        title = QLabel(tr("Egg Production Forecast (Next 7 Days)"))
         title.setStyleSheet("font-size: 14pt; font-weight: bold;")
         header_layout.addWidget(title)
         header_layout.addStretch()

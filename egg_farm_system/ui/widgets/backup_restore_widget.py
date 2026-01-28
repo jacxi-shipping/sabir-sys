@@ -1,6 +1,8 @@
 """
 Backup and Restore Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -33,7 +35,7 @@ class BackupRestoreWidget(QWidget):
         layout.setSpacing(15)
         
         # Title
-        title = QLabel("Backup & Restore")
+        title = QLabel(tr("Backup & Restore"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -47,7 +49,7 @@ class BackupRestoreWidget(QWidget):
         # Comment input
         form_layout = QFormLayout()
         self.comment_edit = QLineEdit()
-        self.comment_edit.setPlaceholderText("Optional comment for this backup...")
+        self.comment_edit.setPlaceholderText(tr("Optional comment for this backup..."))
         form_layout.addRow("Comment:", self.comment_edit)
         backup_layout.addLayout(form_layout)
         
@@ -57,7 +59,7 @@ class BackupRestoreWidget(QWidget):
         backup_layout.addWidget(self.include_logs_check)
         
         # Backup button
-        backup_btn = QPushButton("Create Backup Now")
+        backup_btn = QPushButton(tr("Create Backup Now"))
         backup_btn.setMinimumHeight(40)
         backup_btn.clicked.connect(self.create_backup)
         backup_layout.addWidget(backup_btn)
@@ -70,7 +72,7 @@ class BackupRestoreWidget(QWidget):
         restore_layout = QVBoxLayout()
         
         # Backup list
-        restore_layout.addWidget(QLabel("Available Backups:"))
+        restore_layout.addWidget(QLabel(tr("Available Backups:")))
         self.backup_list = QListWidget()
         self.backup_list.setMinimumHeight(200)
         self.backup_list.itemDoubleClicked.connect(self.restore_backup)
@@ -78,11 +80,11 @@ class BackupRestoreWidget(QWidget):
         
         # Restore buttons
         btn_layout = QHBoxLayout()
-        restore_btn = QPushButton("Restore Selected Backup")
+        restore_btn = QPushButton(tr("Restore Selected Backup"))
         restore_btn.clicked.connect(self.restore_selected_backup)
         btn_layout.addWidget(restore_btn)
         
-        restore_from_file_btn = QPushButton("Restore from File...")
+        restore_from_file_btn = QPushButton(tr("Restore from File..."))
         restore_from_file_btn.clicked.connect(self.restore_from_file)
         btn_layout.addWidget(restore_from_file_btn)
         
@@ -98,15 +100,15 @@ class BackupRestoreWidget(QWidget):
         
         # Action buttons
         action_layout = QHBoxLayout()
-        refresh_btn = QPushButton("Refresh List")
+        refresh_btn = QPushButton(tr("Refresh List"))
         refresh_btn.clicked.connect(self.refresh_backup_list)
         action_layout.addWidget(refresh_btn)
         
-        delete_btn = QPushButton("Delete Selected")
+        delete_btn = QPushButton(tr("Delete Selected"))
         delete_btn.clicked.connect(self.delete_selected_backup)
         action_layout.addWidget(delete_btn)
         
-        cleanup_btn = QPushButton("Cleanup Old Backups")
+        cleanup_btn = QPushButton(tr("Cleanup Old Backups"))
         cleanup_btn.clicked.connect(self.cleanup_backups)
         action_layout.addWidget(cleanup_btn)
         
@@ -122,7 +124,7 @@ class BackupRestoreWidget(QWidget):
             include_logs = self.include_logs_check.isChecked()
             
             # Show progress
-            QMessageBox.information(self, "Creating Backup", 
+            QMessageBox.information(self, tr("Creating Backup"), 
                                   "Creating backup... This may take a moment.")
             
             backup_path = self.backup_manager.create_backup(
@@ -130,7 +132,7 @@ class BackupRestoreWidget(QWidget):
                 comment=comment
             )
             
-            QMessageBox.information(self, "Success", 
+            QMessageBox.information(self, tr("Success"), 
                                   f"Backup created successfully!\n\nLocation: {backup_path}\nSize: {self._format_size(backup_path.stat().st_size)}")
             
             self.comment_edit.clear()
@@ -138,13 +140,13 @@ class BackupRestoreWidget(QWidget):
             
         except Exception as e:
             logger.error(f"Failed to create backup: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to create backup:\n{str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to create backup:\n{str(e)}")
     
     def restore_selected_backup(self):
         """Restore selected backup from list"""
         current_item = self.backup_list.currentItem()
         if not current_item:
-            QMessageBox.warning(self, "No Selection", "Please select a backup to restore.")
+            QMessageBox.warning(self, tr("No Selection"), "Please select a backup to restore.")
             return
         
         backup_path = current_item.data(Qt.UserRole)
@@ -171,7 +173,7 @@ class BackupRestoreWidget(QWidget):
         """Internal restore backup method"""
         reply = QMessageBox.warning(
             self,
-            "Confirm Restore",
+            tr("Confirm Restore"),
             f"Are you sure you want to restore from backup?\n\n"
             f"File: {backup_path.name}\n\n"
             f"WARNING: This will replace your current database. "
@@ -184,12 +186,12 @@ class BackupRestoreWidget(QWidget):
             return
         
         try:
-            QMessageBox.information(self, "Restoring", 
+            QMessageBox.information(self, tr("Restoring"), 
                                   "Restoring backup... Please wait.")
             
             self.backup_manager.restore_backup(backup_path, restore_logs=False)
             
-            QMessageBox.information(self, "Success", 
+            QMessageBox.information(self, tr("Success"), 
                                   "Backup restored successfully!\n\n"
                                   "The application will need to be restarted.")
             
@@ -197,13 +199,13 @@ class BackupRestoreWidget(QWidget):
             
         except Exception as e:
             logger.error(f"Failed to restore backup: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to restore backup:\n{str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to restore backup:\n{str(e)}")
     
     def delete_selected_backup(self):
         """Delete selected backup"""
         current_item = self.backup_list.currentItem()
         if not current_item:
-            QMessageBox.warning(self, "No Selection", "Please select a backup to delete.")
+            QMessageBox.warning(self, tr("No Selection"), "Please select a backup to delete.")
             return
         
         backup_path = current_item.data(Qt.UserRole)
@@ -218,10 +220,10 @@ class BackupRestoreWidget(QWidget):
         
         if reply == QMessageBox.Yes:
             if self.backup_manager.delete_backup(backup_path):
-                QMessageBox.information(self, "Deleted", "Backup deleted successfully.")
+                QMessageBox.information(self, tr("Deleted"), "Backup deleted successfully.")
                 self.refresh_backup_list()
             else:
-                QMessageBox.critical(self, "Error", "Failed to delete backup.")
+                QMessageBox.critical(self, tr("Error"), "Failed to delete backup.")
     
     def cleanup_backups(self):
         """Cleanup old backups"""
@@ -236,7 +238,7 @@ class BackupRestoreWidget(QWidget):
         
         if reply == QMessageBox.Yes:
             deleted = self.backup_manager.cleanup_old_backups(keep_count=10)
-            QMessageBox.information(self, "Cleanup Complete", 
+            QMessageBox.information(self, tr("Cleanup Complete"), 
                                   f"Deleted {deleted} old backup(s).")
             self.refresh_backup_list()
     
@@ -247,7 +249,7 @@ class BackupRestoreWidget(QWidget):
         backups = self.backup_manager.list_backups()
         
         if not backups:
-            self.info_label.setText("No backups found. Create your first backup above.")
+            self.info_label.setText(tr("No backups found. Create your first backup above."))
             return
         
         for backup in backups:

@@ -1,13 +1,14 @@
+from egg_farm_system.utils.i18n import tr
 from pathlib import Path
 import logging
 import traceback
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QPushButton,
     QTableView, QFileDialog, QAbstractItemView, QLabel, QSpinBox,
-    QCheckBox, QMenu, QHeaderView
+    QCheckBox, QMenu, QHeaderView, QMessageBox, QStackedWidget
 )
 from PySide6.QtCore import Qt, QSortFilterProxyModel, Signal
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPainter, QAction
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPainter, QAction, QColor, QFont
 from PySide6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(__name__)
@@ -44,13 +45,14 @@ class DataTableWidget(QWidget):
         self.view.selectionModel().selectionChanged.connect(self._on_selection_changed)
         # Set consistent column stretching
         self.view.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # Set minimum row height to accommodate action buttons
-        self.view.verticalHeader().setMinimumSectionSize(40)
+        # Set row height to accommodate action buttons (increased for better UX)
+        self.view.verticalHeader().setMinimumSectionSize(45)
+        self.view.verticalHeader().setDefaultSectionSize(45)
         self.view.setMinimumHeight(200)
 
         # Controls
         self.search = QLineEdit()
-        self.search.setPlaceholderText('Search...')
+        self.search.setPlaceholderText(tr('Search...'))
         self.search.textChanged.connect(self._on_search)
 
         self.filter_col = QComboBox()
@@ -64,22 +66,27 @@ class DataTableWidget(QWidget):
             self.page_size_combo.setCurrentText('25')
             self.page_size_combo.currentTextChanged.connect(self._on_page_size_changed)
             
-            self.page_label = QLabel("Page 1 of 1")
+            self.page_label = QLabel(tr("Page 1 of 1"))
             self.prev_btn = QPushButton("◀")
             self.prev_btn.clicked.connect(self._prev_page)
             self.next_btn = QPushButton("▶")
             self.next_btn.clicked.connect(self._next_page)
             
-            self.total_label = QLabel("Total: 0")
+            self.total_label = QLabel(tr("Total: 0"))
 
         self.export_pdf_btn = QPushButton()
-        self.export_pdf_btn.setText('Export PDF')
+        self.export_pdf_btn.setText(tr('Export PDF'))
         self.export_csv_btn = QPushButton()
-        self.export_csv_btn.setText('Export CSV')
+        self.export_csv_btn.setText(tr('Export CSV'))
         self.export_excel_btn = QPushButton()
-        self.export_excel_btn.setText('Export Excel')
+        self.export_excel_btn.setText(tr('Export Excel'))
+        
+        # Ensure buttons are enabled
+        self.export_csv_btn.setEnabled(True)
+        self.export_excel_btn.setEnabled(True)
+        self.export_pdf_btn.setEnabled(True)
 
-        self.export_pdf_btn.clicked.connect(self.export_pdf)
+        self.export_pdf_btn.clicked.connect(lambda: self.export_pdf())
         self.export_csv_btn.clicked.connect(self.export_csv)
         self.export_excel_btn.clicked.connect(self.export_excel)
 
@@ -89,7 +96,7 @@ class DataTableWidget(QWidget):
         ctrl_layout.addStretch()
         
         if self.enable_pagination:
-            ctrl_layout.addWidget(QLabel("Page size:"))
+            ctrl_layout.addWidget(QLabel(tr("Page size:")))
             ctrl_layout.addWidget(self.page_size_combo)
             ctrl_layout.addWidget(self.total_label)
             ctrl_layout.addWidget(self.prev_btn)
@@ -100,9 +107,30 @@ class DataTableWidget(QWidget):
         ctrl_layout.addWidget(self.export_excel_btn)
         ctrl_layout.addWidget(self.export_pdf_btn)
 
+        # Stacked widget for table and empty state
+        self.stacked = QStackedWidget()
+        
+        # Empty state widget
+        self.empty_state = QWidget()
+        empty_layout = QVBoxLayout()
+        empty_layout.setAlignment(Qt.AlignCenter)
+        empty_layout.setSpacing(10)
+        empty_label = QLabel(tr("No data available"))
+        empty_label.setAlignment(Qt.AlignCenter)
+        empty_font = QFont()
+        empty_font.setPointSize(14)
+        empty_font.setBold(True)
+        empty_label.setFont(empty_font)
+        empty_label.setStyleSheet("color: #666; padding: 40px;")
+        empty_layout.addWidget(empty_label)
+        self.empty_state.setLayout(empty_layout)
+        
+        self.stacked.addWidget(self.view)  # Index 0
+        self.stacked.addWidget(self.empty_state)  # Index 1
+        
         layout = QVBoxLayout()
         layout.addLayout(ctrl_layout)
-        layout.addWidget(self.view)
+        layout.addWidget(self.stacked)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         
@@ -248,12 +276,20 @@ class DataTableWidget(QWidget):
         """Rows is an iterable of iterables matching headers length."""
         try:
             self.model.setRowCount(0)
-            for row in rows:
+            row_list = list(rows) if rows else []
+            for row in row_list:
                 # coerce values to str to avoid non-string model issues
                 items = [QStandardItem(str(c) if c is not None else '') for c in row]
                 for it in items:
                     it.setEditable(False)
                 self.model.appendRow(items)
+            
+            # Show empty state if no rows
+            if len(row_list) == 0:
+                self.stacked.setCurrentIndex(1)  # Show empty state
+            else:
+                self.stacked.setCurrentIndex(0)  # Show table
+            
             self._update_pagination()
         except Exception as e:
             logger.exception("Failed to set rows in DataTableWidget: %s", e)
@@ -261,6 +297,7 @@ class DataTableWidget(QWidget):
 
     def clear(self):
         self.model.clear()
+        self.stacked.setCurrentIndex(1)  # Show empty state
 
     def set_cell_widget(self, row, col, widget):
         # set a widget in the view at given source-model row/col
@@ -270,14 +307,14 @@ class DataTableWidget(QWidget):
                 # map source to proxy index
                 pidx = self.proxy.mapFromSource(idx)
                 if pidx.isValid():
-                    # Ensure widget has proper size
+                    # Ensure widget has proper size (larger for better UX)
                     if hasattr(widget, 'setMinimumHeight'):
-                        widget.setMinimumHeight(36)
+                        widget.setMinimumHeight(40)
                     if hasattr(widget, 'setMaximumHeight'):
-                        widget.setMaximumHeight(36)
+                        widget.setMaximumHeight(40)
                     self.view.setIndexWidget(pidx, widget)
                     # Set row height to accommodate widget
-                    self.view.setRowHeight(pidx.row(), 40)
+                    self.view.setRowHeight(pidx.row(), 45)
         except Exception as e:
             logger.exception("Failed to set cell widget at %s,%s: %s", row, col, e)
             traceback.print_exc()
@@ -317,182 +354,187 @@ class DataTableWidget(QWidget):
 
     def setHorizontalHeaderLabels(self, headers):
         self.set_headers(headers)
+    
+    def _detect_title_from_parent(self):
+        """Try to detect appropriate title from parent widget"""
+        parent = self.parent()
+        while parent:
+            # Check for common widget titles
+            if hasattr(parent, 'windowTitle'):
+                title = parent.windowTitle()
+                if title and title != "Egg Farm Management System":
+                    return title
+            if hasattr(parent, 'title'):
+                title = getattr(parent, 'title', None)
+                if title:
+                    return str(title)
+            # Check for common form widget patterns
+            widget_name = parent.__class__.__name__ if hasattr(parent, '__class__') else ""
+            if 'Form' in widget_name or 'Widget' in widget_name:
+                # Extract meaningful name
+                name = widget_name.replace('FormWidget', '').replace('Widget', '')
+                if name:
+                    return name.replace('_', ' ').title()
+            parent = parent.parent() if hasattr(parent, 'parent') else None
+        return None
 
-    def export_pdf(self, path=None):
-        if path is None:
-            path, _ = QFileDialog.getSaveFileName(self, "Export PDF", str(Path.cwd() / 'table.pdf'), "PDF Files (*.pdf)")
-            if not path or not isinstance(path, str):
-                return
-        # Ensure path is a string
-        if not isinstance(path, str):
-            logger.error(f"Invalid path type for PDF export: {type(path)}")
-            return
-        # Create printer and painter
-        printer = QPrinter(QPrinter.HighResolution)
-        printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(str(path))
-
-        painter = QPainter(printer)
-
-        # Page geometry and margins
-        page_rect = printer.pageRect()
-        margin = 40  # device units
-        x = page_rect.x() + margin
-        y = page_rect.y() + margin
-        w = page_rect.width() - 2 * margin
-        h = page_rect.height() - 2 * margin
-
-        # Prepare font metrics for layout
-        font = painter.font()
-        font.setPointSize(10)
-        painter.setFont(font)
-        fm = painter.fontMetrics()
-
-        cols = self.model.columnCount()
-        headers = [self.model.headerData(i, Qt.Horizontal) or "" for i in range(cols)]
-
-        # Determine column widths proportional to header text widths (fallback equal)
-        col_widths = []
-        total_w = 0
-        for i in range(cols):
-            # approximate width using header and a few sample rows
-            header_w = fm.horizontalAdvance(str(headers[i])) + 20
-            sample_w = header_w
-            for r in range(min(5, self.model.rowCount())):
-                item = self.model.item(r, i)
-                if item:
-                    sample_w = max(sample_w, fm.horizontalAdvance(item.text()) + 10)
-            col_widths.append(sample_w)
-            total_w += sample_w
-
-        # scale to printable width
-        if total_w > 0:
-            scale = w / total_w
-        else:
-            scale = 1.0
-        col_widths = [int(max(40, cw * scale)) for cw in col_widths]
-
-        # Row height
-        row_h = fm.height() + 6
-
-        # Header height
-        header_h = fm.height() + 8
-
-        # How many rows per page
-        rows_per_page = max(1, (h - header_h) // row_h)
-
-        # Paginate and draw
-        row_count = self.model.rowCount()
-        page = 0
-        r = 0
-        while r < row_count:
-            # Draw title/header for page
-            painter.save()
-            painter.translate(x, y)
-
-            # Draw table header background
-            painter.fillRect(0, 0, sum(col_widths), header_h, Qt.lightGray)
-            cx = 0
-            for i, wcol in enumerate(col_widths):
-                painter.drawRect(cx, 0, wcol, header_h)
-                painter.drawText(cx + 4, fm.ascent() + 4, str(headers[i]))
-                cx += wcol
-
-            # Draw rows
-            ry = header_h
-            for pr in range(rows_per_page):
-                if r >= row_count:
-                    break
-                cx = 0
-                # alternate background
-                if pr % 2 == 0:
-                    painter.fillRect(0, ry, sum(col_widths), row_h, Qt.white)
-                else:
-                    painter.fillRect(0, ry, sum(col_widths), row_h, Qt.lightGray.lighter(120))
-
-                for i, wcol in enumerate(col_widths):
-                    painter.drawRect(cx, ry, wcol, row_h)
-                    item = self.model.item(r, i)
-                    text = item.text() if item is not None else ''
-                    painter.drawText(cx + 4, ry + fm.ascent() + 3, str(text))
-                    cx += wcol
-
-                ry += row_h
-                r += 1
-
-            painter.restore()
-
-            page += 1
-            if r < row_count:
-                printer.newPage()
-
-        painter.end()
+    def export_pdf(self, path=None, title=None, subtitle=None, 
+                  company_name=None, company_address=None, company_phone=None):
+        """Export table to professional PDF with headers and footers"""
+        try:
+            from egg_farm_system.utils.pdf_exporter import ProfessionalPDFExporter
+            from egg_farm_system.config import COMPANY_NAME, COMPANY_ADDRESS, COMPANY_PHONE
+            
+            # Get headers and rows from model
+            cols = self.model.columnCount()
+            headers = [self.model.headerData(i, Qt.Horizontal) or "" for i in range(cols)]
+            
+            # Get visible columns only
+            visible_cols = [i for i in range(cols) if not self.view.isColumnHidden(i)]
+            visible_headers = [headers[i] for i in visible_cols]
+            
+            # Get rows (only visible columns)
+            rows = []
+            for r in range(self.model.rowCount()):
+                row = []
+                for c in visible_cols:
+                    item = self.model.item(r, c)
+                    row.append(item.text() if item is not None else '')
+                rows.append(row)
+            
+            # Use defaults if not provided
+            if title is None:
+                # Try to detect title from parent widget
+                title = self._detect_title_from_parent() or "Data Report"
+            if company_name is None:
+                company_name = COMPANY_NAME or "Egg Farm Management System"
+            if company_address is None:
+                company_address = COMPANY_ADDRESS
+            if company_phone is None:
+                company_phone = COMPANY_PHONE
+            
+            # Export using professional exporter
+            exporter = ProfessionalPDFExporter()
+            exporter.export_table(
+                headers=visible_headers,
+                rows=rows,
+                path=path,
+                title=title,
+                subtitle=subtitle,
+                company_name=company_name,
+                company_address=company_address,
+                company_phone=company_phone,
+                parent=self
+            )
+        except Exception as e:
+            logger.exception(f"Error exporting PDF: {e}")
+            QMessageBox.critical(self, tr("Export Error"), f"Failed to export PDF: {e}")
 
     def export_csv(self, path=None, export_filtered=True, export_selected=False):
         """Export to CSV with options for filtered/selected data"""
         import csv
-        if path is None:
-            path, _ = QFileDialog.getSaveFileName(self, "Export CSV", str(Path.cwd() / 'table.csv'), "CSV Files (*.csv)")
-            if not path or not isinstance(path, str):
+        try:
+            logger.info("CSV export button clicked")
+            # Check if there's any data to export
+            if self.model.rowCount() == 0:
+                logger.warning("No data to export")
+                QMessageBox.warning(self, tr("No Data"), "There is no data to export.")
                 return
-        # Ensure path is a string
-        if not isinstance(path, str):
-            logger.error(f"Invalid path type for CSV export: {type(path)}")
-            return
-        
-        # Get visible columns only
-        visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
-        headers = [self.model.headerData(i, Qt.Horizontal) for i in visible_cols]
-        
-        with open(path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(headers)
             
-            if export_selected:
-                # Export only selected rows
-                selected = self.view.selectionModel().selectedRows()
-                for index in selected:
-                    source_index = self.proxy.mapToSource(index)
-                    if source_index.isValid():
-                        row = [self.model.item(source_index.row(), c).text() 
-                               if self.model.item(source_index.row(), c) is not None else '' 
-                               for c in visible_cols]
-                        writer.writerow(row)
-            else:
-                # Export all visible rows (respecting filter)
-                for r in range(self.proxy.rowCount()):
-                    if export_filtered and self.view.isRowHidden(r):
-                        continue
-                    source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
-                    if source_index.isValid():
-                        row = [self.model.item(source_index.row(), c).text() 
-                               if self.model.item(source_index.row(), c) is not None else '' 
-                               for c in visible_cols]
-                        writer.writerow(row)
+            if path is None:
+                result = QFileDialog.getSaveFileName(self, "Export CSV", str(Path.cwd() / 'table.csv'), "CSV Files (*.csv)")
+                if isinstance(result, tuple):
+                    path, _ = result
+                else:
+                    path = result
+                # Check if user cancelled or path is invalid
+                if not path or not isinstance(path, str) or path == '':
+                    return
+            # Ensure path is a string (user may have cancelled)
+            if not isinstance(path, str) or path == '':
+                logger.debug(f"CSV export cancelled or invalid path")
+                return
+            
+            # Get visible columns only
+            visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
+            if not visible_cols:
+                QMessageBox.warning(self, tr("No Columns"), "No visible columns to export.")
+                return
+            
+            headers = [self.model.headerData(i, Qt.Horizontal) or f"Column {i+1}" for i in visible_cols]
+            
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(headers)
+                
+                if export_selected:
+                    # Export only selected rows
+                    selected = self.view.selectionModel().selectedRows()
+                    for index in selected:
+                        source_index = self.proxy.mapToSource(index)
+                        if source_index.isValid():
+                            row = [self.model.item(source_index.row(), c).text() 
+                                   if self.model.item(source_index.row(), c) is not None else '' 
+                                   for c in visible_cols]
+                            writer.writerow(row)
+                else:
+                    # Export all visible rows (respecting filter)
+                    for r in range(self.proxy.rowCount()):
+                        proxy_index = self.proxy.index(r, 0)
+                        if not proxy_index.isValid():
+                            continue
+                        source_index = self.proxy.mapToSource(proxy_index)
+                        if source_index.isValid():
+                            row = [self.model.item(source_index.row(), c).text() 
+                                   if self.model.item(source_index.row(), c) is not None else '' 
+                                   for c in visible_cols]
+                            writer.writerow(row)
+            
+            QMessageBox.information(self, tr("Success"), f"Data exported to {path}")
+        except Exception as e:
+            logger.exception(f"Error exporting CSV: {e}")
+            QMessageBox.critical(self, tr("Export Error"), f"Failed to export CSV: {e}")
     
     def export_excel(self, path=None, export_filtered=True, export_selected=False):
         """Export to Excel with options for filtered/selected data"""
         try:
+            logger.info("Excel export button clicked")
+            # Check if there's any data to export
+            if self.model.rowCount() == 0:
+                logger.warning("No data to export")
+                QMessageBox.warning(self, tr("No Data"), "There is no data to export.")
+                return
+            
             from egg_farm_system.utils.excel_export import ExcelExporter
         except ImportError:
             logger.error("Excel export requires openpyxl")
+            QMessageBox.critical(self, tr("Missing Dependency"), "Excel export requires openpyxl. Please install it with: pip install openpyxl")
             return
         
         if path is None:
-            path, _ = QFileDialog.getSaveFileName(
+            result = QFileDialog.getSaveFileName(
                 self, "Export Excel", str(Path.cwd() / 'table.xlsx'), 
                 "Excel Files (*.xlsx);;All Files (*.*)"
             )
-            if not path or not isinstance(path, str):
+            if isinstance(result, tuple):
+                path, _ = result
+            else:
+                path = result
+            # Check if user cancelled or path is invalid
+            if not path or not isinstance(path, str) or path == '':
                 return
-        # Ensure path is a string
-        if not isinstance(path, str):
-            logger.error(f"Invalid path type for Excel export: {type(path)}")
+        # Ensure path is a string (user may have cancelled)
+        if not isinstance(path, str) or path == '':
+            logger.debug(f"Excel export cancelled or invalid path")
             return
         
         # Get visible columns only
         visible_cols = [i for i in range(self.model.columnCount()) if not self.view.isColumnHidden(i)]
-        headers = [self.model.headerData(i, Qt.Horizontal) for i in visible_cols]
+        if not visible_cols:
+            QMessageBox.warning(self, tr("No Columns"), "No visible columns to export.")
+            return
+        
+        headers = [self.model.headerData(i, Qt.Horizontal) or f"Column {i+1}" for i in visible_cols]
         
         rows = []
         if export_selected:
@@ -508,14 +550,20 @@ class DataTableWidget(QWidget):
         else:
             # Export all visible rows (respecting filter)
             for r in range(self.proxy.rowCount()):
-                if export_filtered and self.view.isRowHidden(r):
+                proxy_index = self.proxy.index(r, 0)
+                if not proxy_index.isValid():
                     continue
-                source_index = self.proxy.mapToSource(self.proxy.index(r, 0))
+                source_index = self.proxy.mapToSource(proxy_index)
                 if source_index.isValid():
                     row = [self.model.item(source_index.row(), c).text() 
                            if self.model.item(source_index.row(), c) is not None else '' 
                            for c in visible_cols]
                     rows.append(row)
         
-        exporter = ExcelExporter()
-        exporter.export_table_data(headers, rows, Path(path), "Data")
+        try:
+            exporter = ExcelExporter()
+            exporter.export_table_data(headers, rows, Path(path), "Data")
+            QMessageBox.information(self, tr("Success"), f"Data exported to {path}")
+        except Exception as e:
+            logger.exception(f"Error exporting Excel: {e}")
+            QMessageBox.critical(self, tr("Export Error"), f"Failed to export Excel: {e}")

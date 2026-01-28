@@ -1,21 +1,29 @@
 """
 Widget for viewing financial reports like P&L and Cash Flow.
 """
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout, QDateEdit, 
-    QPushButton, QLabel, QGroupBox, QMessageBox
-)
 from PySide6.QtCore import QDate
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QDateEdit,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
 from egg_farm_system.database.db import DatabaseManager
-from modules.financial_reports import FinancialReportGenerator
+from egg_farm_system.modules.financial_reports import FinancialReportGenerator
+from egg_farm_system.utils.i18n import tr
 
 class FinancialReportWidget(QWidget):
     def __init__(self, farm_id=None):
         super().__init__()
         self.session = DatabaseManager.get_session()
         self.farm_id = farm_id
-        self.setWindowTitle("Financial Reports")
+        self.setWindowTitle(tr("Financial Reports"))
         
         self.setup_ui()
 
@@ -34,18 +42,18 @@ class FinancialReportWidget(QWidget):
         filters_group.setLayout(filters_layout)
         layout.addWidget(filters_group)
 
-        self.generate_button = QPushButton("Generate Reports")
+        self.generate_button = QPushButton(tr("Generate Reports"))
         self.generate_button.clicked.connect(self.generate_reports)
         layout.addWidget(self.generate_button)
 
         # --- P&L Display ---
         pnl_group = QGroupBox("Profit & Loss Statement")
         pnl_layout = QFormLayout()
-        self.revenue_label = QLabel("Total Revenue: Not calculated")
-        self.cogs_label = QLabel("Cost of Goods Sold (Feed): Not calculated")
-        self.gross_profit_label = QLabel("Gross Profit: Not calculated")
-        self.expenses_label = QLabel("Operating Expenses: Not calculated")
-        self.net_profit_label = QLabel("Net Profit: Not calculated")
+        self.revenue_label = QLabel(tr("Total Revenue: Not calculated"))
+        self.cogs_label = QLabel(tr("Cost of Goods Sold (Feed): Not calculated"))
+        self.gross_profit_label = QLabel(tr("Gross Profit: Not calculated"))
+        self.expenses_label = QLabel(tr("Operating Expenses: Not calculated"))
+        self.net_profit_label = QLabel(tr("Net Profit: Not calculated"))
         pnl_layout.addRow(self.revenue_label)
         pnl_layout.addRow(self.cogs_label)
         pnl_layout.addRow(self.gross_profit_label)
@@ -57,9 +65,9 @@ class FinancialReportWidget(QWidget):
         # --- Cash Flow Display ---
         cash_flow_group = QGroupBox("Cash Flow Statement")
         cash_flow_layout = QFormLayout()
-        self.inflows_label = QLabel("Total Cash Inflows: Not calculated")
-        self.outflows_label = QLabel("Total Cash Outflows: Not calculated")
-        self.net_cash_flow_label = QLabel("Net Cash Flow: Not calculated")
+        self.inflows_label = QLabel(tr("Total Cash Inflows: Not calculated"))
+        self.outflows_label = QLabel(tr("Total Cash Outflows: Not calculated"))
+        self.net_cash_flow_label = QLabel(tr("Net Cash Flow: Not calculated"))
         cash_flow_layout.addRow(self.inflows_label)
         cash_flow_layout.addRow(self.outflows_label)
         cash_flow_layout.addRow(self.net_cash_flow_label)
@@ -90,7 +98,7 @@ class FinancialReportWidget(QWidget):
             self.update_cash_flow_labels(cash_flow_data)
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to generate reports: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to generate reports: {e}")
 
     def update_pnl_labels(self, pnl_data):
         self.revenue_label.setText(f"Total Revenue: {pnl_data['total_revenue']:,.2f} AFN")
@@ -101,7 +109,11 @@ class FinancialReportWidget(QWidget):
         net_profit = pnl_data['net_profit']
         self.net_profit_label.setText(f"Net Profit: {net_profit:,.2f} AFN")
         
-        self.net_profit_label.setStyleSheet("color: green;" if net_profit >= 0 else "color: red;")
+        # Use theme-aware state property instead of hardcoded colors
+        self.net_profit_label.setProperty('state', 'success' if net_profit >= 0 else 'error')
+        # Force style refresh
+        self.net_profit_label.style().unpolish(self.net_profit_label)
+        self.net_profit_label.style().polish(self.net_profit_label)
 
     def update_cash_flow_labels(self, cash_data):
         self.inflows_label.setText(f"Total Cash Inflows: {cash_data['total_inflows']:,.2f} AFN")
@@ -110,7 +122,11 @@ class FinancialReportWidget(QWidget):
         net_cash_flow = cash_data['net_cash_flow']
         self.net_cash_flow_label.setText(f"Net Cash Flow: {net_cash_flow:,.2f} AFN")
         
-        self.net_cash_flow_label.setStyleSheet("color: green;" if net_cash_flow >= 0 else "color: red;")
+        # Use theme-aware state property instead of hardcoded colors
+        self.net_cash_flow_label.setProperty('state', 'success' if net_cash_flow >= 0 else 'error')
+        # Force style refresh
+        self.net_cash_flow_label.style().unpolish(self.net_cash_flow_label)
+        self.net_cash_flow_label.style().polish(self.net_cash_flow_label)
 
     def set_farm_id(self, farm_id):
         self.farm_id = farm_id
@@ -118,17 +134,23 @@ class FinancialReportWidget(QWidget):
 
     def clear_labels(self):
         # Clear P&L
-        self.revenue_label.setText("Total Revenue: Not calculated")
-        self.cogs_label.setText("Cost of Goods Sold (Feed): Not calculated")
-        self.gross_profit_label.setText("Gross Profit: Not calculated")
-        self.expenses_label.setText("Operating Expenses: Not calculated")
-        self.net_profit_label.setText("Net Profit: Not calculated")
-        self.net_profit_label.setStyleSheet("")
+        self.revenue_label.setText(tr("Total Revenue: Not calculated"))
+        self.cogs_label.setText(tr("Cost of Goods Sold (Feed): Not calculated"))
+        self.gross_profit_label.setText(tr("Gross Profit: Not calculated"))
+        self.expenses_label.setText(tr("Operating Expenses: Not calculated"))
+        self.net_profit_label.setText(tr("Net Profit: Not calculated"))
+        self.net_profit_label.setProperty('state', None)
+        # Force style refresh
+        self.net_profit_label.style().unpolish(self.net_profit_label)
+        self.net_profit_label.style().polish(self.net_profit_label)
         # Clear Cash Flow
-        self.inflows_label.setText("Total Cash Inflows: Not calculated")
-        self.outflows_label.setText("Total Cash Outflows: Not calculated")
-        self.net_cash_flow_label.setText("Net Cash Flow: Not calculated")
-        self.net_cash_flow_label.setStyleSheet("")
+        self.inflows_label.setText(tr("Total Cash Inflows: Not calculated"))
+        self.outflows_label.setText(tr("Total Cash Outflows: Not calculated"))
+        self.net_cash_flow_label.setText(tr("Net Cash Flow: Not calculated"))
+        self.net_cash_flow_label.setProperty('state', None)
+        # Force style refresh
+        self.net_cash_flow_label.style().unpolish(self.net_cash_flow_label)
+        self.net_cash_flow_label.style().polish(self.net_cash_flow_label)
 
     def closeEvent(self, event):
         self.session.close()

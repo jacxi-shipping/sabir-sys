@@ -1,7 +1,7 @@
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import User
 from sqlalchemy.orm import Session
-import hashlib, os
+import hashlib, os, hmac
 import re
 
 
@@ -18,7 +18,8 @@ def _verify_password(stored: str, password: str) -> bool:
         salt = bytes.fromhex(salt_hex)
         dk = bytes.fromhex(dk_hex)
         check = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100_000)
-        return check == dk
+        # Use constant-time comparison to prevent timing attacks
+        return hmac.compare_digest(check, dk)
     except Exception:
         return False
 
@@ -28,8 +29,26 @@ class UserManager:
 
     @staticmethod
     def create_user(username: str, password: str, full_name: str = None, role: str = 'user') -> User:
+        # Validate username
+        if not username or len(username) < 3 or len(username) > 50:
+            raise ValueError("Username must be between 3 and 50 characters")
+        if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+            raise ValueError("Username can only contain letters, numbers, underscore, and hyphen")
+        
+        # Enforce password policy
+        if not UserManager.validate_password_policy(password):
+            raise ValueError(
+                "Password must be at least 8 characters long and contain: "
+                "uppercase letter, lowercase letter, digit, and special character"
+            )
+        
         session = DatabaseManager.get_session()
         try:
+            # Check if username already exists
+            existing = session.query(User).filter(User.username == username).first()
+            if existing:
+                raise ValueError(f"Username '{username}' already exists")
+            
             user = User(
                 username=username,
                 password_hash=_hash_password(password),
@@ -57,6 +76,15 @@ class UserManager:
         if not user:
             return False
         return _verify_password(user.password_hash, password)
+    
+    @staticmethod
+    def get_user_by_id(user_id: int):
+        """Get user by ID"""
+        session = DatabaseManager.get_session()
+        try:
+            return session.query(User).filter(User.id == user_id).first()
+        finally:
+            session.close()
 
     @staticmethod
     def validate_password_policy(password: str) -> bool:

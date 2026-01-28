@@ -1,12 +1,26 @@
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-    QListWidget, QMessageBox, QTabWidget, QGroupBox, QFormLayout, 
-    QDoubleSpinBox, QTextEdit
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
 from egg_farm_system.modules.settings import SettingsManager
 from egg_farm_system.utils.egg_management import EggManagementSystem
+from egg_farm_system.utils.i18n import tr, get_i18n
 
 
 class SettingsForm(QWidget):
@@ -14,6 +28,17 @@ class SettingsForm(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.tabs = None
+        self.tray_expense_spin = None
+        self.carton_expense_spin = None
+        self.exchange_rate_spin = None
+        self.settings_list = None
+        self.key_edit = None
+        self.value_edit = None
+        self.description_edit = None
+        self.language_combo = None
+
         self.init_ui()
         self.load_settings()
 
@@ -23,7 +48,7 @@ class SettingsForm(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         
         # Title
-        title = QLabel("Settings")
+        title = QLabel(tr("Settings"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -50,7 +75,7 @@ class SettingsForm(QWidget):
         # Save All button
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        save_all_btn = QPushButton("Save All Settings")
+        save_all_btn = QPushButton(tr("Save All Settings"))
         save_all_btn.setMinimumWidth(150)
         save_all_btn.clicked.connect(self.save_all_settings)
         btn_layout.addWidget(save_all_btn)
@@ -67,17 +92,17 @@ class SettingsForm(QWidget):
         
         # Info label
         info_label = QLabel(
-            "Configure egg packaging expenses. These values are used when calculating "
-            "total costs for carton-based egg sales."
+            tr("Configure egg packaging expenses. These values are used when calculating " + "total costs for carton-based egg sales.")
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; padding: 8px; background-color: #f5f5f5; border-radius: 4px;")
+        info_label.setProperty('class', 'info-banner')
         layout.addWidget(info_label)
         
         # Egg Expense Settings Group
         expense_group = QGroupBox("Egg Packaging Expenses")
         expense_layout = QFormLayout()
         expense_layout.setSpacing(12)
+        expense_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         self.tray_expense_spin = QDoubleSpinBox()
         self.tray_expense_spin.setMinimum(0)
@@ -85,6 +110,8 @@ class SettingsForm(QWidget):
         self.tray_expense_spin.setDecimals(2)
         self.tray_expense_spin.setSuffix(" AFG per tray")
         self.tray_expense_spin.setSingleStep(1.0)
+        self.tray_expense_spin.setMinimumWidth(250)
+        self.tray_expense_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         expense_layout.addRow("Tray Expense:", self.tray_expense_spin)
         
         self.carton_expense_spin = QDoubleSpinBox()
@@ -93,6 +120,8 @@ class SettingsForm(QWidget):
         self.carton_expense_spin.setDecimals(2)
         self.carton_expense_spin.setSuffix(" AFG per carton")
         self.carton_expense_spin.setSingleStep(1.0)
+        self.carton_expense_spin.setMinimumWidth(250)
+        self.carton_expense_spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         expense_layout.addRow("Carton Expense:", self.carton_expense_spin)
         
         expense_group.setLayout(expense_layout)
@@ -104,17 +133,17 @@ class SettingsForm(QWidget):
         info_layout.setSpacing(8)
         
         conversion_info = QLabel(
-            f"<b>Egg Conversion:</b><br>"
-            f"• 15 eggs = 1 tray<br>"
-            f"• 180 eggs = 1 carton (12 trays)<br>"
-            f"• 1 carton uses 7 trays for packaging<br><br>"
-            f"<b>Expense Calculation:</b><br>"
-            f"• Tray expense = (Cartons × 7) × Tray Expense<br>"
-            f"• Carton expense = Cartons × Carton Expense<br>"
-            f"• Total expense = Tray expense + Carton expense"
+            "<b>Egg Conversion:</b><br>"
+            "• 30 eggs = 1 tray<br>"
+            "• 180 eggs = 1 carton (6 trays)<br>"
+            "• 1 carton uses 7 trays for packaging<br><br>"
+            "<b>Expense Calculation:</b><br>"
+            "• Tray expense = (Cartons × 7) × Tray Expense<br>"
+            "• Carton expense = Cartons × Carton Expense<br>"
+            "• Total expense = Tray expense + Carton expense"
         )
         conversion_info.setWordWrap(True)
-        conversion_info.setStyleSheet("padding: 8px; background-color: #e8f4f8; border-radius: 4px;")
+        conversion_info.setProperty('class', 'info-banner-secondary')
         info_layout.addWidget(conversion_info)
         
         info_group.setLayout(info_layout)
@@ -131,8 +160,37 @@ class SettingsForm(QWidget):
         layout.setSpacing(16)
         layout.setContentsMargins(16, 16, 16, 16)
         
+        # Language Settings Group
+        language_group = QGroupBox(tr("Language Settings"))
+        language_layout = QFormLayout()
+        language_layout.setSpacing(12)
+        
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("English", "en")
+        self.language_combo.addItem("پښتو (Pashto)", "ps")
+        
+        # Set current language
+        current_lang = get_i18n().current_lang
+        index = self.language_combo.findData(current_lang)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
+        
+        self.language_combo.currentIndexChanged.connect(self.on_language_changed)
+        language_layout.addRow(tr("Interface Language:"), self.language_combo)
+        
+        language_info = QLabel(
+            tr("Note: Changing the language will update the interface immediately. "
+               "The application will switch to Right-to-Left layout for Pashto.")
+        )
+        language_info.setWordWrap(True)
+        language_info.setProperty('class', 'info-banner-secondary')
+        language_layout.addRow("", language_info)
+        
+        language_group.setLayout(language_layout)
+        layout.addWidget(language_group)
+        
         # Exchange Rate Group
-        exchange_group = QGroupBox("Currency Settings")
+        exchange_group = QGroupBox(tr("Currency Settings"))
         exchange_layout = QFormLayout()
         exchange_layout.setSpacing(12)
         
@@ -141,7 +199,7 @@ class SettingsForm(QWidget):
         self.exchange_rate_spin.setMaximum(1000)
         self.exchange_rate_spin.setDecimals(2)
         self.exchange_rate_spin.setSuffix(" AFG per USD")
-        exchange_layout.addRow("Exchange Rate (AFG/USD):", self.exchange_rate_spin)
+        exchange_layout.addRow(tr("Exchange Rate (AFG/USD):"), self.exchange_rate_spin)
         
         exchange_group.setLayout(exchange_layout)
         layout.addWidget(exchange_group)
@@ -149,6 +207,26 @@ class SettingsForm(QWidget):
         layout.addStretch()
         widget.setLayout(layout)
         return widget
+    
+    def on_language_changed(self, index):
+        """Handle language change"""
+        lang_code = self.language_combo.itemData(index)
+        if lang_code:
+            i18n = get_i18n()
+            i18n.set_language(lang_code)
+            
+            # Save to settings
+            SettingsManager.set_setting('language', lang_code)
+            
+            # Show message to user
+            QMessageBox.information(
+                self,
+                tr("Language Changed"),
+                tr("Language has been changed to {0}. Some parts of the interface will update immediately, "
+                   "while others may require restarting the application.").format(
+                    "Pashto" if lang_code == "ps" else "English"
+                )
+            )
     
     def create_advanced_settings_tab(self):
         """Create advanced settings tab with raw key-value editor"""
@@ -158,15 +236,14 @@ class SettingsForm(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         
         info_label = QLabel(
-            "Advanced settings editor. Use this to view and edit all application settings "
-            "using key-value pairs. Changes are saved immediately."
+            tr("Advanced settings editor. Use this to view and edit all application settings " + "using key-value pairs. Changes are saved immediately.")
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; padding: 8px; background-color: #fff3cd; border-radius: 4px;")
+        info_label.setProperty('class', 'warning-banner')
         layout.addWidget(info_label)
         
         # Settings list
-        list_label = QLabel("All Settings:")
+        list_label = QLabel(tr("All Settings:"))
         layout.addWidget(list_label)
         
         self.settings_list = QListWidget()
@@ -179,16 +256,16 @@ class SettingsForm(QWidget):
         form_layout.setSpacing(8)
         
         self.key_edit = QLineEdit()
-        self.key_edit.setPlaceholderText("Setting key")
+        self.key_edit.setPlaceholderText(tr("Setting key"))
         form_layout.addRow("Key:", self.key_edit)
         
         self.value_edit = QLineEdit()
-        self.value_edit.setPlaceholderText("Setting value")
+        self.value_edit.setPlaceholderText(tr("Setting value"))
         form_layout.addRow("Value:", self.value_edit)
         
         self.description_edit = QTextEdit()
         self.description_edit.setMaximumHeight(60)
-        self.description_edit.setPlaceholderText("Optional description")
+        self.description_edit.setPlaceholderText(tr("Optional description"))
         form_layout.addRow("Description:", self.description_edit)
         
         form_group.setLayout(form_layout)
@@ -196,11 +273,11 @@ class SettingsForm(QWidget):
         
         # Buttons
         btn_layout = QHBoxLayout()
-        save_btn = QPushButton("Save Setting")
+        save_btn = QPushButton(tr("Save Setting"))
         save_btn.clicked.connect(self.save_setting)
-        delete_btn = QPushButton("Delete Setting")
+        delete_btn = QPushButton(tr("Delete Setting"))
         delete_btn.clicked.connect(self.delete_setting)
-        refresh_btn = QPushButton("Refresh List")
+        refresh_btn = QPushButton(tr("Refresh List"))
         refresh_btn.clicked.connect(self.load_advanced_settings)
         
         btn_layout.addWidget(save_btn)
@@ -232,7 +309,7 @@ class SettingsForm(QWidget):
             # Load advanced settings
             self.load_advanced_settings()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to load settings: {e}")
+            QMessageBox.warning(self, tr("Error"), f"Failed to load settings: {e}")
     
     def load_advanced_settings(self):
         """Load advanced settings list"""
@@ -242,7 +319,7 @@ class SettingsForm(QWidget):
                 desc = f" - {s.description}" if s.description else ""
                 self.settings_list.addItem(f"{s.key} = {s.value}{desc}")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to load settings list: {e}")
+            QMessageBox.warning(self, tr("Error"), f"Failed to load settings list: {e}")
     
     def on_setting_double_clicked(self, item):
         """Handle double-click on setting item"""
@@ -269,25 +346,25 @@ class SettingsForm(QWidget):
         description = self.description_edit.toPlainText().strip()
         
         if not key:
-            QMessageBox.warning(self, 'Validation', 'Key is required')
+            QMessageBox.warning(self, tr('Validation'), 'Key is required')
             return
         
         try:
             SettingsManager.set_setting(key, value, description if description else None)
-            QMessageBox.information(self, 'Saved', 'Setting saved successfully')
+            QMessageBox.information(self, tr('Saved'), 'Setting saved successfully')
             self.load_advanced_settings()
             # Clear form
             self.key_edit.clear()
             self.value_edit.clear()
             self.description_edit.clear()
         except Exception as e:
-            QMessageBox.critical(self, 'Error', f'Failed to save setting: {e}')
+            QMessageBox.critical(self, tr('Error'), f'Failed to save setting: {e}')
     
     def delete_setting(self):
         """Delete a setting"""
         key = self.key_edit.text().strip()
         if not key:
-            QMessageBox.warning(self, 'Validation', 'Please enter a key to delete')
+            QMessageBox.warning(self, tr('Validation'), 'Please enter a key to delete')
             return
         
         reply = QMessageBox.question(
@@ -307,17 +384,17 @@ class SettingsForm(QWidget):
                     if setting:
                         session.delete(setting)
                         session.commit()
-                        QMessageBox.information(self, 'Deleted', 'Setting deleted successfully')
+                        QMessageBox.information(self, tr('Deleted'), 'Setting deleted successfully')
                         self.load_advanced_settings()
                         self.key_edit.clear()
                         self.value_edit.clear()
                         self.description_edit.clear()
                     else:
-                        QMessageBox.warning(self, 'Not Found', f'Setting "{key}" not found')
+                        QMessageBox.warning(self, tr('Not Found'), f'Setting "{key}" not found')
                 finally:
                     session.close()
             except Exception as e:
-                QMessageBox.critical(self, 'Error', f'Failed to delete setting: {e}')
+                QMessageBox.critical(self, tr('Error'), f'Failed to delete setting: {e}')
     
     def save_all_settings(self):
         """Save all settings from all tabs"""
@@ -334,11 +411,11 @@ class SettingsForm(QWidget):
             
             QMessageBox.information(
                 self, 
-                "Success", 
+                tr("Success"), 
                 "All settings saved successfully!\n\n"
                 f"Tray Expense: {self.tray_expense_spin.value():.2f} AFG\n"
                 f"Carton Expense: {self.carton_expense_spin.value():.2f} AFG\n"
                 f"Exchange Rate: {self.exchange_rate_spin.value():.2f} AFG/USD"
             )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save settings: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to save settings: {e}")

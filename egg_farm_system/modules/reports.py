@@ -1,5 +1,5 @@
 """
-Reports generation and export module
+Reports generation and export module with performance optimizations
 """
 import csv
 from datetime import datetime, timedelta
@@ -10,7 +10,10 @@ from egg_farm_system.database.models import (
     Farm, Shed, EggProduction, FeedIssue, Sale, Purchase, 
     Expense, Payment, Party
 )
-from utils.calculations import EggCalculations, FeedCalculations, FinancialCalculations
+from egg_farm_system.utils.calculations import EggCalculations, FeedCalculations, FinancialCalculations
+from egg_farm_system.utils.advanced_caching import report_cache, CacheInvalidationManager
+from egg_farm_system.utils.query_optimizer import QueryOptimizer, AggregationHelper
+from egg_farm_system.utils.performance_monitoring import measure_time, profile_operation
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,60 +21,75 @@ logger = logging.getLogger(__name__)
 class ReportGenerator:
     """Generate various reports"""
     
-    def __init__(self):
-        self.session = DatabaseManager.get_session()
+    def __init__(self, session=None):
+        self._owned_session = False
+        if session:
+            self.session = session
+        else:
+            self.session = DatabaseManager.get_session()
+            self._owned_session = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
+
+    def close_session(self):
+        """Close database session if it was created by this instance."""
+        if self._owned_session and self.session:
+            self.session.close()
+            self.session = None
 
     def get_daily_production_summary(self, farm_id, days=30):
         """
         Get daily egg production summary for the last N days for the dashboard.
+        Uses caching for better performance.
         """
+        # Check cache first
+        cache_key = f"{farm_id}_{days}_{datetime.utcnow().date()}"
+        cached = report_cache.get_report("daily_production", {'farm_id': farm_id, 'days': days})
+        if cached:
+            return cached
+        
         try:
-            end_date = datetime.utcnow().date()
-            start_date = end_date - timedelta(days=days - 1)
+            with measure_time(f"production_summary_farm_{farm_id}"):
+                end_date = datetime.utcnow().date()
+                start_date = end_date - timedelta(days=days - 1)
 
-            # Get all sheds for the farm
-            sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
-            shed_ids = [s.id for s in sheds]
+                # Get all sheds for the farm using optimized query
+                sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
+                shed_ids = [s.id for s in sheds]
 
-            if not shed_ids:
-                return {'dates': [], 'egg_counts': []}
+                if not shed_ids:
+                    return {'dates': [], 'egg_counts': []}
 
-            # Query to get total eggs per day
-            daily_data = self.session.query(
-                func.date(EggProduction.date),
-                func.sum(
-                    EggProduction.small_count + 
-                    EggProduction.medium_count + 
-                    EggProduction.large_count + 
-                    EggProduction.broken_count
+                # Use database aggregation for better performance
+                daily_data = AggregationHelper.get_daily_production_aggregate(
+                    self.session, farm_id, start_date, end_date
                 )
-            ).filter(
-                EggProduction.shed_id.in_(shed_ids),
-                func.date(EggProduction.date) >= start_date,
-                func.date(EggProduction.date) <= end_date
-            ).group_by(
-                func.date(EggProduction.date)
-            ).order_by(
-                func.date(EggProduction.date)
-            ).all()
 
-            # Create a dictionary for quick lookup
-            data_map = {date: count for date, count in daily_data}
+                # Create a dictionary for quick lookup
+                data_map = {r[0]: r[1] for r in daily_data}
 
-            # Fill in dates with no production
-            all_dates = [start_date + timedelta(days=i) for i in range(days)]
-            egg_counts = [data_map.get(date, 0) for date in all_dates]
-            
-            return {'dates': all_dates, 'egg_counts': egg_counts}
-
+                # Fill in dates with no production
+                all_dates = [start_date + timedelta(days=i) for i in range(days)]
+                egg_counts = [data_map.get(date, 0) for date in all_dates]
+                
+                result = {'dates': all_dates, 'egg_counts': egg_counts}
+        
         except Exception as e:
             logger.error(f"Error getting daily production summary: {e}")
-            return {'dates': [], 'egg_counts': []}
+            result = {'dates': [], 'egg_counts': []}
+        
+        # Cache the result
+        report_cache.set_report("daily_production", {'farm_id': farm_id, 'days': days}, result)
+        return result
     
     def daily_egg_production_report(self, farm_id, date):
         """Generate daily egg production report"""
         try:
-            from modules.farms import FarmManager
+            from egg_farm_system.modules.farms import FarmManager
             fm = FarmManager()
             farm = fm.get_farm_by_id(farm_id)
             if not farm:
@@ -135,7 +153,7 @@ class ReportGenerator:
     def monthly_egg_production_report(self, farm_id, year, month):
         """Generate monthly egg production report"""
         try:
-            from modules.farms import FarmManager
+            from egg_farm_system.modules.farms import FarmManager
             from datetime import date, timedelta
             
             fm = FarmManager()
@@ -184,7 +202,7 @@ class ReportGenerator:
     def feed_usage_report(self, farm_id, start_date, end_date):
         """Generate feed usage report"""
         try:
-            from modules.farms import FarmManager
+            from egg_farm_system.modules.farms import FarmManager
             fm = FarmManager()
             farm = fm.get_farm_by_id(farm_id)
             if not farm:
@@ -205,11 +223,23 @@ class ReportGenerator:
             
             for shed in farm.sheds:
                 shed_issues = [f for f in feed_issues if f.shed_id == shed.id]
+                issue_count = len(shed_issues)
+                total_kg = sum(f.quantity_kg for f in shed_issues)
+                
+                # Determine predominant feed type if any
+                feed_types = [f.feed.feed_type.value for f in shed_issues if f.feed]
+                feed_type_str = max(set(feed_types), key=feed_types.count) if feed_types else "N/A"
+                if len(set(feed_types)) > 1:
+                    feed_type_str += " (Mixed)"
+
                 report_data['sheds'][shed.name] = {
-                    'total_kg': sum(f.quantity_kg for f in shed_issues),
+                    'total_kg': total_kg,
                     'total_cost_afg': sum(f.cost_afg for f in shed_issues),
                     'total_cost_usd': sum(f.cost_usd for f in shed_issues),
-                    'daily_average': sum(f.quantity_kg for f in shed_issues) / max(len(set(f.date.date() for f in shed_issues)), 1)
+                    'issue_count': issue_count,
+                    'avg_per_issue': total_kg / issue_count if issue_count > 0 else 0,
+                    'feed_type': feed_type_str,
+                    'daily_average': total_kg / max(len(set(f.date.date() for f in shed_issues)), 1)
                 }
             
             return report_data
@@ -220,7 +250,7 @@ class ReportGenerator:
     def party_statement(self, party_id, start_date=None, end_date=None):
         """Generate party statement"""
         try:
-            from modules.parties import PartyManager
+            from egg_farm_system.modules.parties import PartyManager
             pm = PartyManager()
             party = pm.get_party_by_id(party_id)
             if not party:

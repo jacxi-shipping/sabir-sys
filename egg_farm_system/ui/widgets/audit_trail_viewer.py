@@ -1,6 +1,8 @@
 """
 Audit Trail Viewer Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from datetime import datetime, timedelta
 from PySide6.QtWidgets import (
@@ -12,6 +14,7 @@ from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QFont
 
 from egg_farm_system.utils.audit_trail import get_audit_trail, ActionType
+from egg_farm_system.utils.jalali import format_value_for_ui
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ class AuditTrailViewerWidget(QWidget):
         layout.setSpacing(15)
         
         # Title
-        title = QLabel("Audit Trail")
+        title = QLabel(tr("Audit Trail"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -42,34 +45,34 @@ class AuditTrailViewerWidget(QWidget):
         filters_group = QGroupBox("Filters")
         filters_layout = QHBoxLayout()
         
-        filters_layout.addWidget(QLabel("Entity Type:"))
+        filters_layout.addWidget(QLabel(tr("Entity Type:")))
         self.entity_type_combo = QComboBox()
         self.entity_type_combo.addItem("All", None)
         self.entity_type_combo.addItems(["Farm", "Shed", "Flock", "Party", "Sale", "Purchase", "Expense"])
         filters_layout.addWidget(self.entity_type_combo)
         
-        filters_layout.addWidget(QLabel("Action Type:"))
+        filters_layout.addWidget(QLabel(tr("Action Type:")))
         self.action_type_combo = QComboBox()
         self.action_type_combo.addItem("All", None)
         for action in ActionType:
             self.action_type_combo.addItem(action.value.title(), action)
         filters_layout.addWidget(self.action_type_combo)
         
-        filters_layout.addWidget(QLabel("From:"))
+        filters_layout.addWidget(QLabel(tr("From:")))
         self.start_date = QDateEdit()
         self.start_date.setDate(QDate.currentDate().addDays(-30))
         filters_layout.addWidget(self.start_date)
         
-        filters_layout.addWidget(QLabel("To:"))
+        filters_layout.addWidget(QLabel(tr("To:")))
         self.end_date = QDateEdit()
         self.end_date.setDate(QDate.currentDate())
         filters_layout.addWidget(self.end_date)
         
-        filter_btn = QPushButton("Filter")
+        filter_btn = QPushButton(tr("Filter"))
         filter_btn.clicked.connect(self.refresh_logs)
         filters_layout.addWidget(filter_btn)
         
-        refresh_btn = QPushButton("Refresh")
+        refresh_btn = QPushButton(tr("Refresh"))
         refresh_btn.clicked.connect(self.refresh_logs)
         filters_layout.addWidget(refresh_btn)
         
@@ -85,6 +88,8 @@ class AuditTrailViewerWidget(QWidget):
         ])
         self.logs_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.logs_table.doubleClicked.connect(self.show_details)
+        self.logs_table.verticalHeader().setMinimumSectionSize(40)
+        self.logs_table.verticalHeader().setDefaultSectionSize(40)
         layout.addWidget(self.logs_table)
     
     def refresh_logs(self):
@@ -104,7 +109,7 @@ class AuditTrailViewerWidget(QWidget):
         self.logs_table.setRowCount(len(logs))
         for row, log in enumerate(logs):
             self.logs_table.setItem(row, 0, QTableWidgetItem(
-                log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else ""
+                format_value_for_ui(log.timestamp) if log.timestamp else ""
             ))
             self.logs_table.setItem(row, 1, QTableWidgetItem(log.username or "System"))
             self.logs_table.setItem(row, 2, QTableWidgetItem(log.action_type.value))
@@ -125,7 +130,7 @@ class AuditTrailViewerWidget(QWidget):
         log = self.logs_table.item(index.row(), 6).data(Qt.UserRole)
         
         dialog = QDialog(self)
-        dialog.setWindowTitle("Audit Log Details")
+        dialog.setWindowTitle(tr("Audit Log Details"))
         dialog.setMinimumSize(600, 400)
         
         layout = QVBoxLayout(dialog)
@@ -135,7 +140,7 @@ class AuditTrailViewerWidget(QWidget):
         
         text = f"Audit Log Details\n"
         text += f"{'='*50}\n\n"
-        text += f"Timestamp: {log.timestamp}\n"
+        text += f"Timestamp: {format_value_for_ui(log.timestamp)}\n"
         text += f"User: {log.username or 'System'}\n"
         text += f"Action: {log.action_type.value}\n"
         text += f"Entity Type: {log.entity_type}\n"
@@ -162,7 +167,7 @@ class AuditTrailViewerWidget(QWidget):
         details.setText(text)
         layout.addWidget(details)
         
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(tr("Close"))
         close_btn.clicked.connect(dialog.accept)
         layout.addWidget(close_btn)
         

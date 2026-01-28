@@ -1,6 +1,8 @@
 """
 Advanced Analytics Dashboard Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QPushButton,
@@ -13,6 +15,7 @@ from PySide6.QtGui import QFont
 from egg_farm_system.utils.advanced_analytics import (
     ProductionAnalytics, FinancialAnalytics, InventoryAnalytics
 )
+from egg_farm_system.utils.jalali import format_value_for_ui
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ class AnalyticsDashboardWidget(QWidget):
         layout.setSpacing(15)
         
         # Title
-        title = QLabel("Advanced Analytics")
+        title = QLabel(tr("Advanced Analytics"))
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
@@ -65,23 +68,23 @@ class AnalyticsDashboardWidget(QWidget):
         
         # Controls
         controls_layout = QHBoxLayout()
-        controls_layout.addWidget(QLabel("Analysis Period:"))
+        controls_layout.addWidget(QLabel(tr("Analysis Period:")))
         
         self.anomaly_days = QComboBox()
         self.anomaly_days.addItems(['7', '14', '30', '60', '90'])
         self.anomaly_days.setCurrentText('30')
-        controls_layout.addWidget(QLabel("Days:"))
+        controls_layout.addWidget(QLabel(tr("Days:")))
         controls_layout.addWidget(self.anomaly_days)
         
-        analyze_btn = QPushButton("Analyze Anomalies")
+        analyze_btn = QPushButton(tr("Analyze Anomalies"))
         analyze_btn.clicked.connect(self.analyze_anomalies)
         controls_layout.addWidget(analyze_btn)
         
-        compare_btn = QPushButton("Compare Sheds")
+        compare_btn = QPushButton(tr("Compare Sheds"))
         compare_btn.clicked.connect(self.compare_sheds)
         controls_layout.addWidget(compare_btn)
         
-        seasonal_btn = QPushButton("Seasonal Analysis")
+        seasonal_btn = QPushButton(tr("Seasonal Analysis"))
         seasonal_btn.clicked.connect(self.seasonal_analysis)
         controls_layout.addWidget(seasonal_btn)
         
@@ -94,6 +97,8 @@ class AnalyticsDashboardWidget(QWidget):
         self.anomaly_table.setHorizontalHeaderLabels([
             "Date", "Value", "Expected", "Deviation", "Type", "Severity"
         ])
+        self.anomaly_table.verticalHeader().setMinimumSectionSize(40)
+        self.anomaly_table.verticalHeader().setDefaultSectionSize(40)
         layout.addWidget(self.anomaly_table)
         
         return widget
@@ -105,25 +110,25 @@ class AnalyticsDashboardWidget(QWidget):
         
         # Date range
         date_layout = QHBoxLayout()
-        date_layout.addWidget(QLabel("From:"))
+        date_layout.addWidget(QLabel(tr("From:")))
         self.start_date = QDateEdit()
         self.start_date.setDate(QDate.currentDate().addMonths(-1))
         date_layout.addWidget(self.start_date)
         
-        date_layout.addWidget(QLabel("To:"))
+        date_layout.addWidget(QLabel(tr("To:")))
         self.end_date = QDateEdit()
         self.end_date.setDate(QDate.currentDate())
         date_layout.addWidget(self.end_date)
         
-        analyze_pnl_btn = QPushButton("Profit & Loss Analysis")
+        analyze_pnl_btn = QPushButton(tr("Profit & Loss Analysis"))
         analyze_pnl_btn.clicked.connect(self.analyze_pnl)
         date_layout.addWidget(analyze_pnl_btn)
         
-        cost_breakdown_btn = QPushButton("Cost Breakdown")
+        cost_breakdown_btn = QPushButton(tr("Cost Breakdown"))
         cost_breakdown_btn.clicked.connect(self.analyze_cost_breakdown)
         date_layout.addWidget(cost_breakdown_btn)
         
-        roi_btn = QPushButton("Calculate ROI")
+        roi_btn = QPushButton(tr("Calculate ROI"))
         roi_btn.clicked.connect(self.calculate_roi)
         date_layout.addWidget(roi_btn)
         
@@ -145,11 +150,11 @@ class AnalyticsDashboardWidget(QWidget):
         # Controls
         controls_layout = QHBoxLayout()
         
-        turnover_btn = QPushButton("Inventory Turnover")
+        turnover_btn = QPushButton(tr("Inventory Turnover"))
         turnover_btn.clicked.connect(self.analyze_turnover)
         controls_layout.addWidget(turnover_btn)
         
-        abc_btn = QPushButton("ABC Analysis")
+        abc_btn = QPushButton(tr("ABC Analysis"))
         abc_btn.clicked.connect(self.abc_analysis)
         controls_layout.addWidget(abc_btn)
         
@@ -173,7 +178,7 @@ class AnalyticsDashboardWidget(QWidget):
         
         self.anomaly_table.setRowCount(len(anomalies))
         for row, anomaly in enumerate(anomalies):
-            self.anomaly_table.setItem(row, 0, QTableWidgetItem(str(anomaly['date'])))
+            self.anomaly_table.setItem(row, 0, QTableWidgetItem(format_value_for_ui(anomaly.get('date'))))
             self.anomaly_table.setItem(row, 1, QTableWidgetItem(str(anomaly['value'])))
             self.anomaly_table.setItem(row, 2, QTableWidgetItem(str(anomaly['expected'])))
             self.anomaly_table.setItem(row, 3, QTableWidgetItem(str(anomaly['deviation'])))
@@ -240,7 +245,7 @@ class AnalyticsDashboardWidget(QWidget):
         pnl = self.financial_analytics.profit_loss_analysis(self.farm_id, start, end)
         
         text = f"Profit & Loss Analysis\n"
-        text += f"Period: {pnl.get('period', 'N/A')}\n\n"
+        text += f"Period: {format_value_for_ui(pnl.get('period', 'N/A'))}\n\n"
         text += f"Revenue:\n"
         text += f"  AFG: {pnl.get('revenue_afg', 0):,.0f}\n"
         text += f"  USD: {pnl.get('revenue_usd', 0):,.2f}\n\n"

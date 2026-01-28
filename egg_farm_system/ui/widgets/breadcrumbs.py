@@ -26,21 +26,8 @@ class BreadcrumbWidget(QWidget):
     
     def init_ui(self):
         """Initialize UI"""
-        self.setStyleSheet("""
-            QPushButton {
-                border: none;
-                background-color: transparent;
-                color: #3498db;
-                text-align: left;
-                padding: 2px 5px;
-            }
-            QPushButton:hover {
-                text-decoration: underline;
-            }
-            QLabel {
-                color: #7f8c8d;
-            }
-        """)
+        self.setObjectName("breadcrumbs")
+        # No hardcoded styles - global theme handles it
     
     def set_paths(self, paths: List[Dict[str, str]]):
         """
@@ -78,7 +65,8 @@ class BreadcrumbWidget(QWidget):
             if i > 0:
                 # Add separator
                 separator = QLabel(">")
-                separator.setStyleSheet("color: #95a5a6; padding: 0 5px;")
+                separator.setProperty('class', 'breadcrumb-separator')
+                separator.setStyleSheet("padding: 0 5px;")
                 self.layout.addWidget(separator)
             
             # Add breadcrumb button
@@ -88,16 +76,7 @@ class BreadcrumbWidget(QWidget):
             # Make last item non-clickable (current page)
             if i == len(self.paths) - 1:
                 btn.setEnabled(False)
-                btn.setStyleSheet("""
-                    QPushButton {
-                        border: none;
-                        background-color: transparent;
-                        color: #2c3e50;
-                        font-weight: bold;
-                        text-align: left;
-                        padding: 2px 5px;
-                    }
-                """)
+                btn.setProperty('class', 'breadcrumb-current')
             else:
                 btn.clicked.connect(lambda checked, p=path_info['path']: self.path_clicked.emit(p))
             
@@ -178,4 +157,3 @@ class NavigationHistory:
         """Get recent pages"""
         start = max(0, len(self.history) - count)
         return self.history[start:]
-

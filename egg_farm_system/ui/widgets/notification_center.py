@@ -3,15 +3,29 @@ Notification Center Widget
 """
 import logging
 from datetime import datetime
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget,
-    QListWidgetItem, QFrame, QSizePolicy, QScrollArea
-)
+
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QColor, QPalette
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
+from egg_farm_system.ui.ui_helpers import create_button
+from egg_farm_system.utils.i18n import tr
+from egg_farm_system.utils.jalali import format_value_for_ui
 from egg_farm_system.utils.notification_manager import (
-    NotificationManager, NotificationSeverity, get_notification_manager
+    NotificationManager,
+    NotificationSeverity,
+    get_notification_manager,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,18 +42,7 @@ class NotificationItemWidget(QFrame):
     def init_ui(self):
         """Initialize UI"""
         self.setFrameShape(QFrame.Box)
-        self.setStyleSheet("""
-            QFrame {
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                padding: 8px;
-                margin: 2px;
-                background-color: white;
-            }
-            QFrame:hover {
-                background-color: #f5f5f5;
-            }
-        """)
+        self.setProperty('class', 'notification-item')
         
         layout = QVBoxLayout(self)
         layout.setSpacing(4)
@@ -67,15 +70,15 @@ class NotificationItemWidget(QFrame):
         # Message
         message_label = QLabel(self.notification.message)
         message_label.setWordWrap(True)
-        message_label.setStyleSheet("color: #666;")
+        message_label.setProperty('class', 'notification-message')
         layout.addWidget(message_label)
         
         # Footer with timestamp and action
         footer_layout = QHBoxLayout()
         
-        timestamp = self.notification.timestamp.strftime("%Y-%m-%d %H:%M")
+        timestamp = format_value_for_ui(self.notification.timestamp)
         time_label = QLabel(timestamp)
-        time_label.setStyleSheet("color: #999; font-size: 9pt;")
+        time_label.setProperty('class', 'notification-timestamp')
         footer_layout.addWidget(time_label)
         
         footer_layout.addStretch()
@@ -83,19 +86,18 @@ class NotificationItemWidget(QFrame):
         if self.notification.action_label:
             action_btn = QPushButton(self.notification.action_label)
             action_btn.setMaximumHeight(20)
-            action_btn.setStyleSheet("font-size: 9pt; padding: 2px 8px;")
-            action_btn.clicked.connect(lambda: self._on_action_clicked())
+            action_btn.setProperty('class', 'ghost')
+            action_btn.clicked.connect(self._on_action_clicked)
             footer_layout.addWidget(action_btn)
         
         layout.addLayout(footer_layout)
         
         # Mark as read/unread
         if not self.notification.read:
-            self.setStyleSheet(self.styleSheet() + """
-                QFrame {
-                    border-left: 4px solid #3498db;
-                }
-            """)
+            self.setProperty('unread', True)
+            # Force style refresh
+            self.style().unpolish(self)
+            self.style().polish(self)
     
     def _get_severity_color(self, severity: NotificationSeverity) -> str:
         """Get color for severity"""
@@ -109,8 +111,8 @@ class NotificationItemWidget(QFrame):
     
     def _on_action_clicked(self):
         """Handle action button click"""
-        # Emit signal or call callback
-        pass
+        # Future: Emit signal or call callback
+        return None
 
 
 class NotificationCenterWidget(QWidget):
@@ -131,7 +133,7 @@ class NotificationCenterWidget(QWidget):
         # Header
         header_layout = QHBoxLayout()
         
-        title = QLabel("Notifications")
+        title = QLabel(tr("Notifications"))
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -142,28 +144,20 @@ class NotificationCenterWidget(QWidget):
         
         # Unread count badge
         self.unread_badge = QLabel("0")
-        self.unread_badge.setStyleSheet("""
-            QLabel {
-                background-color: #e74c3c;
-                color: white;
-                border-radius: 10px;
-                padding: 2px 8px;
-                font-weight: bold;
-            }
-        """)
+        self.unread_badge.setProperty('class', 'badge-unread')
         self.unread_badge.setVisible(False)
         header_layout.addWidget(self.unread_badge)
         
         # Action buttons
-        mark_all_read_btn = QPushButton("Mark All Read")
+        mark_all_read_btn = create_button(tr("Mark All Read"), style='ghost')
         mark_all_read_btn.clicked.connect(self.mark_all_read)
         header_layout.addWidget(mark_all_read_btn)
-        
-        clear_btn = QPushButton("Clear All")
+
+        clear_btn = create_button(tr("Clear All"), style='danger')
         clear_btn.clicked.connect(self.clear_all)
         header_layout.addWidget(clear_btn)
-        
-        refresh_btn = QPushButton("Refresh")
+
+        refresh_btn = create_button(tr("Refresh"), style='ghost')
         refresh_btn.clicked.connect(self.refresh_notifications)
         header_layout.addWidget(refresh_btn)
         
@@ -176,9 +170,9 @@ class NotificationCenterWidget(QWidget):
         layout.addWidget(self.notification_list)
         
         # Empty state
-        self.empty_label = QLabel("No notifications")
+        self.empty_label = QLabel(tr("No notifications"))
         self.empty_label.setAlignment(Qt.AlignCenter)
-        self.empty_label.setStyleSheet("color: #999; padding: 20px;")
+        self.empty_label.setProperty('class', 'notification-empty')
         layout.addWidget(self.empty_label)
     
     def refresh_notifications(self):
@@ -239,7 +233,6 @@ class NotificationCenterWidget(QWidget):
         self.notification_manager.mark_as_read(notification_id)
         self.refresh_notifications()
     
-    def _on_notification_changed(self, notification=None):
+    def _on_notification_changed(self, _notification=None):
         """Handle notification changes"""
         self.refresh_notifications()
-

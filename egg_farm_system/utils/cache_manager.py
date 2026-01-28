@@ -1,6 +1,8 @@
 """
 Cache Manager for Performance Optimization
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import Any, Optional, Callable
 from datetime import datetime, timedelta

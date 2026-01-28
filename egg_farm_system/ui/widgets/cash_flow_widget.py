@@ -1,10 +1,12 @@
 """
 Cash Flow Management Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QGroupBox, QFrame, QDateEdit, QComboBox, QHeaderView,
-    QMessageBox, QDoubleSpinBox, QTextEdit, QDialog, QFormLayout
+    QMessageBox, QDoubleSpinBox, QTextEdit, QDialog, QFormLayout, QToolButton
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
@@ -13,6 +15,8 @@ from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import Ledger, Sale, Purchase, Expense, Payment
 from egg_farm_system.utils.currency import CurrencyConverter
 import logging
+from egg_farm_system.ui.ui_helpers import create_button
+from egg_farm_system.utils.jalali import format_value_for_ui
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +39,7 @@ class CashFlowWidget(QWidget):
         
         # Header
         header_layout = QHBoxLayout()
-        title = QLabel("Cash Flow Management")
+        title = QLabel(tr("Cash Flow Management"))
         title.setObjectName('titleLabel')
         title_font = QFont()
         title_font.setPointSize(18)
@@ -46,33 +50,34 @@ class CashFlowWidget(QWidget):
         
         # Date range selector
         date_layout = QHBoxLayout()
-        date_layout.addWidget(QLabel("From:"))
+        date_layout.addWidget(QLabel(tr("From:")))
         self.start_date = QDateEdit()
         self.start_date.setDate(QDate.currentDate().addDays(-30))
         self.start_date.setCalendarPopup(True)
         date_layout.addWidget(self.start_date)
         
-        date_layout.addWidget(QLabel("To:"))
+        date_layout.addWidget(QLabel(tr("To:")))
         self.end_date = QDateEdit()
         self.end_date.setDate(QDate.currentDate())
         self.end_date.setCalendarPopup(True)
         date_layout.addWidget(self.end_date)
         
-        filter_btn = QPushButton("🔍 Filter")
+        filter_btn = create_button(tr("🔍 Filter"), style='primary')
         filter_btn.clicked.connect(self.load_data)
         date_layout.addWidget(filter_btn)
         
         header_layout.addLayout(date_layout)
         layout.addLayout(header_layout)
         
-        # Summary cards
+        # Summary cards - NEW SIMPLIFIED DESIGN
         summary_layout = QHBoxLayout()
         summary_layout.setSpacing(12)
         
-        self.cash_inflow_card = self.create_summary_card("Cash Inflow", "0.00", "#6B8E23")
-        self.cash_outflow_card = self.create_summary_card("Cash Outflow", "0.00", "#C62828")
-        self.net_cash_flow_card = self.create_summary_card("Net Cash Flow", "0.00", "#8B4513")
-        self.cash_balance_card = self.create_summary_card("Cash Balance", "0.00", "#CD853F")
+        # Create cards with direct label references
+        self.cash_inflow_card, self.cash_inflow_value = self.create_simple_card("Cash Inflow", "0.00", "#6B8E23")
+        self.cash_outflow_card, self.cash_outflow_value = self.create_simple_card("Cash Outflow", "0.00", "#C62828")
+        self.net_cash_flow_card, self.net_cash_flow_value = self.create_simple_card("Net Cash Flow", "0.00", "#8B4513")
+        self.cash_balance_card, self.cash_balance_value = self.create_simple_card("Cash Balance", "0.00", "#CD853F")
         
         summary_layout.addWidget(self.cash_inflow_card)
         summary_layout.addWidget(self.cash_outflow_card)
@@ -84,15 +89,15 @@ class CashFlowWidget(QWidget):
         action_layout = QHBoxLayout()
         action_layout.setSpacing(10)
         
-        add_inflow_btn = QPushButton("➕ Add Cash Inflow")
+        add_inflow_btn = create_button(tr("➕ Add Cash Inflow"), style='success')
         add_inflow_btn.clicked.connect(self.add_cash_inflow)
         action_layout.addWidget(add_inflow_btn)
-        
-        add_outflow_btn = QPushButton("➖ Add Cash Outflow")
+
+        add_outflow_btn = create_button(tr("➖ Add Cash Outflow"), style='danger')
         add_outflow_btn.clicked.connect(self.add_cash_outflow)
         action_layout.addWidget(add_outflow_btn)
-        
-        refresh_btn = QPushButton("🔄 Refresh")
+
+        refresh_btn = create_button(tr("🔄 Refresh"), style='ghost')
         refresh_btn.clicked.connect(self.load_data)
         action_layout.addWidget(refresh_btn)
         
@@ -104,55 +109,67 @@ class CashFlowWidget(QWidget):
         table_layout = QVBoxLayout(table_group)
         
         self.cash_flow_table = QTableWidget()
-        self.cash_flow_table.setColumnCount(6)
+        self.cash_flow_table.setColumnCount(7)
         self.cash_flow_table.setHorizontalHeaderLabels([
-            "Date", "Type", "Description", "Amount (AFG)", "Amount (USD)", "Balance"
+            "Date", "Type", "Description", "Amount (AFG)", "Amount (USD)", "Balance", "Actions"
         ])
         self.cash_flow_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.cash_flow_table.setAlternatingRowColors(True)
         self.cash_flow_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.cash_flow_table.verticalHeader().setMinimumSectionSize(40)
+        self.cash_flow_table.verticalHeader().setDefaultSectionSize(40)
         table_layout.addWidget(self.cash_flow_table)
         
         layout.addWidget(table_group)
         
         self.setLayout(layout)
     
-    def create_summary_card(self, title, value, color):
-        """Create summary card"""
+    def create_simple_card(self, title, value, color):
+        """Create a metric card matching dashboard design - returns (card_widget, value_label)"""
         card = QFrame()
-        card.setFixedHeight(100)
-        darker = self._darken_color(color, 0.15)
+        card.setFrameShape(QFrame.NoFrame)
+        card.setFixedHeight(110)
+        card.setMinimumWidth(200)
+        
+        darker_color = self._darken_color(color, 0.15)
         card.setStyleSheet(f"""
             QFrame {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 {color},
-                    stop:1 {darker});
+                    stop:1 {darker_color});
                 border-radius: 12px;
-                padding: 14px;
+                border: none;
             }}
         """)
         
         layout = QVBoxLayout(card)
-        layout.setSpacing(6)
+        layout.setSpacing(4)
+        layout.setContentsMargins(16, 14, 16, 14)
         
         title_label = QLabel(title)
         title_label.setStyleSheet("""
-            color: rgba(255, 255, 255, 0.9);
+            color: rgba(255, 255, 255, 0.95);
             font-size: 10pt;
             font-weight: 600;
+            letter-spacing: 0.2px;
         """)
+        title_label.setWordWrap(True)
+        title_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         layout.addWidget(title_label)
         
         value_label = QLabel(value)
-        value_label.setObjectName("card_value")
         value_label.setStyleSheet("""
             color: white;
             font-size: 24pt;
             font-weight: 700;
+            letter-spacing: -0.3px;
         """)
+        value_label.setWordWrap(False)
+        value_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        value_label.setMinimumHeight(35)
         layout.addWidget(value_label)
         
-        return card
+        return card, value_label
     
     def _darken_color(self, hex_color, factor):
         """Darken a hex color"""
@@ -172,57 +189,38 @@ class CashFlowWidget(QWidget):
             try:
                 start_date = self.start_date.date().toPython()
                 end_date = self.end_date.date().toPython()
-                end_date = datetime.combine(end_date.date(), datetime.max.time())
+                # end_date is already a date object, combine with max time
+                if isinstance(end_date, datetime):
+                    end_date = datetime.combine(end_date.date(), datetime.max.time())
+                else:
+                    end_date = datetime.combine(end_date, datetime.max.time())
                 
                 # Get all cash transactions
+                # Note: Sales and Purchases are Accrual (Ledger) events. 
+                # Cash flow is tracked via Payments and Direct Expenses only.
                 transactions = []
                 
-                # Sales (cash inflow)
-                sales = session.query(Sale).filter(
-                    Sale.date >= start_date,
-                    Sale.date <= end_date
-                ).all()
-                for sale in sales:
-                    transactions.append({
-                        'date': sale.date,
-                        'type': 'Sale',
-                        'description': f"Sale to {sale.party.name if sale.party else 'Cash'}: {sale.cartons} cartons",
-                        'amount_afg': sale.total_amount_afg,
-                        'amount_usd': sale.total_amount_usd,
-                        'is_inflow': True
-                    })
-                
-                # Purchases (cash outflow)
-                purchases = session.query(Purchase).filter(
-                    Purchase.date >= start_date,
-                    Purchase.date <= end_date
-                ).all()
-                for purchase in purchases:
-                    transactions.append({
-                        'date': purchase.date,
-                        'type': 'Purchase',
-                        'description': f"Purchase from {purchase.party.name if purchase.party else 'Cash'}: {purchase.material.name}",
-                        'amount_afg': purchase.total_amount_afg,
-                        'amount_usd': purchase.total_amount_usd,
-                        'is_inflow': False
-                    })
-                
-                # Expenses (cash outflow)
-                expenses = session.query(Expense).filter(
+                # Direct Expenses (cash outflow) - Direct expenses with no party linked and cash payment method
+                direct_expenses = session.query(Expense).filter(
                     Expense.date >= start_date,
-                    Expense.date <= end_date
+                    Expense.date <= end_date,
+                    Expense.party_id == None,
+                    Expense.payment_method == "Cash"
                 ).all()
-                for expense in expenses:
+                for expense in direct_expenses:
                     transactions.append({
                         'date': expense.date,
                         'type': 'Expense',
-                        'description': f"{expense.category}: {expense.description}",
+                        'description': f"{expense.category}: {expense.description or ''}",
                         'amount_afg': expense.amount_afg,
                         'amount_usd': expense.amount_usd,
-                        'is_inflow': False
+                        'is_inflow': False,
+                        'expense_id': expense.id,
+                        'payment_id': None
                     })
                 
-                # Payments (can be inflow or outflow)
+                # Payments (can be inflow or outflow) - All payments represent cash movement
+                # This includes: Sales (Received), Purchases (Paid), and Expenses with cash payment method
                 payments = session.query(Payment).filter(
                     Payment.date >= start_date,
                     Payment.date <= end_date
@@ -234,7 +232,10 @@ class CashFlowWidget(QWidget):
                         'description': f"Payment {payment.payment_type.lower()}: {payment.reference or 'Cash'}",
                         'amount_afg': payment.amount_afg,
                         'amount_usd': payment.amount_usd,
-                        'is_inflow': payment.payment_type == "Received"
+                        'is_inflow': payment.payment_type == "Received",
+                        'expense_id': None,
+                        'payment_id': payment.id,
+                        'payment_reference': payment.reference
                     })
                 
                 # Sort by date
@@ -252,35 +253,17 @@ class CashFlowWidget(QWidget):
                 # Get opening balance (all transactions before start date)
                 opening_balance_afg = self._get_opening_balance(start_date, session)
                 
-                # Update cards
-                self.cash_inflow_card.findChild(QLabel, "card_value").setText(f"Afs {total_inflow_afg:,.2f}")
-                self.cash_outflow_card.findChild(QLabel, "card_value").setText(f"Afs {total_outflow_afg:,.2f}")
-                self.net_cash_flow_card.findChild(QLabel, "card_value").setText(f"Afs {net_flow_afg:,.2f}")
+                # Update cards with direct label references - NO FINDCHILD NEEDED
+                logger.info(f"Updating card values - inflow: {total_inflow_afg}, outflow: {total_outflow_afg}, net: {net_flow_afg}")
                 
-                # Color code net flow
-                if net_flow_afg < 0:
-                    self.net_cash_flow_card.setStyleSheet("""
-                        QFrame {
-                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                stop:0 #C62828,
-                                stop:1 #A02020);
-                            border-radius: 12px;
-                            padding: 14px;
-                        }
-                    """)
-                else:
-                    self.net_cash_flow_card.setStyleSheet("""
-                        QFrame {
-                            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                stop:0 #6B8E23,
-                                stop:1 #5A7A1F);
-                            border-radius: 12px;
-                            padding: 14px;
-                        }
-                    """)
+                self.cash_inflow_value.setText(f"Afs {total_inflow_afg:,.2f}")
+                self.cash_outflow_value.setText(f"Afs {total_outflow_afg:,.2f}")
+                self.net_cash_flow_value.setText(f"Afs {net_flow_afg:,.2f}")
+                
+                logger.info(f"Card values updated successfully")
                 
                 closing_balance_afg = opening_balance_afg + net_flow_afg
-                self.cash_balance_card.findChild(QLabel, "card_value").setText(f"Afs {closing_balance_afg:,.2f}")
+                self.cash_balance_value.setText(f"Afs {closing_balance_afg:,.2f}")
                 
                 # Populate table
                 self.cash_flow_table.setRowCount(len(transactions))
@@ -289,7 +272,7 @@ class CashFlowWidget(QWidget):
                 for row, trans in enumerate(transactions):
                     running_balance_afg += (trans['amount_afg'] if trans['is_inflow'] else -trans['amount_afg'])
                     
-                    self.cash_flow_table.setItem(row, 0, QTableWidgetItem(trans['date'].strftime("%Y-%m-%d %H:%M")))
+                    self.cash_flow_table.setItem(row, 0, QTableWidgetItem(format_value_for_ui(trans.get('date'))))
                     self.cash_flow_table.setItem(row, 1, QTableWidgetItem(trans['type']))
                     self.cash_flow_table.setItem(row, 2, QTableWidgetItem(trans['description']))
                     
@@ -306,6 +289,14 @@ class CashFlowWidget(QWidget):
                     if running_balance_afg < 0:
                         balance_item.setForeground(QColor("#C62828"))
                     self.cash_flow_table.setItem(row, 5, balance_item)
+                    
+                    # Add action button (Delete)
+                    delete_btn = QToolButton()
+                    delete_btn.setText("Delete")
+                    delete_btn.setAutoRaise(True)
+                    delete_btn.setStyleSheet("color: #C62828;")
+                    delete_btn.clicked.connect(lambda checked, t=trans: self.delete_cash_transaction(t))
+                    self.cash_flow_table.setCellWidget(row, 6, delete_btn)
                 
                 # Sort by date descending
                 self.cash_flow_table.sortItems(0, Qt.DescendingOrder)
@@ -315,7 +306,7 @@ class CashFlowWidget(QWidget):
                 
         except Exception as e:
             logger.error(f"Error loading cash flow data: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to load cash flow data: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to load cash flow data: {e}")
     
     def _get_opening_balance(self, start_date, session):
         """Calculate opening cash balance before start date"""
@@ -324,20 +315,17 @@ class CashFlowWidget(QWidget):
             total_inflow = 0
             total_outflow = 0
             
-            # Sales
-            sales = session.query(Sale).filter(Sale.date < start_date).all()
-            total_inflow += sum(s.total_amount_afg for s in sales)
-            
-            # Purchases
-            purchases = session.query(Purchase).filter(Purchase.date < start_date).all()
-            total_outflow += sum(p.total_amount_afg for p in purchases)
-            
-            # Expenses
-            expenses = session.query(Expense).filter(Expense.date < start_date).all()
+            # Expenses - Direct only (no party)
+            expenses = session.query(Expense).filter(
+                Expense.date < start_date,
+                Expense.party_id == None
+            ).all()
             total_outflow += sum(e.amount_afg for e in expenses)
             
-            # Payments
-            payments = session.query(Payment).filter(Payment.date < start_date).all()
+            # Payments - All
+            payments = session.query(Payment).filter(
+                Payment.date < start_date
+            ).all()
             for payment in payments:
                 if payment.payment_type == "Received":
                     total_inflow += payment.amount_afg
@@ -360,6 +348,123 @@ class CashFlowWidget(QWidget):
         dialog = CashTransactionDialog(self, "Outflow")
         if dialog.exec():
             self.load_data()
+    
+    def delete_cash_transaction(self, transaction):
+        """Delete a cash flow transaction and its associated source transaction"""
+        try:
+            # Confirmation dialog
+            reply = QMessageBox.question(
+                self,
+                tr("Confirm Delete"),
+                f"Are you sure you want to delete this {transaction.get('type', 'Transaction')} transaction?\n\n"
+                f"Description: {transaction.get('description', 'N/A')}\n"
+                f"Amount: Afs {transaction.get('amount_afg', 0):,.2f}",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply != QMessageBox.Yes:
+                return
+            
+            session = DatabaseManager.get_session()
+            try:
+                # Delete the Payment record if it exists
+                if transaction.get('payment_id'):
+                    payment = session.query(Payment).filter(Payment.id == transaction['payment_id']).first()
+                    if payment:
+                        # Parse the reference to find and delete the source transaction
+                        reference = payment.reference or ""
+                        
+                        # Handle different transaction types
+                        if "Sale #" in reference:
+                            # Extract sale ID and delete the sale
+                            sale_id = int(reference.split("#")[1])
+                            from egg_farm_system.database.models import Sale
+                            sale = session.query(Sale).filter(Sale.id == sale_id).first()
+                            if sale:
+                                session.delete(sale)
+                                # Also delete associated ledger entries
+                                from egg_farm_system.database.models import Ledger
+                                session.query(Ledger).filter(
+                                    Ledger.reference_type == "Sale",
+                                    Ledger.reference_id == sale_id
+                                ).delete()
+                        
+                        elif "Raw Material Sale #" in reference:
+                            # Extract raw material sale ID and delete
+                            from egg_farm_system.database.models import RawMaterialSale
+                            sale_id = int(reference.split("#")[1])
+                            raw_sale = session.query(RawMaterialSale).filter(RawMaterialSale.id == sale_id).first()
+                            if raw_sale:
+                                # Restore material stock
+                                from egg_farm_system.database.models import RawMaterial
+                                material = session.query(RawMaterial).filter(RawMaterial.id == raw_sale.material_id).first()
+                                if material:
+                                    material.current_stock += raw_sale.quantity
+                                session.delete(raw_sale)
+                                # Also delete associated ledger entries
+                                from egg_farm_system.database.models import Ledger
+                                session.query(Ledger).filter(
+                                    Ledger.reference_type == "RawMaterialSale",
+                                    Ledger.reference_id == sale_id
+                                ).delete()
+                        
+                        elif "Purchase #" in reference:
+                            # Extract purchase ID and delete
+                            from egg_farm_system.database.models import Purchase
+                            purchase_id = int(reference.split("#")[1])
+                            purchase = session.query(Purchase).filter(Purchase.id == purchase_id).first()
+                            if purchase:
+                                # Restore material stock
+                                from egg_farm_system.database.models import RawMaterial
+                                material = session.query(RawMaterial).filter(RawMaterial.id == purchase.material_id).first()
+                                if material:
+                                    material.current_stock -= purchase.quantity
+                                session.delete(purchase)
+                                # Also delete associated ledger entries
+                                from egg_farm_system.database.models import Ledger
+                                session.query(Ledger).filter(
+                                    Ledger.reference_type == "Purchase",
+                                    Ledger.reference_id == purchase_id
+                                ).delete()
+                        
+                        elif "Expense:" in reference:
+                            # Extract expense category and delete related expense
+                            from egg_farm_system.database.models import Expense
+                            category = reference.split(":")[1].strip() if ":" in reference else ""
+                            if category:
+                                expense = session.query(Expense).filter(
+                                    Expense.category == category,
+                                    Expense.party_id == payment.party_id,
+                                    Expense.date == payment.date
+                                ).first()
+                                if expense:
+                                    session.delete(expense)
+                        
+                        # Delete the payment record
+                        session.delete(payment)
+                
+                # Delete direct expense if it exists
+                elif transaction.get('expense_id'):
+                    from egg_farm_system.database.models import Expense
+                    expense = session.query(Expense).filter(Expense.id == transaction['expense_id']).first()
+                    if expense:
+                        session.delete(expense)
+                
+                session.commit()
+                QMessageBox.information(self, tr("Success"), "Transaction deleted successfully")
+                self.load_data()
+                
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Error deleting transaction: {e}")
+                QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {str(e)}")
+            finally:
+                session.close()
+        
+        except Exception as e:
+            logger.error(f"Error in delete_cash_transaction: {e}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {str(e)}")
 
 
 class CashTransactionDialog(QDialog):
@@ -404,13 +509,19 @@ class CashTransactionDialog(QDialog):
         
         # Buttons
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        btn_layout.setContentsMargins(0, 10, 0, 0)
         btn_layout.addStretch()
         
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(tr("Cancel"))
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
         
         save_btn = QPushButton(f"Save {self.transaction_type}")
+        save_btn.setMinimumWidth(120)
+        save_btn.setMinimumHeight(35)
         save_btn.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -441,7 +552,7 @@ class CashTransactionDialog(QDialog):
             date = self.date_edit.date().toPython()
             
             if amount_afg <= 0:
-                QMessageBox.warning(self, "Validation", "Please enter an amount")
+                QMessageBox.warning(self, tr("Validation"), "Please enter an amount")
                 return
             
             if not description:
@@ -481,7 +592,7 @@ class CashTransactionDialog(QDialog):
                 
                 session.add(expense)
                 session.commit()
-                QMessageBox.information(self, "Success", f"Cash {self.transaction_type.lower()} saved successfully")
+                QMessageBox.information(self, tr("Success"), f"Cash {self.transaction_type.lower()} saved successfully")
                 self.accept()
             except Exception as e:
                 session.rollback()

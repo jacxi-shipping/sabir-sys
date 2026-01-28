@@ -1,6 +1,8 @@
 """
 In-App Help System
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import Dict, Optional
 from pathlib import Path
@@ -244,7 +246,7 @@ class HelpDialog(QDialog):
     
     def __init__(self, parent=None, category: Optional[str] = None, topic: Optional[str] = None):
         super().__init__(parent)
-        self.setWindowTitle("Help - Egg Farm Management System")
+        self.setWindowTitle(tr("Help - Egg Farm Management System"))
         self.setMinimumSize(800, 600)
         self.init_ui()
         
@@ -287,7 +289,7 @@ class HelpDialog(QDialog):
         # Close button
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(tr("Close"))
         close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)

@@ -1,6 +1,8 @@
 """
 Main application entry point
 """
+from egg_farm_system.utils.i18n import tr
+
 import sys
 import logging
 from pathlib import Path
@@ -8,11 +10,16 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Ensure all models are loaded and registered with SQLAlchemy's Base.metadata early
+import egg_farm_system.database.models
+
 from PySide6.QtWidgets import QApplication, QDialog
 from egg_farm_system.database.db import DatabaseManager
-from ui.main_window import MainWindow
-from ui.forms.login_dialog import LoginDialog
+from egg_farm_system.ui.main_window import MainWindow
+from egg_farm_system.ui.forms.login_dialog import LoginDialog
 from egg_farm_system.config import APP_NAME, APP_VERSION, LOGS_DIR, LOG_LEVEL, LOG_FORMAT
+from egg_farm_system.ui.ui_helpers import apply_theme
+from egg_farm_system import config as _config
 
 # Configure logging
 logging.basicConfig(
@@ -35,18 +42,43 @@ def main():
         app = QApplication(sys.argv)
         app.setApplicationName(APP_NAME)
         app.setApplicationVersion(APP_VERSION)
-        # Load global stylesheet if present
+        # Apply consolidated theme (global styles + theme rules)
         try:
-            qss_path = Path(__file__).parent / "styles.qss"
-            if qss_path.exists():
-                with open(qss_path, 'r', encoding='utf-8') as f:
-                    app.setStyleSheet(f.read())
+            apply_theme(app, getattr(_config, 'DEFAULT_THEME', None))
         except Exception:
-            pass
+            logger.warning("Failed to apply theme; continuing without custom stylesheet")
+        
+        # Load language preference
+        try:
+            from egg_farm_system.modules.settings import SettingsManager
+            from egg_farm_system.utils.i18n import get_i18n
+            from PySide6.QtCore import Qt
+            
+            saved_lang = SettingsManager.get_setting('language', 'en')
+            i18n = get_i18n()
+            i18n.set_language(saved_lang)
+            
+            # Set layout direction
+            if saved_lang == 'ps':
+                app.setLayoutDirection(Qt.RightToLeft)
+            else:
+                app.setLayoutDirection(Qt.LeftToRight)
+            
+            logger.info(f"Language set to: {saved_lang}")
+        except Exception as e:
+            logger.warning(f"Failed to load language preference: {e}")
         
         # Initialize database
         DatabaseManager.initialize()
         logger.info("Database initialized")
+        
+        # Run database migrations
+        try:
+            from egg_farm_system.database.migrate_add_farm_id import migrate_add_farm_id
+            migrate_add_farm_id()
+            logger.info("Database migrations completed")
+        except Exception as e:
+            logger.warning(f"Database migration failed (may already be applied): {e}")
 
         # Show login dialog and require successful auth before showing main UI
         login = LoginDialog()

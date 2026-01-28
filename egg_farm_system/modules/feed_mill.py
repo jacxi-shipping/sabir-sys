@@ -1,12 +1,14 @@
 """
 Feed manufacturing and management module
 """
+from egg_farm_system.utils.i18n import tr
+
 from datetime import datetime
 from egg_farm_system.database.models import (
     RawMaterial, FeedFormula, FeedFormulation, FeedBatch, FinishedFeed, FeedIssue
 )
 from egg_farm_system.database.db import DatabaseManager
-from utils.currency import CurrencyConverter
+from egg_farm_system.utils.currency import CurrencyConverter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,13 +19,23 @@ class RawMaterialManager:
     def __init__(self):
         self.session = DatabaseManager.get_session()
     
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type: # An exception occurred
+            self.session.rollback()
+            logger.error(f"Transaction rolled back due to exception: {exc_val}")
+        self.session.close()
+    
     def create_material(self, name, cost_afg, cost_usd, supplier_id=None, low_stock_alert=50):
         """Create raw material"""
         try:
+            # Note: cost_afg and cost_usd are calculated properties in the new model based on purchase history.
+            # We ignore the initial values here as they cannot be set directly without a purchase.
+            # Future improvement: Create an initial "opening balance" purchase if needed.
             material = RawMaterial(
                 name=name,
-                cost_afg=cost_afg,
-                cost_usd=cost_usd,
                 supplier_id=supplier_id,
                 low_stock_alert=low_stock_alert
             )
@@ -60,6 +72,9 @@ class RawMaterialManager:
                 raise ValueError(f"Material {material_id} not found")
             
             for key, value in data.items():
+                # Skip calculated properties that cannot be set directly
+                if key in ['cost_afg', 'cost_usd']:
+                    continue
                 setattr(material, key, value)
             
             self.session.commit()
@@ -77,9 +92,23 @@ class RawMaterialManager:
             if not material:
                 raise ValueError(f"Material {material_id} not found")
             
+            # Check for dependencies
+            # Check formulas
+            formulas = self.session.query(FeedFormulation).filter(FeedFormulation.material_id == material_id).count()
+            if formulas > 0:
+                raise ValueError(f"Cannot delete material '{material.name}' because it is used in {formulas} feed formula(s).")
+            
+            # Check purchases
+            from egg_farm_system.database.models import Purchase
+            purchases = self.session.query(Purchase).filter(Purchase.material_id == material_id).count()
+            if purchases > 0:
+                raise ValueError(f"Cannot delete material '{material.name}' because there are {purchases} purchase record(s) associated with it.")
+                
             self.session.delete(material)
             self.session.commit()
             logger.info(f"Raw material deleted: {material.name}")
+        except ValueError:
+            raise # Re-raise ValueError for UI to handle
         except Exception as e:
             self.session.rollback()
             logger.error(f"Error deleting material: {e}")
@@ -206,9 +235,16 @@ class FeedFormulaManager:
             if not formula:
                 raise ValueError(f"Formula {formula_id} not found.")
             
+            # Check for dependencies
+            batch_count = self.session.query(FeedBatch).filter(FeedBatch.formula_id == formula_id).count()
+            if batch_count > 0:
+                raise ValueError(f"Cannot delete formula '{formula.name}' because it has been used in {batch_count} production batch(es).")
+            
             self.session.delete(formula)
             self.session.commit()
             logger.info(f"Feed formula deleted: {formula.name}")
+        except ValueError:
+            raise # Re-raise ValueError for UI to handle
         except Exception as e:
             self.session.rollback()
             logger.error(f"Error deleting formula: {e}")
@@ -312,6 +348,14 @@ class FeedProductionManager:
             self.session.rollback()
             logger.error(f"Error producing batch: {e}")
             raise
+    
+    def get_batches(self, limit=50):
+        """Get recent feed batches"""
+        try:
+            return self.session.query(FeedBatch).order_by(FeedBatch.batch_date.desc()).limit(limit).all()
+        except Exception as e:
+            logger.error(f"Error getting batches: {e}")
+            return []
     
     def close_session(self):
         """Close database session"""

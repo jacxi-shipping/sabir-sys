@@ -374,3 +374,8 @@ pyinstaller --onefile --windowed --icon=app.ico egg_farm_system/app.py
 - No installation required
 - User just runs executable
 - Database created automatically on first run
+
+## Contact
+
+- Maintainer: Shakir Babar
+- Email: shkrbabar@gmail.com

@@ -1,6 +1,8 @@
 """
 Audit Trail System for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta

@@ -1,6 +1,8 @@
 """
 Enhanced Form Widget with auto-save, validation, and smart defaults
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime
@@ -155,7 +157,7 @@ class EnhancedFormWidget(QWidget):
         # Check required
         if field_name in self.required_fields:
             if not value or (isinstance(value, str) and not value.strip()):
-                error_label.setText("This field is required")
+                error_label.setText(tr("This field is required"))
                 error_label.setVisible(True)
                 return False
         
@@ -170,7 +172,7 @@ class EnhancedFormWidget(QWidget):
                         error_label.setVisible(True)
                         return False
                 elif not result:
-                    error_label.setText("Invalid value")
+                    error_label.setText(tr("Invalid value"))
                     error_label.setVisible(True)
                     return False
             except Exception as e:
@@ -249,7 +251,7 @@ class EnhancedFormWidget(QWidget):
     def save(self) -> bool:
         """Save form (validate and clear draft)"""
         if not self.validate_all():
-            QMessageBox.warning(self, "Validation Error", 
+            QMessageBox.warning(self, tr("Validation Error"), 
                               "Please fix the errors before saving.")
             return False
         

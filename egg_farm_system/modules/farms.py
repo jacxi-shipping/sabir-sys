@@ -3,16 +3,39 @@ Farm management module
 """
 from egg_farm_system.database.models import Farm
 from egg_farm_system.database.db import DatabaseManager
-from egg_farm_system.utils.cache_manager import cached
+from egg_farm_system.utils.cache_manager import cached, get_cache_manager
 import logging
 
 logger = logging.getLogger(__name__)
 
 class FarmManager:
-    """Manage farm operations"""
+    """
+    Manage farm operations
     
-    def __init__(self):
-        self.session = DatabaseManager.get_session()
+    Supports the context manager protocol for safe session handling:
+    with FarmManager() as fm:
+        fm.get_all_farms()
+    """
+    
+    def __init__(self, session=None):
+        self._owned_session = False
+        if session:
+            self.session = session
+        else:
+            self.session = DatabaseManager.get_session()
+            self._owned_session = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
+
+    def close_session(self):
+        """Close database session if it was created by this instance."""
+        if self._owned_session and self.session:
+            self.session.close()
+            self.session = None
     
     def create_farm(self, name, location=None):
         """Create a new farm"""
@@ -20,6 +43,10 @@ class FarmManager:
             farm = Farm(name=name, location=location)
             self.session.add(farm)
             self.session.commit()
+            
+            # Invalidate cache
+            get_cache_manager().delete("farms_all")
+            
             logger.info(f"Farm created: {name}")
             return farm
         except Exception as e:
@@ -28,21 +55,25 @@ class FarmManager:
             raise
     
     def get_all_farms(self):
-        """Get all farms"""
+        """Get all farms (eagerly load related sheds to avoid DetachedInstance errors).
+
+        Note: avoid caching raw ORM instances across sessions; load related
+        collections while the session is open and then expunge instances so
+        callers can safely access loaded attributes after the manager closes.
+        """
         try:
-            # Check cache first
-            from egg_farm_system.utils.cache_manager import get_cache_manager
-            cache = get_cache_manager()
-            cached_result = cache.get("farms_all")
-            if cached_result is not None:
-                return cached_result
-            
-            # Query database
-            farms = self.session.query(Farm).all()
-            
-            # Cache result
-            cache.set("farms_all", farms, ttl_seconds=300)
-            
+            from sqlalchemy.orm import selectinload
+
+            # Eagerly load sheds to avoid lazy loading after session close
+            farms = self.session.query(Farm).options(selectinload(Farm.sheds)).all()
+
+            # Force evaluation of the relationship collections while session is open
+            for f in farms:
+                _ = f.sheds
+
+            # Detach instances from session so they remain usable after close
+            self.session.expunge_all()
+
             return farms
         except Exception as e:
             logger.error(f"Error getting farms: {e}")
@@ -77,6 +108,10 @@ class FarmManager:
                 farm.location = location
             
             self.session.commit()
+            
+            # Invalidate cache
+            get_cache_manager().delete("farms_all")
+            
             logger.info(f"Farm updated: {farm_id}")
             return farm
         except Exception as e:
@@ -93,6 +128,10 @@ class FarmManager:
             
             self.session.delete(farm)
             self.session.commit()
+            
+            # Invalidate cache
+            get_cache_manager().delete("farms_all")
+            
             logger.info(f"Farm deleted: {farm_id}")
         except Exception as e:
             self.session.rollback()

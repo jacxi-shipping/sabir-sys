@@ -1,16 +1,22 @@
 """
 UI Forms for Employee and Salary Management.
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox,
     QDialog, QFormLayout, QLineEdit, QTableWidget, QTableWidgetItem, QTabWidget,
-    QDoubleSpinBox, QHeaderView, QComboBox, QDateEdit
+    QDoubleSpinBox, QHeaderView, QComboBox
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date
 
 from egg_farm_system.modules.employees import EmployeeManager
 from egg_farm_system.database.models import SalaryPeriod
+from egg_farm_system.ui.widgets.delegates import StatusDelegate
 
 # --- Dialog for Add/Edit Employee ---
 class EmployeeDialog(QDialog):
@@ -21,8 +27,7 @@ class EmployeeDialog(QDialog):
 
         self.name_edit = QLineEdit(employee.full_name if employee else "")
         self.title_edit = QLineEdit(employee.job_title if employee else "")
-        self.hire_date_edit = QDateEdit(employee.hire_date if employee else QDate.currentDate())
-        self.hire_date_edit.setCalendarPopup(True)
+        self.hire_date_edit = JalaliDateEdit(initial=employee.hire_date if employee else date.today())
         self.salary_amount_spin = QDoubleSpinBox()
         self.salary_amount_spin.setRange(0, 10_000_000)
         self.salary_amount_spin.setValue(employee.salary_amount if employee else 0)
@@ -38,16 +43,26 @@ class EmployeeDialog(QDialog):
         layout.addRow("Salary Period:", self.salary_period_combo)
 
         buttons = QHBoxLayout()
-        save_btn = QPushButton("Save"); save_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("Cancel"); cancel_btn.clicked.connect(self.reject)
-        buttons.addWidget(save_btn); buttons.addWidget(cancel_btn)
+        buttons.setSpacing(10)
+        buttons.setContentsMargins(0, 10, 0, 0)
+        buttons.addStretch()
+        save_btn = QPushButton(tr("Save"))
+        save_btn.setMinimumWidth(100)
+        save_btn.setMinimumHeight(35)
+        save_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton(tr("Cancel"))
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.setMinimumHeight(35)
+        cancel_btn.clicked.connect(self.reject)
+        buttons.addWidget(save_btn)
+        buttons.addWidget(cancel_btn)
         layout.addRow(buttons)
 
     def get_data(self):
         return {
             "full_name": self.name_edit.text(),
             "job_title": self.title_edit.text(),
-            "hire_date": self.hire_date_edit.date().toPython(),
+            "hire_date": self.hire_date_edit.date(),
             "salary_amount": self.salary_amount_spin.value(),
             "salary_period": SalaryPeriod(self.salary_period_combo.currentText())
         }
@@ -63,9 +78,9 @@ class EmployeesTab(QWidget):
     def init_ui(self):
         layout = QVBoxLayout(self)
         buttons_layout = QHBoxLayout()
-        add_btn = QPushButton("Add Employee"); add_btn.clicked.connect(self.add_employee)
-        edit_btn = QPushButton("Edit Selected"); edit_btn.clicked.connect(self.edit_employee)
-        status_btn = QPushButton("Toggle Active Status"); status_btn.clicked.connect(self.toggle_status)
+        add_btn = QPushButton(tr("Add Employee")); add_btn.clicked.connect(self.add_employee)
+        edit_btn = QPushButton(tr("Edit Selected")); edit_btn.clicked.connect(self.edit_employee)
+        status_btn = QPushButton(tr("Toggle Active Status")); status_btn.clicked.connect(self.toggle_status)
         buttons_layout.addWidget(add_btn); buttons_layout.addWidget(edit_btn); buttons_layout.addWidget(status_btn)
         buttons_layout.addStretch()
         layout.addLayout(buttons_layout)
@@ -74,6 +89,12 @@ class EmployeesTab(QWidget):
         self.table.setColumnCount(6); self.table.setHorizontalHeaderLabels(["ID", "Name", "Job Title", "Salary (AFN)", "Period", "Status"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers); self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
+        self.table.verticalHeader().setMinimumSectionSize(40)
+        self.table.verticalHeader().setDefaultSectionSize(40)
+        
+        # Apply Status Delegate
+        self.table.setItemDelegateForColumn(5, StatusDelegate(self.table))
+        
         layout.addWidget(self.table)
 
     def load_employees(self):
@@ -95,11 +116,11 @@ class EmployeesTab(QWidget):
             try:
                 self.manager.create_employee(**dialog.get_data())
                 self.load_employees()
-            except Exception as e: QMessageBox.critical(self, "Error", str(e))
+            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
 
     def edit_employee(self):
         row = self.table.currentRow()
-        if row < 0: return QMessageBox.warning(self, "Selection Error", "Please select an employee.")
+        if row < 0: return QMessageBox.warning(self, tr("Selection Error"), "Please select an employee.")
         emp_id = int(self.table.item(row, 0).text())
         employee = self.manager.get_employee_by_id(emp_id)
         dialog = EmployeeDialog(employee, self)
@@ -107,11 +128,11 @@ class EmployeesTab(QWidget):
             try:
                 self.manager.update_employee(emp_id, **dialog.get_data())
                 self.load_employees()
-            except Exception as e: QMessageBox.critical(self, "Error", str(e))
+            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
     
     def toggle_status(self):
         row = self.table.currentRow()
-        if row < 0: return QMessageBox.warning(self, "Selection Error", "Please select an employee.")
+        if row < 0: return QMessageBox.warning(self, tr("Selection Error"), "Please select an employee.")
         emp_id = int(self.table.item(row, 0).text())
         employee = self.manager.get_employee_by_id(emp_id)
         
@@ -123,7 +144,7 @@ class EmployeesTab(QWidget):
             try:
                 self.manager.set_employee_status(emp_id, new_status)
                 self.load_employees()
-            except Exception as e: QMessageBox.critical(self, "Error", str(e))
+            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
 
 from egg_farm_system.ui.forms.salary_forms import SalaryPaymentWidget
 
@@ -131,11 +152,11 @@ from egg_farm_system.ui.forms.salary_forms import SalaryPaymentWidget
 class EmployeeManagementWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Employee & Salary Management")
+        self.setWindowTitle(tr("Employee & Salary Management"))
         self.employee_manager = EmployeeManager()
 
         layout = QVBoxLayout(self)
-        title = QLabel("Employee Management"); title.setFont(QFont("Arial", 14, QFont.Bold))
+        title = QLabel(tr("Employee Management")); title.setFont(QFont("Arial", 14, QFont.Bold))
         layout.addWidget(title)
         
         tab_widget = QTabWidget()

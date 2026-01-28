@@ -1,69 +1,131 @@
 """
-Purchase module with auto ledger posting
+Purchase module with auto ledger posting and performance optimizations
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from egg_farm_system.database.models import Purchase, RawMaterial
 from egg_farm_system.database.db import DatabaseManager
-from modules.ledger import LedgerManager
-from utils.currency import CurrencyConverter
+from egg_farm_system.modules.ledger import LedgerManager
+from egg_farm_system.utils.currency import CurrencyConverter
+from egg_farm_system.utils.advanced_caching import CacheInvalidationManager
+from egg_farm_system.utils.performance_monitoring import measure_time
 import logging
 
 logger = logging.getLogger(__name__)
 
 class PurchaseManager:
-    """Manage material purchases"""
+    """
+    Manage material purchases
+    
+    Note: This manager uses an instance-level database session. The session is created
+    in __init__ and should be closed by calling close_session() when done, or it will
+    be closed when the manager instance is garbage collected.
+    """
     
     def __init__(self):
         self.session = DatabaseManager.get_session()
         self.ledger_manager = LedgerManager()
         self.converter = CurrencyConverter()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
     
     def record_purchase(self, party_id, material_id, quantity, rate_afg, rate_usd,
-                       exchange_rate_used=78.0, date=None, notes=None):
+                       exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Record material purchase and post to ledger"""
         try:
-            if date is None:
-                date = datetime.utcnow()
-            
-            material = self.session.query(RawMaterial).filter(RawMaterial.id == material_id).first()
-            if not material:
-                raise ValueError(f"Material {material_id} not found")
-            
-            total_afg = quantity * rate_afg
-            total_usd = quantity * rate_usd
-            
-            purchase = Purchase(
-                party_id=party_id,
-                material_id=material_id,
-                date=date,
-                quantity=quantity,
-                rate_afg=rate_afg,
-                rate_usd=rate_usd,
-                total_afg=total_afg,
-                total_usd=total_usd,
-                exchange_rate_used=exchange_rate_used,
-                notes=notes
-            )
-            self.session.add(purchase)
-            self.session.flush()  # Get purchase ID
-            
-            # Update material stock
-            material.current_stock += quantity
-            material.cost_afg = rate_afg  # Update cost
-            material.cost_usd = rate_usd
-            self.session.add(material)
-            
-            # Post to ledger: Credit party, Debit inventory
-            self.ledger_manager.post_entry(
-                party_id=party_id,
-                date=date,
-                description=f"Purchase: {quantity}kg {material.name}",
-                credit_afg=total_afg,
+            with measure_time(f"record_purchase_party_{party_id}"):
+                # Enhanced input validation
+                if not party_id or party_id <= 0:
+                    raise ValueError("Invalid party ID")
+                if not material_id or material_id <= 0:
+                    raise ValueError("Invalid material ID")
+                if quantity <= 0:
+                    raise ValueError("Quantity must be greater than 0")
+                if quantity > 1_000_000:  # Reasonable upper limit
+                    raise ValueError("Quantity exceeds maximum allowed (1,000,000)")
+                if rate_afg < 0:
+                    raise ValueError("Rate (AFG) cannot be negative")
+                if rate_afg > 1_000_000:  # Reasonable upper limit
+                    raise ValueError("Rate (AFG) exceeds maximum allowed")
+                if rate_usd < 0:
+                    raise ValueError("Rate (USD) cannot be negative")
+                if exchange_rate_used <= 0:
+                    raise ValueError("Exchange rate must be greater than 0")
+                if exchange_rate_used > 1000:  # Sanity check
+                    raise ValueError("Exchange rate seems unreasonable")
+                if notes and len(notes) > 1000:
+                    raise ValueError("Notes too long (max 1000 characters)")
+                if payment_method not in ["Cash", "Credit"]:
+                    raise ValueError("Payment method must be 'Cash' or 'Credit'")
+                
+                if date is None:
+                    date = datetime.utcnow()
+                
+                # Validate date not too far in the future
+                if date > datetime.utcnow() + timedelta(days=1):
+                    raise ValueError("Purchase date cannot be more than 1 day in the future")
+                
+                material = self.session.query(RawMaterial).filter(RawMaterial.id == material_id).first()
+                if not material:
+                    raise ValueError(f"Material {material_id} not found")
+                
+                total_afg = quantity * rate_afg
+                total_usd = quantity * rate_usd
+                
+                purchase = Purchase(
+                    party_id=party_id,
+                    farm_id=farm_id,
+                    material_id=material_id,
+                    date=date,
+                    quantity=quantity,
+                    rate_afg=rate_afg,
+                    rate_usd=rate_usd,
+                    total_afg=total_afg,
+                    total_usd=total_usd,
+                    exchange_rate_used=exchange_rate_used,
+                    payment_method=payment_method,
+                    notes=notes
+                )
+                self.session.add(purchase)
+                self.session.flush()  # Get purchase ID
+                
+                # Update material stock and cumulative costs for average cost calculation
+                material.current_stock += quantity
+                material.total_quantity_purchased += quantity
+                material.total_cost_purchased_afg += total_afg
+                material.total_cost_purchased_usd += total_usd
+                self.session.add(material)
+                
+                # Post to ledger: Credit party, Debit inventory
+                self.ledger_manager.post_entry(
+                    party_id=party_id,
+                    date=date,
+                    description=f"Purchase: {quantity}kg {material.name}",
+                    credit_afg=total_afg,
                 credit_usd=total_usd,
                 exchange_rate_used=exchange_rate_used,
                 reference_type="Purchase",
-                reference_id=purchase.id
+                reference_id=purchase.id,
+                session=self.session  # Pass session for transactional consistency
             )
+            
+            # If payment method is Cash, create a payment record for cash flow tracking
+            if payment_method == "Cash":
+                from egg_farm_system.database.models import Payment
+                cash_payment = Payment(
+                    party_id=party_id,
+                    date=date,
+                    amount_afg=total_afg,
+                    amount_usd=total_usd,
+                    payment_type="Paid",  # We paid cash to supplier
+                    payment_method="Cash",
+                    reference=f"Purchase #{purchase.id}",
+                    exchange_rate_used=exchange_rate_used
+                )
+                self.session.add(cash_payment)
             
             self.session.commit()
             logger.info(f"Purchase recorded: {quantity}kg from party {party_id}")
@@ -72,8 +134,43 @@ class PurchaseManager:
             self.session.rollback()
             logger.error(f"Error recording purchase: {e}")
             raise
+
+    def record_packaging_purchase(self, party_id, material_name, quantity, rate_afg, rate_usd,
+                                  exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
+        """Convenience wrapper to purchase packaging items (Carton/Tray) by name.
+
+        If the `RawMaterial` doesn't exist, it will be created with unit='pcs'.
+        """
+        try:
+            # Basic validation
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than 0")
+
+            # Ensure material exists (Carton / Tray)
+            material = self.session.query(RawMaterial).filter(RawMaterial.name == material_name).first()
+            if not material:
+                material = RawMaterial(name=material_name, unit='pcs', current_stock=0)
+                self.session.add(material)
+                self.session.flush()
+
+            # Use existing record_purchase to handle ledger and stock updates
+            return self.record_purchase(
+                party_id=party_id,
+                material_id=material.id,
+                quantity=quantity,
+                rate_afg=rate_afg,
+                rate_usd=rate_usd,
+                exchange_rate_used=exchange_rate_used,
+                date=date,
+                notes=notes,
+                payment_method=payment_method,
+                farm_id=farm_id
+            )
+        except Exception as e:
+            logger.error(f"Error recording packaging purchase: {e}")
+            raise
     
-    def get_purchases(self, party_id=None, material_id=None, start_date=None, end_date=None):
+    def get_purchases(self, party_id=None, material_id=None, start_date=None, end_date=None, farm_id=None):
         """Get purchase records"""
         try:
             query = self.session.query(Purchase)
@@ -89,6 +186,9 @@ class PurchaseManager:
             
             if end_date:
                 query = query.filter(Purchase.date <= end_date)
+            
+            if farm_id:
+                query = query.filter(Purchase.farm_id == farm_id)
             
             return query.order_by(Purchase.date.desc()).all()
         except Exception as e:
@@ -114,7 +214,14 @@ class PurchaseManager:
             }
         except Exception as e:
             logger.error(f"Error getting purchases summary: {e}")
-            return None
+            return {
+                'total_purchases': 0,
+                'total_quantity': 0,
+                'total_afg': 0,
+                'total_usd': 0,
+                'average_rate_afg': 0,
+                'average_rate_usd': 0
+            }
     
     def close_session(self):
         """Close database session"""

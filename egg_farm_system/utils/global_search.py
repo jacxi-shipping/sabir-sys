@@ -2,9 +2,12 @@
 Global Search Manager for Egg Farm Management System
 """
 import logging
+import json
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from egg_farm_system.config import DATA_DIR
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import (
     Farm, Shed, Flock, EggProduction, Party, Sale, Purchase, Expense,
@@ -17,8 +20,26 @@ logger = logging.getLogger(__name__)
 class GlobalSearchManager:
     """Manages global search across all modules"""
     
-    def __init__(self):
-        self.session = DatabaseManager.get_session()
+    def __init__(self, session=None):
+        self._owned_session = False
+        if session:
+            self.session = session
+        else:
+            self.session = DatabaseManager.get_session()
+            self._owned_session = True
+        self.history_file = DATA_DIR / "search_history.json"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
+
+    def close_session(self):
+        """Close database session if it was created by this instance."""
+        if self._owned_session and self.session:
+            self.session.close()
+            self.session = None
     
     def search(self, query: str, modules: Optional[List[str]] = None) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -33,6 +54,9 @@ class GlobalSearchManager:
         """
         if not query or len(query.strip()) < 2:
             return {}
+        
+        # Save search query to history
+        self.save_search(query)
         
         query_lower = query.lower().strip()
         results = {}
@@ -153,16 +177,17 @@ class GlobalSearchManager:
     
     def _search_purchases(self, query: str) -> List[Dict[str, Any]]:
         """Search purchases"""
-        purchases = self.session.query(Purchase).join(Party).filter(
+        from egg_farm_system.database.models import RawMaterial
+        purchases = self.session.query(Purchase).join(Party).join(RawMaterial).filter(
             Party.name.ilike(f"%{query}%") |
-            Purchase.material_name.ilike(f"%{query}%") |
-            Purchase.notes.ilike(f"%{query}%")
+            RawMaterial.name.ilike(f"%{query}%") |
+            (Purchase.notes.isnot(None) & Purchase.notes.ilike(f"%{query}%"))
         ).order_by(Purchase.date.desc()).limit(20).all()
         
         return [{
             'id': p.id,
             'type': 'purchase',
-            'title': f"Purchase: {p.material_name}",
+            'title': f"Purchase: {p.material.name if p.material else 'Unknown'}",
             'subtitle': f"From {p.party.name} on {p.date.strftime('%Y-%m-%d')}",
             'data': p
         } for p in purchases]
@@ -228,14 +253,41 @@ class GlobalSearchManager:
     
     def get_search_history(self, limit: int = 10) -> List[str]:
         """Get recent search history"""
-        # This would be stored in settings/database
-        # For now, return empty list
-        return []
+        try:
+            if not self.history_file.exists():
+                return []
+            
+            with open(self.history_file, 'r', encoding='utf-8') as f:
+                history = json.load(f)
+                return history[:limit]
+        except Exception as e:
+            logger.error(f"Error reading search history: {e}")
+            return []
     
     def save_search(self, query: str):
         """Save search to history"""
-        # This would save to settings/database
-        pass
+        if not query or len(query.strip()) < 2:
+            return
+            
+        try:
+            query = query.strip()
+            history = self.get_search_history(limit=50) # Get more to filter
+            
+            # Remove if exists (to move to top)
+            if query in history:
+                history.remove(query)
+            
+            # Add to top
+            history.insert(0, query)
+            
+            # Keep max 50
+            history = history[:50]
+            
+            with open(self.history_file, 'w', encoding='utf-8') as f:
+                json.dump(history, f, ensure_ascii=False)
+                
+        except Exception as e:
+            logger.error(f"Error saving search history: {e}")
     
     def close(self):
         """Close database session"""

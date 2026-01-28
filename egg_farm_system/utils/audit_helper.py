@@ -1,6 +1,8 @@
 """
 Audit Helper - Easy integration of audit trail into modules
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from typing import Optional, Dict, Any
 from functools import wraps

@@ -12,10 +12,27 @@ logger = logging.getLogger(__name__)
 class EggProductionManager:
     """Manage egg production records"""
     
-    def __init__(self):
-        self.session = DatabaseManager.get_session()
+    def __init__(self, session=None):
+        self._owned_session = False
+        if session:
+            self.session = session
+        else:
+            self.session = DatabaseManager.get_session()
+            self._owned_session = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_session()
+
+    def close_session(self):
+        """Close database session if it was created by this instance."""
+        if self._owned_session and self.session:
+            self.session.close()
+            self.session = None
     
-    def record_production(self, shed_id, date, small=0, medium=0, large=0, broken=0, notes=None):
+    def record_production(self, shed_id, date, small=0, medium=0, large=0, broken=0, cartons_used=0, trays_used=0, notes=None):
         """Record daily egg production"""
         try:
             production = EggProduction(
@@ -25,9 +42,24 @@ class EggProductionManager:
                 medium_count=medium,
                 large_count=large,
                 broken_count=broken,
+                cartons_used=cartons_used,
+                trays_used=trays_used,
                 notes=notes
             )
+            # Add production record and update inventory/packaging atomically
+            from egg_farm_system.modules.inventory import InventoryManager
+
             self.session.add(production)
+            self.session.flush()
+
+            inv_mgr = InventoryManager()
+            # Add eggs to inventory (only usable eggs)
+            inv_mgr.add_eggs(self.session, small=small, medium=medium, large=large)
+
+            # Consume packaging if provided
+            if cartons_used or trays_used:
+                inv_mgr.consume_packaging(self.session, cartons_used, trays_used)
+
             self.session.commit()
             logger.info(f"Egg production recorded for shed {shed_id} on {date}")
             return production
@@ -110,7 +142,7 @@ class EggProductionManager:
             logger.error(f"Error getting production summary: {e}")
             return None
     
-    def update_production(self, production_id, small=None, medium=None, large=None, broken=None, notes=None):
+    def update_production(self, production_id, small=None, medium=None, large=None, broken=None, cartons_used=None, trays_used=None, notes=None):
         """Update egg production record"""
         try:
             production = self.session.query(EggProduction).filter(EggProduction.id == production_id).first()
@@ -125,6 +157,11 @@ class EggProductionManager:
                 production.large_count = large
             if broken is not None:
                 production.broken_count = broken
+            if cartons_used is not None and hasattr(production, 'cartons_used'):
+                production.cartons_used = int(cartons_used)
+            if trays_used is not None and hasattr(production, 'trays_used'):
+                production.trays_used = int(trays_used)
+            # Notes
             if notes is not None:
                 production.notes = notes
             

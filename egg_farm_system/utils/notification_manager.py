@@ -52,21 +52,34 @@ class NotificationManager:
         self._listeners: List[callable] = []
         self._max_notifications = 100
     
-    def add_notification(self, title: str, message: str, severity: NotificationSeverity = NotificationSeverity.INFO,
-                        action_url: Optional[str] = None, action_label: Optional[str] = None) -> Notification:
+    def add_notification(self, title: str, message: str, severity=None,
+                        action_url: Optional[str] = None, action_label: Optional[str] = None, data: Optional[dict] = None) -> Notification:
         """
         Add a new notification
         
         Args:
             title: Notification title
             message: Notification message
-            severity: Severity level
+            severity: Severity level (can be string or NotificationSeverity enum)
             action_url: Optional action URL/module
             action_label: Optional action label
+            data: Optional additional data
             
         Returns:
             Created notification
         """
+        # Handle string severity from alert system
+        if isinstance(severity, str):
+            severity_map = {
+                'info': NotificationSeverity.INFO,
+                'warning': NotificationSeverity.WARNING,
+                'critical': NotificationSeverity.CRITICAL,
+                'success': NotificationSeverity.SUCCESS
+            }
+            severity = severity_map.get(severity.lower(), NotificationSeverity.INFO)
+        elif severity is None:
+            severity = NotificationSeverity.INFO
+        
         notification = Notification(
             id=f"notif_{datetime.now().timestamp()}",
             title=title,
@@ -190,11 +203,44 @@ class NotificationManager:
             logger.error(f"Error checking low stock: {e}")
     
     def check_overdue_payments(self, ledger_manager):
-        """Check for overdue payments and create notifications"""
+        """Check for outstanding balances and create notifications"""
         try:
-            # This would need to be implemented in ledger manager
-            # For now, just a placeholder
-            pass
+            outstanding = ledger_manager.get_all_parties_outstanding()
+            
+            for item in outstanding:
+                if item['status'] == 'Owes us':
+                    party_name = item['party'].name
+                    balance_afg = item['balance_afg']
+                    balance_usd = item['balance_usd']
+                    
+                    # Only notify for significant amounts
+                    if balance_afg > 100 or balance_usd > 10:
+                        title = f"Outstanding Balance: {party_name}"
+                        
+                        # Format message based on currency
+                        amounts = []
+                        if balance_afg > 0:
+                            amounts.append(f"{balance_afg:,.0f} AFG")
+                        if balance_usd > 0:
+                            amounts.append(f"{balance_usd:,.2f} USD")
+                        
+                        message = f"{party_name} owes {', '.join(amounts)}"
+                        
+                        # Check for existing unread notification for this party to avoid spam
+                        existing = False
+                        for note in self.get_notifications(unread_only=True):
+                            if note.title == title and note.message == message:
+                                existing = True
+                                break
+                        
+                        if not existing:
+                            self.add_notification(
+                                title=title,
+                                message=message,
+                                severity=NotificationSeverity.WARNING,
+                                action_url="parties",
+                                action_label="View Ledger"
+                            )
         except Exception as e:
             logger.error(f"Error checking overdue payments: {e}")
 

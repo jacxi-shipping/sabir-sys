@@ -1,6 +1,8 @@
 """
 Global Search Widget
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
@@ -21,17 +23,20 @@ class GlobalSearchWidget(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.search_manager = GlobalSearchManager()
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self._perform_search)
         
-        self.setWindowTitle("Global Search")
+        self.setWindowTitle(tr("Global Search"))
         self.setMinimumSize(600, 500)
         self.init_ui()
         
         # Close on Escape
         QShortcut(QKeySequence("Escape"), self, self.close)
+    
+    def closeEvent(self, event):
+        """Clean up resources when dialog closes"""
+        super().closeEvent(event)
     
     def init_ui(self):
         """Initialize UI"""
@@ -41,19 +46,19 @@ class GlobalSearchWidget(QDialog):
         # Search input
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search farms, parties, sales, purchases, expenses...")
+        self.search_input.setPlaceholderText(tr("Search farms, parties, sales, purchases, expenses..."))
         self.search_input.textChanged.connect(self._on_search_text_changed)
         self.search_input.returnPressed.connect(self._perform_search)
         search_layout.addWidget(self.search_input)
         
-        search_btn = QPushButton("Search")
+        search_btn = QPushButton(tr("Search"))
         search_btn.clicked.connect(self._perform_search)
         search_layout.addWidget(search_btn)
         
         layout.addLayout(search_layout)
         
         # Results
-        results_label = QLabel("Results:")
+        results_label = QLabel(tr("Results:"))
         results_label.setFont(QFont("", 10, QFont.Bold))
         layout.addWidget(results_label)
         
@@ -63,7 +68,7 @@ class GlobalSearchWidget(QDialog):
         layout.addWidget(self.results_list)
         
         # Status
-        self.status_label = QLabel("Enter search query...")
+        self.status_label = QLabel(tr("Enter search query..."))
         self.status_label.setStyleSheet("color: #666; font-size: 9pt;")
         layout.addWidget(self.status_label)
         
@@ -77,26 +82,27 @@ class GlobalSearchWidget(QDialog):
             self.search_timer.start(300)  # Wait 300ms before searching
         else:
             self.results_list.clear()
-            self.status_label.setText("Enter at least 2 characters to search...")
+            self.status_label.setText(tr("Enter at least 2 characters to search..."))
     
     def _perform_search(self):
         """Perform the search"""
         query = self.search_input.text().strip()
         
         if len(query) < 2:
-            self.status_label.setText("Enter at least 2 characters to search...")
+            self.status_label.setText(tr("Enter at least 2 characters to search..."))
             return
         
-        self.status_label.setText("Searching...")
+        self.status_label.setText(tr("Searching..."))
         self.results_list.clear()
         
         try:
-            results = self.search_manager.search(query)
+            with GlobalSearchManager() as sm:
+                results = sm.search(query)
             
             total_results = sum(len(r) for r in results.values())
             
             if total_results == 0:
-                self.status_label.setText("No results found")
+                self.status_label.setText(tr("No results found"))
                 return
             
             # Group results by module
@@ -152,7 +158,7 @@ class SearchBarWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Global Search (Ctrl+F)...")
+        self.search_input.setPlaceholderText(tr("Global Search (Ctrl+F)..."))
         self.search_input.setMaximumWidth(300)
         self.search_input.returnPressed.connect(self._open_search_dialog)
         layout.addWidget(self.search_input)

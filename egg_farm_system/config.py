@@ -1,7 +1,10 @@
 """
 Configuration file for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import os
+import sys
 from pathlib import Path
 
 # Application metadata
@@ -10,7 +13,14 @@ APP_VERSION = "1.0.0"
 APP_AUTHOR = "Farm Management Team"
 
 # Paths
-BASE_DIR = Path(__file__).parent.parent
+# Handle both development and PyInstaller executable modes
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable
+    BASE_DIR = Path(sys.executable).parent
+else:
+    # Running as script
+    BASE_DIR = Path(__file__).parent.parent
+
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "egg_farm.db"
 LOGS_DIR = BASE_DIR / "logs"
@@ -35,6 +45,9 @@ WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 900
 SIDEBAR_WIDTH = 250
 
+# Theme
+DEFAULT_THEME = "farm"
+
 # Expense categories
 EXPENSE_CATEGORIES = [
     "Labor",
@@ -54,3 +67,41 @@ EGG_GRADES = ["Small", "Medium", "Large", "Broken"]
 # Logging
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Company/Farm Information for PDF exports
+COMPANY_NAME = "Egg Farm Management System"  # Can be customized
+COMPANY_ADDRESS = ""  # Can be customized
+COMPANY_PHONE = ""  # Can be customized
+
+def get_asset_path(filename: str) -> str:
+    """
+    Get absolute path for an asset file, handling both dev and PyInstaller frozen modes.
+    
+    Args:
+        filename (str): Name of the asset file (e.g. 'icon_edit.svg')
+    
+    Returns:
+        str: Absolute path to the asset file
+    """
+    # Base directory resolution
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (PyInstaller)
+        if hasattr(sys, '_MEIPASS'):
+            # --onefile mode: assets are in temp dir
+            base_path = Path(sys._MEIPASS)
+        else:
+            # --onedir mode or fallback
+            base_path = Path(sys.executable).parent
+            
+        # Handle PyInstaller 6+ _internal folder structure for onedir
+        if (base_path / "_internal").exists():
+            base_path = base_path / "_internal"
+        
+        # In frozen mode, assets are in egg_farm_system/assets relative to base
+        asset_dir = base_path / "egg_farm_system" / "assets"
+    else:
+        # Running as script
+        # egg_farm_system/config.py -> egg_farm_system -> parent -> egg_farm_system/assets
+        asset_dir = Path(__file__).parent / "assets"
+    
+    return str(asset_dir / filename)

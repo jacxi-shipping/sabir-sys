@@ -13,6 +13,15 @@ class PartyManager:
     def __init__(self):
         self.session = DatabaseManager.get_session()
     
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type: # An exception occurred
+            self.session.rollback()
+            logger.error(f"Transaction rolled back due to exception: {exc_val}")
+        self.session.close()
+    
     def create_party(self, name, phone=None, address=None, notes=None):
         """Create a new party"""
         try:

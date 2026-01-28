@@ -2,6 +2,8 @@
 Egg Stock Management Widget
 Shows available eggs by grade with tray/carton conversion
 """
+from egg_farm_system.utils.i18n import tr
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGroupBox,
     QGridLayout, QMessageBox, QComboBox
@@ -34,7 +36,7 @@ class EggStockWidget(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         
         # Title
-        title = QLabel("Egg Stock Management")
+        title = QLabel(tr("Egg Stock Management"))
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
@@ -43,13 +45,13 @@ class EggStockWidget(QWidget):
         
         # Farm selector
         farm_layout = QHBoxLayout()
-        farm_layout.addWidget(QLabel("Farm:"))
+        farm_layout.addWidget(QLabel(tr("Farm:")))
         self.farm_combo = QComboBox()
         self.farm_combo.currentIndexChanged.connect(self.on_farm_changed)
         farm_layout.addWidget(self.farm_combo)
         farm_layout.addStretch()
         
-        refresh_btn = QPushButton("Refresh")
+        refresh_btn = QPushButton(tr("Refresh"))
         refresh_btn.clicked.connect(self.refresh_stock)
         farm_layout.addWidget(refresh_btn)
         layout.addLayout(farm_layout)
@@ -60,40 +62,40 @@ class EggStockWidget(QWidget):
         stock_layout.setSpacing(12)
         
         # Headers
-        stock_layout.addWidget(QLabel("<b>Grade</b>"), 0, 0)
-        stock_layout.addWidget(QLabel("<b>Eggs</b>"), 0, 1)
-        stock_layout.addWidget(QLabel("<b>Trays</b>"), 0, 2)
-        stock_layout.addWidget(QLabel("<b>Cartons</b>"), 0, 3)
+        stock_layout.addWidget(QLabel(tr("<b>Grade</b>")), 0, 0)
+        stock_layout.addWidget(QLabel(tr("<b>Eggs</b>")), 0, 1)
+        stock_layout.addWidget(QLabel(tr("<b>Trays</b>")), 0, 2)
+        stock_layout.addWidget(QLabel(tr("<b>Cartons</b>")), 0, 3)
         
         # Grade rows
         self.small_label = QLabel("0")
-        self.small_tray_label = QLabel("0.00")
-        self.small_carton_label = QLabel("0.00")
-        stock_layout.addWidget(QLabel("Small:"), 1, 0)
+        self.small_tray_label = QLabel(tr("0.00"))
+        self.small_carton_label = QLabel(tr("0.00"))
+        stock_layout.addWidget(QLabel(tr("Small:")), 1, 0)
         stock_layout.addWidget(self.small_label, 1, 1)
         stock_layout.addWidget(self.small_tray_label, 1, 2)
         stock_layout.addWidget(self.small_carton_label, 1, 3)
         
         self.medium_label = QLabel("0")
-        self.medium_tray_label = QLabel("0.00")
-        self.medium_carton_label = QLabel("0.00")
-        stock_layout.addWidget(QLabel("Medium:"), 2, 0)
+        self.medium_tray_label = QLabel(tr("0.00"))
+        self.medium_carton_label = QLabel(tr("0.00"))
+        stock_layout.addWidget(QLabel(tr("Medium:")), 2, 0)
         stock_layout.addWidget(self.medium_label, 2, 1)
         stock_layout.addWidget(self.medium_tray_label, 2, 2)
         stock_layout.addWidget(self.medium_carton_label, 2, 3)
         
         self.large_label = QLabel("0")
-        self.large_tray_label = QLabel("0.00")
-        self.large_carton_label = QLabel("0.00")
-        stock_layout.addWidget(QLabel("Large:"), 3, 0)
+        self.large_tray_label = QLabel(tr("0.00"))
+        self.large_carton_label = QLabel(tr("0.00"))
+        stock_layout.addWidget(QLabel(tr("Large:")), 3, 0)
         stock_layout.addWidget(self.large_label, 3, 1)
         stock_layout.addWidget(self.large_tray_label, 3, 2)
         stock_layout.addWidget(self.large_carton_label, 3, 3)
         
         self.broken_label = QLabel("0")
-        self.broken_tray_label = QLabel("0.00")
-        self.broken_carton_label = QLabel("0.00")
-        stock_layout.addWidget(QLabel("Broken:"), 4, 0)
+        self.broken_tray_label = QLabel(tr("0.00"))
+        self.broken_carton_label = QLabel(tr("0.00"))
+        stock_layout.addWidget(QLabel(tr("Broken:")), 4, 0)
         stock_layout.addWidget(self.broken_label, 4, 1)
         stock_layout.addWidget(self.broken_tray_label, 4, 2)
         stock_layout.addWidget(self.broken_carton_label, 4, 3)
@@ -105,12 +107,12 @@ class EggStockWidget(QWidget):
         
         self.total_label = QLabel("0")
         self.total_label.setFont(total_font)
-        self.total_tray_label = QLabel("0.00")
+        self.total_tray_label = QLabel(tr("0.00"))
         self.total_tray_label.setFont(total_font)
-        self.total_carton_label = QLabel("0.00")
+        self.total_carton_label = QLabel(tr("0.00"))
         self.total_carton_label.setFont(total_font)
         
-        stock_layout.addWidget(QLabel("<b>Total:</b>"), 5, 0)
+        stock_layout.addWidget(QLabel(tr("<b>Total:</b>")), 5, 0)
         stock_layout.addWidget(self.total_label, 5, 1)
         stock_layout.addWidget(self.total_tray_label, 5, 2)
         stock_layout.addWidget(self.total_carton_label, 5, 3)
@@ -129,19 +131,19 @@ class EggStockWidget(QWidget):
         usable_font.setPointSize(12)
         self.usable_label.setFont(usable_font)
         
-        self.usable_tray_label = QLabel("0.00")
+        self.usable_tray_label = QLabel(tr("0.00"))
         self.usable_tray_label.setFont(usable_font)
-        self.usable_carton_label = QLabel("0.00")
+        self.usable_carton_label = QLabel(tr("0.00"))
         self.usable_carton_label.setFont(usable_font)
         
-        usable_layout.addWidget(QLabel("Usable Eggs:"), 0, 0)
+        usable_layout.addWidget(QLabel(tr("Usable Eggs:")), 0, 0)
         usable_layout.addWidget(self.usable_label, 0, 1)
         usable_layout.addWidget(QLabel("="), 0, 2)
         usable_layout.addWidget(self.usable_tray_label, 0, 3)
-        usable_layout.addWidget(QLabel("trays"), 0, 4)
+        usable_layout.addWidget(QLabel(tr("trays")), 0, 4)
         usable_layout.addWidget(QLabel("="), 0, 5)
         usable_layout.addWidget(self.usable_carton_label, 0, 6)
-        usable_layout.addWidget(QLabel("cartons"), 0, 7)
+        usable_layout.addWidget(QLabel(tr("cartons")), 0, 7)
         
         usable_group.setLayout(usable_layout)
         layout.addWidget(usable_group)
@@ -205,7 +207,7 @@ class EggStockWidget(QWidget):
         
         except Exception as e:
             logger.error(f"Error refreshing stock: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to refresh stock: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"Failed to refresh stock: {str(e)}")
     
     def set_farm_id(self, farm_id):
         """Set farm ID and refresh"""

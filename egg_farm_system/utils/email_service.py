@@ -1,6 +1,8 @@
 """
 Email Service for Egg Farm Management System
 """
+from egg_farm_system.utils.i18n import tr
+
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -12,6 +14,7 @@ from pathlib import Path
 import json
 
 from egg_farm_system.modules.settings import SettingsManager
+from egg_farm_system.utils.encryption import encrypt_setting, decrypt_setting
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,9 @@ class EmailService:
         self.smtp_server = SettingsManager.get_setting('email_smtp_server', 'smtp.gmail.com')
         self.smtp_port = int(SettingsManager.get_setting('email_smtp_port', '587'))
         self.smtp_username = SettingsManager.get_setting('email_username', '')
-        self.smtp_password = SettingsManager.get_setting('email_password', '')
+        # Decrypt password when retrieving
+        encrypted_password = SettingsManager.get_setting('email_password', '')
+        self.smtp_password = decrypt_setting(encrypted_password) if encrypted_password else ''
         self.from_email = SettingsManager.get_setting('email_from', self.smtp_username)
         self.use_tls = SettingsManager.get_setting('email_use_tls', 'true').lower() == 'true'
     
@@ -41,11 +46,13 @@ class EmailService:
         self.from_email = from_email or username
         self.use_tls = use_tls
         
-        # Save to settings
+        # Save to settings with encryption for password
         SettingsManager.set_setting('email_smtp_server', smtp_server)
         SettingsManager.set_setting('email_smtp_port', str(smtp_port))
         SettingsManager.set_setting('email_username', username)
-        SettingsManager.set_setting('email_password', password)  # Note: In production, encrypt this
+        # Encrypt password before storing
+        encrypted_password = encrypt_setting(password)
+        SettingsManager.set_setting('email_password', encrypted_password)
         SettingsManager.set_setting('email_from', self.from_email)
         SettingsManager.set_setting('email_use_tls', 'true' if use_tls else 'false')
     
