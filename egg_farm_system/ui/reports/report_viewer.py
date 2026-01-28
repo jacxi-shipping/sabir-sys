@@ -5,9 +5,9 @@ from egg_farm_system.utils.i18n import tr
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QMessageBox, QDateEdit, QFileDialog, QSizePolicy, QGroupBox
+    QMessageBox, QFileDialog, QSizePolicy, QGroupBox
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from pathlib import Path
 
@@ -21,6 +21,7 @@ from egg_farm_system.utils.print_manager import PrintManager
 from egg_farm_system.ui.widgets.datatable import DataTableWidget
 from egg_farm_system.utils.jalali import format_value_for_ui
 from egg_farm_system.ui.widgets.charts import TimeSeriesChart
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
 from datetime import datetime, date
 
 class ReportViewerWidget(QWidget):
@@ -80,20 +81,17 @@ class ReportViewerWidget(QWidget):
         # Date selectors / filters
         date_layout = QHBoxLayout()
         date_layout.addWidget(QLabel(tr("Date:")))
-        self.date_edit = QDateEdit()
-        self.date_edit.setDate(QDate.currentDate())
+        self.date_edit = JalaliDateEdit(initial=date.today())
         date_layout.addWidget(self.date_edit)
 
         # Range selectors for feed usage
         date_layout.addWidget(QLabel(tr("From:")))
-        self.start_date_edit = QDateEdit()
-        self.start_date_edit.setDate(QDate.currentDate())
+        self.start_date_edit = JalaliDateEdit(initial=date.today())
         self.start_date_edit.setVisible(False)
         date_layout.addWidget(self.start_date_edit)
 
         date_layout.addWidget(QLabel(tr("To:")))
-        self.end_date_edit = QDateEdit()
-        self.end_date_edit.setDate(QDate.currentDate())
+        self.end_date_edit = JalaliDateEdit(initial=date.today())
         self.end_date_edit.setVisible(False)
         date_layout.addWidget(self.end_date_edit)
 
@@ -232,7 +230,7 @@ class ReportViewerWidget(QWidget):
         farm_id_to_use = selected_farm_id if selected_farm_id is not None else (self.farm_id or 1)
         
         try:
-            date_val = self.date_edit.date().toPython()
+            date_val = self.date_edit.date()
             
             with ReportGenerator() as rg:
                 if report_type == "daily_production":
@@ -327,8 +325,8 @@ class ReportViewerWidget(QWidget):
                         self.current_report_type = report_type
 
                 elif report_type == 'feed_usage':
-                    start = self.start_date_edit.date().toPython()
-                    end = self.end_date_edit.date().toPython()
+                    start = self.start_date_edit.date()
+                    end = self.end_date_edit.date()
                     data = rg.feed_usage_report(farm_id_to_use, start, end)
                     if data:
                         # Update info
