@@ -48,6 +48,26 @@ def main():
         except Exception:
             logger.warning("Failed to apply theme; continuing without custom stylesheet")
         
+        # Load language preference
+        try:
+            from egg_farm_system.modules.settings import SettingsManager
+            from egg_farm_system.utils.i18n import get_i18n
+            from PySide6.QtCore import Qt
+            
+            saved_lang = SettingsManager.get_setting('language', 'en')
+            i18n = get_i18n()
+            i18n.set_language(saved_lang)
+            
+            # Set layout direction
+            if saved_lang == 'ps':
+                app.setLayoutDirection(Qt.RightToLeft)
+            else:
+                app.setLayoutDirection(Qt.LeftToRight)
+            
+            logger.info(f"Language set to: {saved_lang}")
+        except Exception as e:
+            logger.warning(f"Failed to load language preference: {e}")
+        
         # Initialize database
         DatabaseManager.initialize()
         logger.info("Database initialized")
