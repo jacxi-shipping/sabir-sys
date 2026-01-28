@@ -193,7 +193,33 @@ class PartyFormWidget(QWidget):
             dialog = PartyDialog(self, None, pm)
             if dialog.exec():
                 self.refresh_parties()
+    
+    def view_party(self, party):
+        """View party ledger with premium dialog"""
+        from egg_farm_system.ui.widgets.party_view_dialog import PartyViewDialog
+        dialog = PartyViewDialog(self, party)
+        dialog.exec()
+    
+    def edit_party(self, party):
+        """Edit party dialog"""
+        with PartyManager() as pm:
+            dialog = PartyDialog(self, party, pm)
+            if dialog.exec():
+                self.refresh_parties()
+    
+    def delete_party(self, party):
+        """Delete party"""
+        reply = QMessageBox.question(
+            self, "Confirm Delete",
+            f"Are you sure you want to delete '{party.name}'?"
+        )
+        if reply == QMessageBox.Yes:
+            try:
+                self.party_manager.delete_party(party.id)
+                self.refresh_parties()
                 # success message handled in dialog
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to delete party: {str(e)}")
     
     def view_party(self, party_id):
         """View party ledger with premium dialog"""
