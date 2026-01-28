@@ -225,27 +225,31 @@ class PartyFormWidget(QWidget):
         msg.setWindowTitle(tr("Confirm Delete"))
         msg.setText(f"Are you sure you want to delete the party '{party_name}'?")
         
-        balance_info = ""
-        if balance_afg != 0 or balance_usd != 0:
-            balance_info = (
-                f"\n\nCurrent Balance:\n"
-                f"AFG: {balance_afg:,.2f}\n"
-                f"USD: {balance_usd:,.2f}\n\n"
-                "⚠️ Warning: This party has an outstanding balance. "
-                "Deleting will remove all transaction history."
-            )
-        
         # Can't get other details like phone/address easily without querying again, skipping for now or query
         with PartyManager() as pm:
             party = pm.get_party_by_id(party_id)
             if not party: return
 
-            msg.setInformativeText(
-                f"Phone: {party.phone or 'N/A'}\n"
-                f"Address: {party.address or 'N/A'}\n"
-                f"{balance_info}\n"
-                "This action cannot be undone."
-            )
+            # Build detailed warning message
+            warning_parts = []
+            warning_parts.append(f"📊 {tr('Party Details')}:")
+            warning_parts.append(f"   {tr('Phone')}: {party.phone or 'N/A'}")
+            warning_parts.append(f"   {tr('Address')}: {party.address or 'N/A'}")
+            
+            warning_parts.append(f"\n💰 {tr('Current Balance')}:")
+            warning_parts.append(f"   AFG: {balance_afg:,.2f}")
+            warning_parts.append(f"   USD: {balance_usd:,.2f}")
+            
+            if balance_afg != 0 or balance_usd != 0:
+                warning_parts.append(f"\n⚠️ {tr('Warning')}: {tr('This party has an outstanding balance')}!")
+            
+            warning_parts.append(f"\n⚠️ {tr('Impact')}:")
+            warning_parts.append(f"   {tr('All transaction history will be permanently deleted')}")
+            warning_parts.append(f"   {tr('All sales and purchase records will be lost')}")
+            warning_parts.append(f"   {tr('All ledger entries will be removed')}")
+            warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+
+            msg.setInformativeText("\n".join(warning_parts))
             msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             msg.setDefaultButton(QMessageBox.No)
             

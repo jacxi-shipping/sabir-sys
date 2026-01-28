@@ -1,10 +1,8 @@
 """
 Widget for viewing financial reports like P&L and Cash Flow.
 """
-from PySide6.QtCore import QDate
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDateEdit,
     QFormLayout,
     QGroupBox,
     QLabel,
@@ -13,10 +11,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from datetime import date
 
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.financial_reports import FinancialReportGenerator
 from egg_farm_system.utils.i18n import tr
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
 
 class FinancialReportWidget(QWidget):
     def __init__(self, farm_id=None):
@@ -33,10 +33,13 @@ class FinancialReportWidget(QWidget):
         # --- Filters ---
         filters_group = QGroupBox("Report Period")
         filters_layout = QFormLayout()
-        self.start_date_edit = QDateEdit(calendarPopup=True)
-        self.end_date_edit = QDateEdit(calendarPopup=True)
-        self.start_date_edit.setDate(QDate.currentDate().addMonths(-1))
-        self.end_date_edit.setDate(QDate.currentDate())
+        
+        # Calculate dates
+        from datetime import timedelta
+        one_month_ago = date.today() - timedelta(days=30)
+        
+        self.start_date_edit = JalaliDateEdit(initial=one_month_ago)
+        self.end_date_edit = JalaliDateEdit(initial=date.today())
         filters_layout.addRow("Start Date:", self.start_date_edit)
         filters_layout.addRow("End Date:", self.end_date_edit)
         filters_group.setLayout(filters_layout)
@@ -83,8 +86,8 @@ class FinancialReportWidget(QWidget):
         self.setLayout(layout)
 
     def generate_reports(self):
-        start_date = self.start_date_edit.date().toPython()
-        end_date = self.end_date_edit.date().toPython()
+        start_date = self.start_date_edit.date()
+        end_date = self.end_date_edit.date()
 
         try:
             generator = FinancialReportGenerator(self.session)
