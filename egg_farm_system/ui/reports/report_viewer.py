@@ -192,21 +192,25 @@ class ReportViewerWidget(QWidget):
             self.start_date_edit.setVisible(True)
             self.end_date_edit.setVisible(True)
             self.party_combo.setVisible(False)
+            self.farm_combo.setVisible(True)  # Farm filter is relevant for feed usage
         elif report_type == 'monthly_production':
             self.date_edit.setVisible(True)
             self.start_date_edit.setVisible(False)
             self.end_date_edit.setVisible(False)
             self.party_combo.setVisible(False)
+            self.farm_combo.setVisible(True)  # Farm filter is relevant for production
         elif report_type == 'party_statement':
             self.date_edit.setVisible(False)
             self.start_date_edit.setVisible(False)
             self.end_date_edit.setVisible(False)
             self.party_combo.setVisible(True)
-        else:
+            self.farm_combo.setVisible(False)  # Party statements are party-specific, not farm-specific
+        else:  # daily_production
             self.date_edit.setVisible(True)
             self.start_date_edit.setVisible(False)
             self.end_date_edit.setVisible(False)
             self.party_combo.setVisible(False)
+            self.farm_combo.setVisible(True)  # Farm filter is relevant for production
 
     def set_farm_id(self, farm_id):
         self.farm_id = farm_id
