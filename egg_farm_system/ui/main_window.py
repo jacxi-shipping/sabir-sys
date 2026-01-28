@@ -105,6 +105,16 @@ class MainWindow(QMainWindow):
         from egg_farm_system.ui.widgets.breadcrumbs import NavigationHistory
         self.nav_history = NavigationHistory()
         
+        # Initialize session timeout (30 minutes of inactivity)
+        self.last_activity = datetime.now()
+        self.session_timeout_minutes = 30
+        self.session_timer = QTimer()
+        self.session_timer.timeout.connect(self._check_session_timeout)
+        self.session_timer.start(60000)  # Check every minute
+        
+        # Install event filter to track user activity
+        self.installEventFilter(self)
+        
         # Initialize workflow automation and start task timer
         from egg_farm_system.utils.workflow_automation import get_workflow_automation
         self.workflow_automation = get_workflow_automation()
@@ -389,6 +399,14 @@ class MainWindow(QMainWindow):
         bottom_layout.addWidget(self.theme_btn)
         
         # Logout button
+        self.logout_btn = QPushButton(f"🚪 {tr('Logout')}")
+        self.logout_btn.setProperty("i18n_key", "Logout")
+        self.logout_btn.setProperty('class', 'sidebar-logout')
+        self.logout_btn.setMinimumHeight(42)
+        self.logout_btn.clicked.connect(self.logout)
+        bottom_layout.addWidget(self.logout_btn)
+        
+        # Logout button
         logout_btn = QPushButton(f"🚪 {tr('Logout')}")
         logout_btn.setProperty('class', 'sidebar-logout')
         logout_btn.setMinimumHeight(42)
@@ -590,7 +608,9 @@ class MainWindow(QMainWindow):
         self._add_to_history("Purchase Packaging", "purchase_packaging", self.open_packaging_purchase_dialog)
     
     def load_employees_management(self):
-        """Load employees management widget"""
+        """Load employees management widget (Admin only)"""
+        if not self._check_admin_permission("employee management"):
+            return
         employees_widget = EmployeeManagementWidget()
         self.replace_content(employees_widget)
         
@@ -601,18 +621,35 @@ class MainWindow(QMainWindow):
         self._update_breadcrumbs("Reports", "reports")
         self._add_to_history("Reports", "reports", self.load_reports)
 
+    def _check_admin_permission(self, operation_name="this operation"):
+        """Check if current user has admin permission"""
+        if not self.current_user or self.current_user.role != 'admin':
+            QMessageBox.warning(
+                self,
+                tr("Access Denied"),
+                tr(f"You need administrator privileges to access {operation_name}.")
+            )
+            return False
+        return True
+
     def load_users_management(self):
-        """Load user management UI"""
+        """Load user management UI (Admin only)"""
+        if not self._check_admin_permission("user management"):
+            return
         users_widget = UserManagementForm()
         self.replace_content(users_widget)
 
     def load_settings(self):
-        """Load settings UI"""
+        """Load settings UI (Admin only)"""
+        if not self._check_admin_permission("system settings"):
+            return
         settings_widget = SettingsForm()
         self.replace_content(settings_widget)
     
     def load_backup_restore(self):
-        """Load backup and restore widget"""
+        """Load backup and restore widget (Admin only)"""
+        if not self._check_admin_permission("backup and restore"):
+            return
         backup_widget = BackupRestoreWidget()
         self.replace_content(backup_widget)
         self._update_breadcrumbs("Backup & Restore", "backup_restore")
@@ -1082,3 +1119,61 @@ class MainWindow(QMainWindow):
                 "Import Failed",
                 f"Import failed: {result.get('message', 'Unknown error')}"
             )
+    
+    def eventFilter(self, obj, event):
+        """Filter events to track user activity for session timeout"""
+        from PySide6.QtCore import QEvent
+        # Track mouse and keyboard events as user activity
+        if event.type() in (QEvent.MouseButtonPress, QEvent.KeyPress):
+            self.last_activity = datetime.now()
+        return super().eventFilter(obj, event)
+    
+    def _check_session_timeout(self):
+        """Check if session has timed out due to inactivity"""
+        from datetime import timedelta
+        
+        if not self.current_user:
+            return
+        
+        inactive_minutes = (datetime.now() - self.last_activity).total_seconds() / 60
+        
+        if inactive_minutes >= self.session_timeout_minutes:
+            logger.info(f"Session timeout after {inactive_minutes:.1f} minutes of inactivity")
+            QMessageBox.warning(
+                self,
+                tr("Session Timeout"),
+                tr(f"Your session has expired after {self.session_timeout_minutes} minutes of inactivity.\nPlease log in again.")
+            )
+            self.logout()
+    
+    def logout(self):
+        """Logout current user and return to login screen"""
+        try:
+            # Stop all timers
+            if hasattr(self, 'session_timer'):
+                self.session_timer.stop()
+            if hasattr(self, 'workflow_timer'):
+                self.workflow_timer.stop()
+            if hasattr(self, 'alert_scheduler'):
+                self.alert_scheduler.stop()
+            
+            # Clear current user
+            self.current_user = None
+            
+            # Close main window
+            self.close()
+            
+            # Show login dialog
+            from egg_farm_system.ui.forms.login_dialog import LoginDialog
+            login = LoginDialog()
+            if login.exec() == QDialog.Accepted:
+                # Create new main window with logged-in user
+                new_window = MainWindow(current_user=login.user, app_version=self.app_version)
+                new_window.show()
+            else:
+                # User cancelled login, exit application
+                QApplication.quit()
+                
+        except Exception as e:
+            logger.error(f"Error during logout: {e}")
+            QApplication.quit()
