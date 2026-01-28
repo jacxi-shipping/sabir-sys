@@ -33,7 +33,7 @@ class TemplateGenerator:
         },
         'expenses': {
             'columns': ['date', 'farm_name', 'category', 'amount_afg', 'amount_usd', 'description', 'payment_method'],
-            'required': ['date', 'category', 'amount_afg'],
+            'required': ['date', 'farm_name', 'category', 'amount_afg'],
             'example': ['2026-01-15', 'Farm 1', 'Labor', '5000', '64', 'Daily wages', 'Cash']
         },
         'employees': {

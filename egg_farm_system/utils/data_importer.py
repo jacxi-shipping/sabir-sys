@@ -323,12 +323,23 @@ class DataImporter:
                             import_errors.append(f"Farm '{row['farm_name']}' not found for expense on {row['date']}")
                             continue
                     
+                    # Farm is required
+                    if not farm_id:
+                        import_errors.append(f"Farm is required for expense on {row['date']}")
+                        continue
+                    
+                    # Calculate exchange rate
+                    exchange_rate = 1.0
+                    if row['amount_usd'] > 0:
+                        exchange_rate = row['amount_afg'] / row['amount_usd']
+                    
                     expense = Expense(
                         date=row['date'],
                         farm_id=farm_id,
                         category=row['category'],
                         amount_afg=row['amount_afg'],
                         amount_usd=row['amount_usd'],
+                        exchange_rate_used=exchange_rate,
                         description=row.get('description'),
                         payment_method=row['payment_method']
                     )
