@@ -288,15 +288,10 @@ class SalesManager:
             self.session.add(sale)
             self.session.flush()  # Get sale ID
 
-            # Consume eggs and packaging
+            # Consume eggs only (packaging was already consumed during production)
             inv_mgr = InventoryManager()
             inv_mgr.consume_eggs(self.session, eggs)
-            # Consume cartons/trays as integer quantities
-            try:
-                inv_mgr.consume_packaging(self.session, cartons_needed=cartons, trays_needed=0)
-            except Exception:
-                # If packaging consumption fails, rollback will occur in outer exception handler
-                raise
+            # NOTE: Cartons/trays are NOT consumed here - they're consumed during egg production
             
             # Post to ledger: Debit party, Credit sales
             ledger_manager = LedgerManager()
