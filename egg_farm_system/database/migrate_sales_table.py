@@ -24,6 +24,15 @@ def migrate_sales_table():
         cursor.execute("PRAGMA table_info(sales)")
         columns = [row[1] for row in cursor.fetchall()]
         
+        # Whitelist of allowed columns to prevent SQL injection
+        allowed_columns = {
+            'cartons': 'REAL',
+            'egg_grade': 'VARCHAR(20)',
+            'tray_expense_afg': 'REAL',
+            'carton_expense_afg': 'REAL',
+            'total_expense_afg': 'REAL'
+        }
+        
         new_columns = [
             ('cartons', 'REAL'),
             ('egg_grade', 'VARCHAR(20)'),
@@ -33,8 +42,17 @@ def migrate_sales_table():
         ]
         
         for col_name, col_type in new_columns:
+            # Validate against whitelist before executing SQL
+            if col_name not in allowed_columns:
+                logger.error(f"Column '{col_name}' not in whitelist, skipping for security")
+                continue
+            if allowed_columns[col_name] != col_type:
+                logger.error(f"Column type mismatch for '{col_name}', skipping for security")
+                continue
+                
             if col_name not in columns:
                 try:
+                    # Column name validated against whitelist above
                     cursor.execute(f"ALTER TABLE sales ADD COLUMN {col_name} {col_type}")
                     logger.info(f"Added column '{col_name}' to sales table")
                 except sqlite3.OperationalError as e:

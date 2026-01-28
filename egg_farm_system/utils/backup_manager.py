@@ -105,8 +105,30 @@ class BackupManager:
             temp_dir.mkdir(exist_ok=True)
             
             try:
-                # Extract backup
+                # Extract backup with path validation
                 with zipfile.ZipFile(backup_path, 'r') as zipf:
+                    # Validate zip file
+                    if not zipfile.is_zipfile(backup_path):
+                        raise ValueError("Invalid zip file")
+                    
+                    # Validate all file paths before extraction
+                    for member in zipf.namelist():
+                        # Normalize the path and check for path traversal
+                        member_path = Path(member).resolve()
+                        temp_dir_resolved = temp_dir.resolve()
+                        
+                        # Check if the extracted path would be outside temp_dir
+                        try:
+                            member_path_relative = Path(temp_dir, member).resolve()
+                            member_path_relative.relative_to(temp_dir_resolved)
+                        except (ValueError, RuntimeError):
+                            raise ValueError(f"Illegal file path in zip: {member}")
+                        
+                        # Check for dangerous patterns
+                        if '..' in member or member.startswith('/') or member.startswith('\\'):
+                            raise ValueError(f"Illegal file path in zip: {member}")
+                    
+                    # If all paths are safe, extract
                     zipf.extractall(temp_dir)
                 
                 # Verify backup contains database

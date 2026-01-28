@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Optional
 from functools import wraps
 import hashlib
-import pickle
 
 logger = logging.getLogger(__name__)
 

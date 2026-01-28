@@ -24,6 +24,13 @@ def migrate_raw_materials_avg_cost():
         cursor.execute("PRAGMA table_info(raw_materials)")
         columns = [row[1] for row in cursor.fetchall()]
         
+        # Whitelist of allowed columns to prevent SQL injection
+        allowed_columns = {
+            'total_quantity_purchased': 'REAL NOT NULL DEFAULT 0.0',
+            'total_cost_purchased_afg': 'REAL NOT NULL DEFAULT 0.0',
+            'total_cost_purchased_usd': 'REAL NOT NULL DEFAULT 0.0'
+        }
+        
         new_columns = [
             ('total_quantity_purchased', 'REAL NOT NULL DEFAULT 0.0'),
             ('total_cost_purchased_afg', 'REAL NOT NULL DEFAULT 0.0'),
@@ -31,8 +38,17 @@ def migrate_raw_materials_avg_cost():
         ]
         
         for col_name, col_type in new_columns:
+            # Validate against whitelist before executing SQL
+            if col_name not in allowed_columns:
+                logger.error(f"Column '{col_name}' not in whitelist, skipping for security")
+                continue
+            if allowed_columns[col_name] != col_type:
+                logger.error(f"Column type mismatch for '{col_name}', skipping for security")
+                continue
+                
             if col_name not in columns:
                 try:
+                    # Column name validated against whitelist above
                     cursor.execute(f"ALTER TABLE raw_materials ADD COLUMN {col_name} {col_type}")
                     logger.info(f"Added column '{col_name}' to raw_materials table")
                 except sqlite3.OperationalError as e:
