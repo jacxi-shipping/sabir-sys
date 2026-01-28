@@ -73,15 +73,19 @@ class AuditTrail:
     """Manages audit trail logging"""
     
     def __init__(self):
-        self.session = DatabaseManager.get_session()
         # Ensure audit log table exists
         try:
             AuditLog.__table__.create(DatabaseManager._engine, checkfirst=True)
         except Exception as e:
             logger.debug(f"Audit log table may already exist: {e}")
+
+    def _get_session(self):
+        """Create a fresh database session for each operation."""
+        return DatabaseManager.get_session()
     
     def log(self, entry: AuditEntry):
         """Log an audit entry"""
+        session = self._get_session()
         try:
             audit_log = AuditLog(
                 timestamp=datetime.utcnow(),
@@ -98,13 +102,15 @@ class AuditTrail:
                 user_agent=entry.user_agent
             )
             
-            self.session.add(audit_log)
-            self.session.commit()
+            session.add(audit_log)
+            session.commit()
             logger.debug(f"Audit log created: {entry.action_type.value} {entry.entity_type}")
         
         except Exception as e:
             logger.error(f"Error logging audit entry: {e}")
-            self.session.rollback()
+            session.rollback()
+        finally:
+            session.close()
     
     def log_action(self, user_id: Optional[int], username: Optional[str], action_type: ActionType,
                    entity_type: str, entity_id: Optional[int] = None, entity_name: Optional[str] = None,
@@ -128,8 +134,9 @@ class AuditTrail:
                  user_id: Optional[int] = None, start_date: Optional[datetime] = None,
                  end_date: Optional[datetime] = None, limit: int = 100) -> List[AuditLog]:
         """Get audit logs with filters"""
+        session = self._get_session()
         try:
-            query = self.session.query(AuditLog)
+            query = session.query(AuditLog)
             
             if entity_type:
                 query = query.filter(AuditLog.entity_type == entity_type)
@@ -151,34 +158,41 @@ class AuditTrail:
         except Exception as e:
             logger.error(f"Error getting audit logs: {e}")
             return []
+        finally:
+            session.close()
     
     def get_entity_history(self, entity_type: str, entity_id: int) -> List[AuditLog]:
         """Get history of changes for a specific entity"""
+        session = self._get_session()
         try:
-            return self.session.query(AuditLog).filter(
+            return session.query(AuditLog).filter(
                 AuditLog.entity_type == entity_type,
                 AuditLog.entity_id == entity_id
             ).order_by(AuditLog.timestamp.desc()).all()
         except Exception as e:
             logger.error(f"Error getting entity history: {e}")
             return []
+        finally:
+            session.close()
     
     def get_user_activity(self, user_id: int, days: int = 30) -> List[AuditLog]:
         """Get activity for a user"""
+        session = self._get_session()
         try:
             start_date = datetime.utcnow() - timedelta(days=days)
-            return self.session.query(AuditLog).filter(
+            return session.query(AuditLog).filter(
                 AuditLog.user_id == user_id,
                 AuditLog.timestamp >= start_date
             ).order_by(AuditLog.timestamp.desc()).all()
         except Exception as e:
             logger.error(f"Error getting user activity: {e}")
             return []
+        finally:
+            session.close()
     
     def close(self):
         """Close database session"""
-        if self.session:
-            self.session.close()
+        return
 
 
 # Global audit trail instance

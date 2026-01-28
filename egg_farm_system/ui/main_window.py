@@ -58,6 +58,7 @@ from egg_farm_system.ui.animation_helper import AnimationHelper
 from egg_farm_system.ui.widgets.command_palette import CommandPalette
 from egg_farm_system.ui.widgets.import_wizard import ImportWizard
 from egg_farm_system.utils.alert_scheduler import AlertScheduler
+from sqlalchemy.orm import load_only
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,21 @@ class MainWindow(QMainWindow):
         if current_user:
             session = DatabaseManager.get_session()
             try:
-                self.current_user = session.query(User).filter_by(id=current_user.id).first()
+                self.current_user = (
+                    session.query(User)
+                    .options(
+                        load_only(
+                            User.id,
+                            User.username,
+                            User.password_hash,
+                            User.full_name,
+                            User.role,
+                            User.is_active,
+                        )
+                    )
+                    .filter_by(id=current_user.id)
+                    .first()
+                )
             finally:
                 session.close()
 

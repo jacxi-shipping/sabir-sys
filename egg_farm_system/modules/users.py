@@ -1,6 +1,6 @@
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import User
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 import hashlib, os, hmac
 import re
 
@@ -45,7 +45,21 @@ class UserManager:
         session = DatabaseManager.get_session()
         try:
             # Check if username already exists
-            existing = session.query(User).filter(User.username == username).first()
+            existing = (
+                session.query(User)
+                .options(
+                    load_only(
+                        User.id,
+                        User.username,
+                        User.password_hash,
+                        User.full_name,
+                        User.role,
+                        User.is_active,
+                    )
+                )
+                .filter(User.username == username)
+                .first()
+            )
             if existing:
                 raise ValueError(f"Username '{username}' already exists")
             
@@ -66,7 +80,21 @@ class UserManager:
     def get_user_by_username(username: str):
         session = DatabaseManager.get_session()
         try:
-            return session.query(User).filter(User.username == username).first()
+            return (
+                session.query(User)
+                .options(
+                    load_only(
+                        User.id,
+                        User.username,
+                        User.password_hash,
+                        User.full_name,
+                        User.role,
+                        User.is_active,
+                    )
+                )
+                .filter(User.username == username)
+                .first()
+            )
         finally:
             session.close()
 
@@ -82,7 +110,21 @@ class UserManager:
         """Get user by ID"""
         session = DatabaseManager.get_session()
         try:
-            return session.query(User).filter(User.id == user_id).first()
+            return (
+                session.query(User)
+                .options(
+                    load_only(
+                        User.id,
+                        User.username,
+                        User.password_hash,
+                        User.full_name,
+                        User.role,
+                        User.is_active,
+                    )
+                )
+                .filter(User.id == user_id)
+                .first()
+            )
         finally:
             session.close()
 
@@ -109,7 +151,17 @@ class UserManager:
     def set_password(user_id: int, new_password: str):
         session = DatabaseManager.get_session()
         try:
-            u = session.query(User).filter(User.id == user_id).first()
+            u = (
+                session.query(User)
+                .options(
+                    load_only(
+                        User.id,
+                        User.password_hash,
+                    )
+                )
+                .filter(User.id == user_id)
+                .first()
+            )
             if not u:
                 return False
             u.password_hash = _hash_password(new_password)
@@ -125,7 +177,17 @@ class UserManager:
             # verify old password
             session = DatabaseManager.get_session()
             try:
-                u = session.query(User).filter(User.id == user_id).first()
+                u = (
+                    session.query(User)
+                    .options(
+                        load_only(
+                            User.id,
+                            User.password_hash,
+                        )
+                    )
+                    .filter(User.id == user_id)
+                    .first()
+                )
                 if not u:
                     return False
                 if not _verify_password(u.password_hash, old_password):
@@ -143,7 +205,19 @@ class UserManager:
     def get_all_users():
         session = DatabaseManager.get_session()
         try:
-            return session.query(User).all()
+            return (
+                session.query(User)
+                .options(
+                    load_only(
+                        User.id,
+                        User.username,
+                        User.full_name,
+                        User.role,
+                        User.is_active,
+                    )
+                )
+                .all()
+            )
         finally:
             session.close()
 
@@ -151,7 +225,16 @@ class UserManager:
     def delete_user(user_id: int):
         session = DatabaseManager.get_session()
         try:
-            u = session.query(User).filter(User.id == user_id).first()
+            u = (
+                session.query(User)
+                .options(
+                    load_only(
+                        User.id,
+                    )
+                )
+                .filter(User.id == user_id)
+                .first()
+            )
             if u:
                 session.delete(u)
                 session.commit()
