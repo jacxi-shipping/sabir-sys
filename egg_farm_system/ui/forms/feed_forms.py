@@ -6,10 +6,13 @@ from egg_farm_system.utils.i18n import tr
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox,
     QDialog, QFormLayout, QLineEdit, QTableWidget, QTableWidgetItem, QTabWidget,
-    QDoubleSpinBox, QHeaderView, QSplitter, QComboBox, QDateEdit, QGroupBox
+    QDoubleSpinBox, QHeaderView, QSplitter, QComboBox, QGroupBox
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date
 
 from egg_farm_system.modules.feed_mill import RawMaterialManager, FeedFormulaManager, FeedProductionManager, FeedIssueManager
 from egg_farm_system.modules.sheds import ShedManager
@@ -361,7 +364,7 @@ class IssuingTab(QWidget):
         layout = QFormLayout(self)
         self.feed_combo = QComboBox(); self.shed_combo = QComboBox()
         self.quantity_spin = QDoubleSpinBox(); self.quantity_spin.setRange(0.1, 5000.0)
-        self.date_edit = QDateEdit(QDate.currentDate()); self.date_edit.setCalendarPopup(True)
+        self.date_edit = JalaliDateEdit(initial=date.today())
         issue_btn = QPushButton(tr("Issue Feed")); issue_btn.clicked.connect(self.issue)
         layout.addRow("Finished Feed:", self.feed_combo); layout.addRow("Issue to Shed:", self.shed_combo)
         layout.addRow("Quantity (kg):", self.quantity_spin); layout.addRow("Date:", self.date_edit); layout.addRow(issue_btn)
@@ -376,7 +379,7 @@ class IssuingTab(QWidget):
         shed = self.shed_manager.session.query(Shed).filter_by(name=shed_name).first()
         if not finished_feed or not shed: return QMessageBox.critical(self, tr("Error"), "Feed or Shed not found.")
         try:
-            self.manager.issue_feed(shed.id, finished_feed.id, self.quantity_spin.value(), self.date_edit.date().toPython())
+            self.manager.issue_feed(shed.id, finished_feed.id, self.quantity_spin.value(), self.date_edit.date())
             QMessageBox.information(self, tr("Success"), "Feed issued successfully.")
         except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
 

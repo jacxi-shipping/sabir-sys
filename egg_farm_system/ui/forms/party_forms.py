@@ -7,9 +7,9 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTableWidget, QTableWidgetItem, QMessageBox, QDialog, QFormLayout,
     QTextEdit, QSizePolicy, QHeaderView, QToolButton, QAbstractItemView,
-    QComboBox, QDateTimeEdit, QDoubleSpinBox, QGroupBox
+    QComboBox, QDoubleSpinBox, QGroupBox
 )
-from PySide6.QtCore import Qt, QSize, QTimer, QDateTime
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QIcon
 from pathlib import Path
 from egg_farm_system.ui.widgets.datatable import DataTableWidget
@@ -17,6 +17,8 @@ from egg_farm_system.ui.widgets.loading_overlay import LoadingOverlay
 from egg_farm_system.ui.widgets.success_message import SuccessMessage
 from egg_farm_system.ui.widgets.keyboard_shortcuts import KeyboardShortcuts
 from egg_farm_system.utils.error_handler import ErrorHandler
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateTimeEdit
+from datetime import datetime
 
 from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.modules.ledger import LedgerManager
@@ -452,10 +454,7 @@ class PartyTransactionDialog(QDialog):
         transaction_layout.addRow("Transaction Type:", self.transaction_type_combo)
         
         # Date
-        self.date_edit = QDateTimeEdit()
-        self.date_edit.setDateTime(QDateTime.currentDateTime())
-        self.date_edit.setCalendarPopup(True)
-        self.date_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.date_edit = JalaliDateTimeEdit(initial=datetime.now())
         self.date_edit.setMinimumWidth(250)
         transaction_layout.addRow("Date:", self.date_edit)
         
@@ -686,7 +685,7 @@ class PartyTransactionDialog(QDialog):
                 return
             
             transaction_type = self.transaction_type_combo.currentText()
-            date = self.date_edit.dateTime().toPython()
+            date = self.date_edit.dateTime()
             
             # Post to ledger
             session = DatabaseManager.get_session()

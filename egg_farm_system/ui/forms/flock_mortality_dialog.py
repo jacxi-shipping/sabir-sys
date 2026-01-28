@@ -1,10 +1,13 @@
 from egg_farm_system.utils.i18n import tr
 import logging
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLabel, QDateEdit, QSpinBox, QPushButton, QMessageBox, QHBoxLayout
+    QDialog, QVBoxLayout, QFormLayout, QLabel, QSpinBox, QPushButton, QMessageBox, QHBoxLayout
 )
-from PySide6.QtCore import Qt, QDate, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date
 
 from egg_farm_system.modules.flocks import FlockManager
 
@@ -34,9 +37,7 @@ class MortalityDialog(QDialog):
         main.addWidget(title)
 
         form = QFormLayout()
-        self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)
-        self.date_edit.setDate(QDate.currentDate())
+        self.date_edit = JalaliDateEdit(initial=date.today())
         form.addRow(tr("Date:"), self.date_edit)
 
         self.count_spin = QSpinBox()
@@ -61,7 +62,7 @@ class MortalityDialog(QDialog):
         main.addLayout(btns)
 
     def save(self):
-        date = self.date_edit.date().toPython()
+        date = self.date_edit.date()
         count = self.count_spin.value()
         try:
             fm = FlockManager()

@@ -5,11 +5,14 @@ from egg_farm_system.utils.i18n import tr
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QComboBox, QDoubleSpinBox,
-    QDateEdit, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
+    QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
     QMessageBox, QHeaderView, QLabel,
 )
-from PySide6.QtCore import QDate, QTimer, Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QFont
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date, timedelta
 
 from egg_farm_system.modules.employees import EmployeeManager, SalaryManager
 from egg_farm_system.database.models import Employee
@@ -49,19 +52,16 @@ class SalaryPaymentWidget(QWidget):
         self.amount_spinbox.setToolTip(tr("Enter the payment amount in AFN (required)"))
         self.amount_spinbox.setValue(0.00)  # Set default value instead of placeholder
 
-        self.period_start_date = QDateEdit(QDate.currentDate().addMonths(-1))
-        self.period_start_date.setCalendarPopup(True)
-        self.period_start_date.setDisplayFormat("yyyy-MM-dd")
+        today = date.today()
+        month_ago = today - timedelta(days=30)
+        
+        self.period_start_date = JalaliDateEdit(initial=month_ago)
         self.period_start_date.setToolTip(tr("Select the start date of the pay period (required)"))
         
-        self.period_end_date = QDateEdit(QDate.currentDate())
-        self.period_end_date.setCalendarPopup(True)
-        self.period_end_date.setDisplayFormat("yyyy-MM-dd")
+        self.period_end_date = JalaliDateEdit(initial=today)
         self.period_end_date.setToolTip(tr("Select the end date of the pay period (required)"))
 
-        self.payment_date = QDateEdit(QDate.currentDate())
-        self.payment_date.setCalendarPopup(True)
-        self.payment_date.setDisplayFormat("yyyy-MM-dd")
+        self.payment_date = JalaliDateEdit(initial=today)
         self.payment_date.setToolTip(tr("Select the payment date (required)"))
 
         self.notes_edit = QLineEdit()
@@ -192,9 +192,9 @@ class SalaryPaymentWidget(QWidget):
             return
 
         # Validate dates
-        period_start = self.period_start_date.date().toPython()
-        period_end = self.period_end_date.date().toPython()
-        payment_date = self.payment_date.date().toPython()
+        period_start = self.period_start_date.date()
+        period_end = self.period_end_date.date()
+        payment_date = self.payment_date.date()
         
         if period_start > period_end:
             QMessageBox.warning(self, tr("Validation Error"), "Pay period start date must be before end date.")

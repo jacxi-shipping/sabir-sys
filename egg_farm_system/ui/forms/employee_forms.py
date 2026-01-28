@@ -6,10 +6,13 @@ from egg_farm_system.utils.i18n import tr
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox,
     QDialog, QFormLayout, QLineEdit, QTableWidget, QTableWidgetItem, QTabWidget,
-    QDoubleSpinBox, QHeaderView, QComboBox, QDateEdit
+    QDoubleSpinBox, QHeaderView, QComboBox
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date
 
 from egg_farm_system.modules.employees import EmployeeManager
 from egg_farm_system.database.models import SalaryPeriod
@@ -24,8 +27,7 @@ class EmployeeDialog(QDialog):
 
         self.name_edit = QLineEdit(employee.full_name if employee else "")
         self.title_edit = QLineEdit(employee.job_title if employee else "")
-        self.hire_date_edit = QDateEdit(employee.hire_date if employee else QDate.currentDate())
-        self.hire_date_edit.setCalendarPopup(True)
+        self.hire_date_edit = JalaliDateEdit(initial=employee.hire_date if employee else date.today())
         self.salary_amount_spin = QDoubleSpinBox()
         self.salary_amount_spin.setRange(0, 10_000_000)
         self.salary_amount_spin.setValue(employee.salary_amount if employee else 0)
@@ -60,7 +62,7 @@ class EmployeeDialog(QDialog):
         return {
             "full_name": self.name_edit.text(),
             "job_title": self.title_edit.text(),
-            "hire_date": self.hire_date_edit.date().toPython(),
+            "hire_date": self.hire_date_edit.date(),
             "salary_amount": self.salary_amount_spin.value(),
             "salary_period": SalaryPeriod(self.salary_period_combo.currentText())
         }

@@ -3,9 +3,11 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QHBoxLayout, QLabel,
-    QDateEdit, QDoubleSpinBox, QTextEdit, QMessageBox, QComboBox
+    QDoubleSpinBox, QTextEdit, QMessageBox, QComboBox
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date
 from egg_farm_system.utils.i18n import tr
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.ui.ui_helpers import create_button
@@ -76,9 +78,7 @@ class AddTransactionDialog(QDialog):
             except Exception:
                 pass
 
-        self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)
-        self.date_edit.setDate(QDate.currentDate())
+        self.date_edit = JalaliDateEdit(initial=date.today())
         form.addRow(tr("Date:"), self.date_edit)
 
         self.amount_afg_spin = QDoubleSpinBox()
@@ -147,7 +147,7 @@ class AddTransactionDialog(QDialog):
         amount_afg = self.amount_afg_spin.value()
         amount_usd = self.amount_usd_spin.value()
         description = self.description_edit.toPlainText().strip() or f"Direct {self.transaction_type.lower()} entry"
-        date = self.date_edit.date().toPython()
+        date = self.date_edit.date()
         payment_method = self.payment_method_combo.currentText()
 
         session = DatabaseManager.get_session()

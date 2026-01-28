@@ -5,11 +5,14 @@ from egg_farm_system.utils.i18n import tr
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QMessageBox, QDialog, QFormLayout, QDateEdit, QSpinBox, QLineEdit, QToolButton,
+    QMessageBox, QDialog, QFormLayout, QSpinBox, QLineEdit, QToolButton,
     QTabWidget
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIcon, QStandardItem
+
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
+from datetime import date
 
 from egg_farm_system.modules.farms import FarmManager
 from egg_farm_system.modules.sheds import ShedManager
@@ -24,12 +27,7 @@ class FlockDialog(QDialog):
         layout = QFormLayout(self)
         
         self.name_edit = QLineEdit(flock.name if flock else "")
-        self.date_edit = QDateEdit()
-        self.date_edit.setCalendarPopup(True)
-        if flock:
-            self.date_edit.setDate(flock.start_date)
-        else:
-            self.date_edit.setDate(QDate.currentDate())
+        self.date_edit = JalaliDateEdit(initial=flock.start_date if flock else date.today())
             
         self.count_spin = QSpinBox()
         self.count_spin.setRange(1, 100000)
@@ -51,7 +49,7 @@ class FlockDialog(QDialog):
     def get_data(self):
         return {
             "name": self.name_edit.text(),
-            "start_date": self.date_edit.date().toPython(),
+            "start_date": self.date_edit.date(),
             "initial_count": self.count_spin.value()
         }
 
