@@ -602,5 +602,5 @@ class CashTransactionDialog(QDialog):
                 
         except Exception as e:
             logger.error(f"Error saving cash transaction: {e}")
-            QMessageBox.critical(self, tr("Error"), f"Failed to save transaction: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to save transaction: {e}")
 

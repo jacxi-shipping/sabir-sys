@@ -349,11 +349,10 @@ class FarmFormWidget(QWidget):
             QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
 
     def add_action_buttons(self, table, row, item_instance, edit_func, delete_func):
-        from egg_farm_system.config import get_asset_path
-        edit_btn = QToolButton(); edit_btn.setIcon(QIcon(get_asset_path('icon_edit.svg')))
-        edit_btn.setToolTip(tr('Edit')); edit_btn.clicked.connect(lambda: edit_func(item_instance))
-        delete_btn = QToolButton(); delete_btn.setIcon(QIcon(get_asset_path('icon_delete.svg')))
-        delete_btn.setToolTip(tr('Delete')); delete_btn.clicked.connect(lambda: delete_func(item_instance))
+        edit_btn = QToolButton(); edit_btn.setIcon(QIcon(str(Path(__file__).parent.parent.parent / 'assets' / 'icon_edit.svg')))
+        edit_btn.setToolTip('Edit'); edit_btn.clicked.connect(lambda: edit_func(item_instance))
+        delete_btn = QToolButton(); delete_btn.setIcon(QIcon(str(Path(__file__).parent.parent.parent / 'assets' / 'icon_delete.svg')))
+        delete_btn.setToolTip('Delete'); delete_btn.clicked.connect(lambda: delete_func(item_instance))
         container = QWidget()
         container.setMinimumHeight(36)
         container.setMaximumHeight(36)
