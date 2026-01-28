@@ -1,9 +1,11 @@
 from egg_farm_system.utils.i18n import tr
-from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QPushButton, QMessageBox
+from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QToolButton
 from PySide6.QtCore import QTimer
+from PySide6.QtGui import QIcon
 from egg_farm_system.modules.users import UserManager
 from datetime import datetime, timedelta
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -22,17 +24,58 @@ class LoginDialog(QDialog):
 
         layout = QFormLayout()
         self.username = QLineEdit()
+        self.username.setPlaceholderText(tr("Enter your username"))
+        
+        # Password field with visibility toggle
+        password_layout = QHBoxLayout()
+        password_layout.setSpacing(5)
+        password_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password.setPlaceholderText(tr("Enter your password"))
+        password_layout.addWidget(self.password)
+        
+        # Password visibility toggle button
+        self.toggle_password_btn = QToolButton()
+        self.toggle_password_btn.setText("👁")
+        self.toggle_password_btn.setToolTip(tr("Show/hide password"))
+        self.toggle_password_btn.setCheckable(True)
+        self.toggle_password_btn.clicked.connect(self._toggle_password_visibility)
+        self.toggle_password_btn.setStyleSheet("""
+            QToolButton {
+                border: none;
+                padding: 2px;
+                font-size: 16px;
+            }
+            QToolButton:hover {
+                background-color: #e0e0e0;
+                border-radius: 3px;
+            }
+        """)
+        password_layout.addWidget(self.toggle_password_btn)
 
         layout.addRow('Username:', self.username)
-        layout.addRow('Password:', self.password)
+        layout.addRow('Password:', password_layout)
 
         btn = QPushButton(tr('Login'))
         btn.clicked.connect(self.attempt_login)
+        btn.setDefault(True)  # Allow Enter key to login
         layout.addRow(btn)
 
         self.setLayout(layout)
+        
+        # Set focus to username
+        self.username.setFocus()
+    
+    def _toggle_password_visibility(self):
+        """Toggle password visibility"""
+        if self.toggle_password_btn.isChecked():
+            self.password.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.toggle_password_btn.setToolTip(tr("Hide password"))
+        else:
+            self.password.setEchoMode(QLineEdit.EchoMode.Password)
+            self.toggle_password_btn.setToolTip(tr("Show password"))
 
     def attempt_login(self):
         uname = self.username.text().strip()
