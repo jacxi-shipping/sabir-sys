@@ -51,6 +51,14 @@ def main():
         # Initialize database
         DatabaseManager.initialize()
         logger.info("Database initialized")
+        
+        # Run database migrations
+        try:
+            from egg_farm_system.database.migrate_add_farm_id import migrate_add_farm_id
+            migrate_add_farm_id()
+            logger.info("Database migrations completed")
+        except Exception as e:
+            logger.warning(f"Database migration failed (may already be applied): {e}")
 
         # Show login dialog and require successful auth before showing main UI
         login = LoginDialog()

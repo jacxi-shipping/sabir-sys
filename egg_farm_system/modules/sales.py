@@ -1,7 +1,7 @@
 """
 Sales module with auto ledger posting and performance optimizations
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from egg_farm_system.database.models import Sale, EggProduction
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.ledger import LedgerManager
@@ -169,18 +169,34 @@ class SalesManager:
         """Record egg sale and post to ledger"""
         try:
             with measure_time(f"record_sale_party_{party_id}"):
-                # Input validation
+                # Enhanced input validation
+                if not party_id or party_id <= 0:
+                    raise ValueError("Invalid party ID")
                 if quantity <= 0:
                     raise ValueError("Quantity must be greater than 0")
+                if quantity > 1_000_000:  # Reasonable upper limit
+                    raise ValueError("Quantity exceeds maximum allowed (1,000,000)")
                 if rate_afg < 0:
                     raise ValueError("Rate (AFG) cannot be negative")
+                if rate_afg > 100_000:  # Reasonable upper limit per egg
+                    raise ValueError("Rate (AFG) exceeds maximum allowed")
                 if rate_usd < 0:
                     raise ValueError("Rate (USD) cannot be negative")
                 if exchange_rate_used <= 0:
                     raise ValueError("Exchange rate must be greater than 0")
+                if exchange_rate_used > 1000:  # Sanity check
+                    raise ValueError("Exchange rate seems unreasonable")
+                if notes and len(notes) > 1000:
+                    raise ValueError("Notes too long (max 1000 characters)")
+                if payment_method not in ["Cash", "Credit"]:
+                    raise ValueError("Payment method must be 'Cash' or 'Credit'")
                 
                 if date is None:
                     date = datetime.utcnow()
+                
+                # Validate date not too far in the future
+                if date > datetime.utcnow() + timedelta(days=1):
+                    raise ValueError("Sale date cannot be more than 1 day in the future")
                 
                 total_afg = quantity * rate_afg
                 total_usd = quantity * rate_usd
