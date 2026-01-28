@@ -438,6 +438,7 @@ class Sale(Base):
     
     id = Column(Integer, primary_key=True)
     party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True, index=True)  # Farm producing the eggs
     date = Column(DateTime, nullable=False, index=True)
     quantity = Column(Integer, nullable=False)  # Number of eggs
     rate_afg = Column(Float, nullable=False)  # Price per egg in AFG
@@ -458,9 +459,11 @@ class Sale(Base):
     
     # Relationships
     party = relationship("Party", back_populates="sales")
+    farm = relationship("Farm")
     
     __table_args__ = (
         Index('idx_sale_party_id', 'party_id'),
+        Index('idx_sale_farm_id', 'farm_id'),
         Index('idx_sale_date', 'date'),
         {'extend_existing': True}
     )
@@ -507,6 +510,7 @@ class Purchase(Base):
     
     id = Column(Integer, primary_key=True)
     party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True, index=True)  # Farm making the purchase
     material_id = Column(Integer, ForeignKey("raw_materials.id"), index=True)
     date = Column(DateTime, nullable=False, index=True)
     quantity = Column(Float, nullable=False)  # in kg
@@ -521,10 +525,12 @@ class Purchase(Base):
     
     # Relationships
     party = relationship("Party", back_populates="purchases")
+    farm = relationship("Farm")
     material = relationship("RawMaterial", back_populates="purchases") # Added this relationship
     
     __table_args__ = (
         Index('idx_purchase_party_id', 'party_id'),
+        Index('idx_purchase_farm_id', 'farm_id'),
         Index('idx_purchase_material_id', 'material_id'),
         Index('idx_purchase_date', 'date'),
     )

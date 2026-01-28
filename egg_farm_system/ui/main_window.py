@@ -530,7 +530,7 @@ class MainWindow(QMainWindow):
     
     def load_inventory(self):
         """Load inventory widget"""
-        inventory_widget = InventoryFormWidget()
+        inventory_widget = InventoryFormWidget(self.get_current_farm_id())
         self.replace_content(inventory_widget)
         self._update_breadcrumbs("Inventory", "inventory")
         self._add_to_history("Inventory", "inventory", self.load_inventory)

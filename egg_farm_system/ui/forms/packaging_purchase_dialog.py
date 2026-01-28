@@ -19,8 +19,9 @@ class PackagingPurchaseDialog(QDialog):
 
     purchase_saved = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, farm_id=None):
         super().__init__(parent)
+        self.farm_id = farm_id
         self.setWindowTitle(tr("Purchase Packaging"))
         self.setModal(True)
         self.setMinimumWidth(480)
@@ -180,7 +181,8 @@ class PackagingPurchaseDialog(QDialog):
                     rate_usd=rate_usd,
                     exchange_rate_used=rate_afg / rate_usd if rate_usd > 0 else 1.0,
                     notes=notes,
-                    payment_method='Cash'
+                    payment_method='Cash',
+                    farm_id=self.farm_id  # Pass farm_id for filtering
                 )
             finally:
                 pm.close_session()

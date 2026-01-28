@@ -165,7 +165,7 @@ class SalesManager:
         self.close_session()
     
     def record_sale(self, party_id, quantity, rate_afg, rate_usd, 
-                    exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+                    exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Record egg sale and post to ledger"""
         try:
             with measure_time(f"record_sale_party_{party_id}"):
@@ -187,6 +187,7 @@ class SalesManager:
                 
                 sale = Sale(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     quantity=quantity,
                     rate_afg=rate_afg,
@@ -242,7 +243,7 @@ class SalesManager:
     
     def record_sale_advanced(self, party_id, cartons, eggs, grade, rate_afg, rate_usd,
                             tray_expense_afg=0, carton_expense_afg=0,
-                            exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+                            exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Record advanced egg sale with carton and expense tracking"""
         try:
             # Input validation
@@ -270,6 +271,7 @@ class SalesManager:
             
             sale = Sale(
                 party_id=party_id,
+                farm_id=farm_id,
                 date=date,
                 quantity=eggs,
                 cartons=cartons,

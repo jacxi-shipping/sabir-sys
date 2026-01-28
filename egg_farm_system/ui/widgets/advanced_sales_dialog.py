@@ -469,7 +469,8 @@ class AdvancedSalesDialog(QDialog):
                     date=self.date_edit.dateTime(),
                     notes=self.notes_edit.toPlainText(),
                     exchange_rate_used=exchange_rate,
-                    payment_method=self.payment_method_combo.currentText()
+                    payment_method=self.payment_method_combo.currentText(),
+                    farm_id=self.farm_id  # Pass farm_id for filtering
                 )
             
             QMessageBox.information(self, tr("Success"), "Sale recorded successfully!")

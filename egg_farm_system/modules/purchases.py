@@ -33,7 +33,7 @@ class PurchaseManager:
         self.close_session()
     
     def record_purchase(self, party_id, material_id, quantity, rate_afg, rate_usd,
-                       exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+                       exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Record material purchase and post to ledger"""
         try:
             with measure_time(f"record_purchase_party_{party_id}"):
@@ -59,6 +59,7 @@ class PurchaseManager:
                 
                 purchase = Purchase(
                     party_id=party_id,
+                    farm_id=farm_id,
                     material_id=material_id,
                     date=date,
                     quantity=quantity,
@@ -117,7 +118,7 @@ class PurchaseManager:
             raise
 
     def record_packaging_purchase(self, party_id, material_name, quantity, rate_afg, rate_usd,
-                                  exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+                                  exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Convenience wrapper to purchase packaging items (Carton/Tray) by name.
 
         If the `RawMaterial` doesn't exist, it will be created with unit='pcs'.
@@ -144,13 +145,14 @@ class PurchaseManager:
                 exchange_rate_used=exchange_rate_used,
                 date=date,
                 notes=notes,
-                payment_method=payment_method
+                payment_method=payment_method,
+                farm_id=farm_id
             )
         except Exception as e:
             logger.error(f"Error recording packaging purchase: {e}")
             raise
     
-    def get_purchases(self, party_id=None, material_id=None, start_date=None, end_date=None):
+    def get_purchases(self, party_id=None, material_id=None, start_date=None, end_date=None, farm_id=None):
         """Get purchase records"""
         try:
             query = self.session.query(Purchase)
@@ -166,6 +168,9 @@ class PurchaseManager:
             
             if end_date:
                 query = query.filter(Purchase.date <= end_date)
+            
+            if farm_id:
+                query = query.filter(Purchase.farm_id == farm_id)
             
             return query.order_by(Purchase.date.desc()).all()
         except Exception as e:
