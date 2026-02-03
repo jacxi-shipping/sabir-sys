@@ -28,7 +28,7 @@ from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.modules.inventory import InventoryManager
 from egg_farm_system.modules.feed_mill import RawMaterialManager
 from egg_farm_system.modules.farms import FarmManager
-from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
+from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense, Ledger
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES
 from egg_farm_system.ui.widgets.advanced_sales_dialog_new import AdvancedSalesDialogNew as AdvancedSalesDialog
@@ -385,20 +385,37 @@ class TransactionFormWidget(QWidget):
                 self.loading_overlay.hide()
                 QMessageBox.critical(self, tr("Delete Failed"), f"Failed to delete transaction: {str(e)}")
     
+    def _delete_ledger_entries(self, session, reference_type, reference_id):
+        """Delete ledger entries associated with a transaction"""
+        session.query(Ledger).filter(
+            Ledger.reference_type == reference_type,
+            Ledger.reference_id == reference_id
+        ).delete()
+
     def _do_delete_transaction(self, transaction, trans_type):
         """Perform the actual delete"""
         try:
             session = DatabaseManager.get_session()
             try:
+                obj = None
+                
                 if trans_type == 'sale':
                     obj = session.query(Sale).filter(Sale.id == transaction.id).first()
+                    if obj:
+                        self._delete_ledger_entries(session, "Sale", transaction.id)
+                        session.delete(obj)
                 elif trans_type == 'purchase':
                     obj = session.query(Purchase).filter(Purchase.id == transaction.id).first()
-                else:
+                    if obj:
+                        self._delete_ledger_entries(session, "Purchase", transaction.id)
+                        session.delete(obj)
+                else:  # expense
                     obj = session.query(Expense).filter(Expense.id == transaction.id).first()
+                    if obj:
+                        self._delete_ledger_entries(session, "Expense", transaction.id)
+                        session.delete(obj)
 
                 if obj:
-                    session.delete(obj)
                     session.commit()
                     self.loading_overlay.hide()
                     self.refresh_data()
