@@ -9,6 +9,7 @@ from egg_farm_system.database.models import (
 from egg_farm_system.utils.advanced_caching import report_cache, CacheInvalidationManager
 from egg_farm_system.utils.query_optimizer import AggregationHelper
 from egg_farm_system.utils.performance_monitoring import measure_time
+from egg_farm_system.utils.currency import CurrencyConverter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class FinancialReportGenerator:
             session: SQLAlchemy database session (caller must close it)
         """
         self.session = session
+        self.currency_converter = CurrencyConverter()
 
     def _ensure_end_of_day(self, date_obj):
         """Helper to ensure end date includes the whole day"""
@@ -94,15 +96,27 @@ class FinancialReportGenerator:
             # 5. Calculate Net Profit
             net_profit = gross_profit - total_expenses
 
+            # Convert all amounts to USD
+            total_revenue_usd = self.currency_converter.afg_to_usd(total_revenue)
+            total_cogs_usd = self.currency_converter.afg_to_usd(total_cogs)
+            gross_profit_usd = self.currency_converter.afg_to_usd(gross_profit)
+            total_expenses_usd = self.currency_converter.afg_to_usd(total_expenses)
+            net_profit_usd = self.currency_converter.afg_to_usd(net_profit)
+
             pnl_data = {
                 "start_date": start_date,
                 "end_date": end_date,
                 "farm_id": farm_id,
                 "total_revenue": total_revenue,
+                "total_revenue_usd": total_revenue_usd,
                 "total_cogs": total_cogs,
+                "total_cogs_usd": total_cogs_usd,
                 "gross_profit": gross_profit,
+                "gross_profit_usd": gross_profit_usd,
                 "total_expenses": total_expenses,
-                "net_profit": net_profit
+                "total_expenses_usd": total_expenses_usd,
+                "net_profit": net_profit,
+                "net_profit_usd": net_profit_usd
             }
             
             # Cache the report for 30 minutes
@@ -153,17 +167,31 @@ class FinancialReportGenerator:
         # --- Net Cash Flow ---
         net_cash_flow = total_inflows - total_outflows
 
+        # Convert all amounts to USD
+        total_inflows_usd = self.currency_converter.afg_to_usd(total_inflows)
+        payments_received_usd = self.currency_converter.afg_to_usd(payments_received)
+        total_outflows_usd = self.currency_converter.afg_to_usd(total_outflows)
+        direct_cash_expenses_usd = self.currency_converter.afg_to_usd(direct_cash_expenses)
+        payments_paid_usd = self.currency_converter.afg_to_usd(payments_paid)
+        net_cash_flow_usd = self.currency_converter.afg_to_usd(net_cash_flow)
+
         cash_flow_data = {
             "start_date": start_date,
             "end_date": end_date,
             "farm_id": farm_id,
             "total_inflows": total_inflows,
+            "total_inflows_usd": total_inflows_usd,
             "inflows_from_sales": 0, # Removed as sales are accrual
             "inflows_from_payments": payments_received,
+            "inflows_from_payments_usd": payments_received_usd,
             "total_outflows": total_outflows,
+            "total_outflows_usd": total_outflows_usd,
             "outflows_for_purchases": 0, # Removed as purchases are accrual
             "outflows_for_expenses": direct_cash_expenses,
+            "outflows_for_expenses_usd": direct_cash_expenses_usd,
             "outflows_for_payments": payments_paid,
-            "net_cash_flow": net_cash_flow
+            "outflows_for_payments_usd": payments_paid_usd,
+            "net_cash_flow": net_cash_flow,
+            "net_cash_flow_usd": net_cash_flow_usd
         }
         return cash_flow_data
