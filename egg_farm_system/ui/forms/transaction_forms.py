@@ -390,6 +390,9 @@ class TransactionFormWidget(QWidget):
         try:
             session = DatabaseManager.get_session()
             try:
+                obj = None
+                deleted = False
+                
                 if trans_type == 'sale':
                     obj = session.query(Sale).filter(Sale.id == transaction.id).first()
                     if obj:
@@ -399,6 +402,7 @@ class TransactionFormWidget(QWidget):
                             Ledger.reference_id == transaction.id
                         ).delete()
                         session.delete(obj)
+                        deleted = True
                 elif trans_type == 'purchase':
                     obj = session.query(Purchase).filter(Purchase.id == transaction.id).first()
                     if obj:
@@ -408,7 +412,8 @@ class TransactionFormWidget(QWidget):
                             Ledger.reference_id == transaction.id
                         ).delete()
                         session.delete(obj)
-                else:
+                        deleted = True
+                else:  # expense
                     obj = session.query(Expense).filter(Expense.id == transaction.id).first()
                     if obj:
                         # Delete associated ledger entries first
@@ -417,8 +422,9 @@ class TransactionFormWidget(QWidget):
                             Ledger.reference_id == transaction.id
                         ).delete()
                         session.delete(obj)
+                        deleted = True
 
-                if obj:
+                if deleted:
                     session.commit()
                     self.loading_overlay.hide()
                     self.refresh_data()
