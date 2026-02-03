@@ -28,7 +28,7 @@ from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.modules.inventory import InventoryManager
 from egg_farm_system.modules.feed_mill import RawMaterialManager
 from egg_farm_system.modules.farms import FarmManager
-from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
+from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense, Ledger
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES
 from egg_farm_system.ui.widgets.advanced_sales_dialog_new import AdvancedSalesDialogNew as AdvancedSalesDialog
@@ -392,13 +392,33 @@ class TransactionFormWidget(QWidget):
             try:
                 if trans_type == 'sale':
                     obj = session.query(Sale).filter(Sale.id == transaction.id).first()
+                    if obj:
+                        # Delete associated ledger entries first
+                        session.query(Ledger).filter(
+                            Ledger.reference_type == "Sale",
+                            Ledger.reference_id == transaction.id
+                        ).delete()
+                        session.delete(obj)
                 elif trans_type == 'purchase':
                     obj = session.query(Purchase).filter(Purchase.id == transaction.id).first()
+                    if obj:
+                        # Delete associated ledger entries first
+                        session.query(Ledger).filter(
+                            Ledger.reference_type == "Purchase",
+                            Ledger.reference_id == transaction.id
+                        ).delete()
+                        session.delete(obj)
                 else:
                     obj = session.query(Expense).filter(Expense.id == transaction.id).first()
+                    if obj:
+                        # Delete associated ledger entries first
+                        session.query(Ledger).filter(
+                            Ledger.reference_type == "Expense",
+                            Ledger.reference_id == transaction.id
+                        ).delete()
+                        session.delete(obj)
 
                 if obj:
-                    session.delete(obj)
                     session.commit()
                     self.loading_overlay.hide()
                     self.refresh_data()

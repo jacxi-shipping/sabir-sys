@@ -413,6 +413,17 @@ class PartyViewDialog(QDialog):
     def delete_transaction(self, entry, row):
         """Delete transaction entry"""
         try:
+            # Check if this is a manual entry or linked to a transaction
+            if entry.reference_type and entry.reference_type != "Manual Entry":
+                QMessageBox.warning(
+                    self, 
+                    tr("Cannot Delete"),
+                    f"This ledger entry is linked to a {entry.reference_type} transaction.\n\n"
+                    f"Please delete the {entry.reference_type} transaction directly from the "
+                    f"transactions screen instead."
+                )
+                return
+            
             reply = QMessageBox.question(
                 self, 
                 tr("Confirm Delete"),
