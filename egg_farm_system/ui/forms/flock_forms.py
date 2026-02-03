@@ -95,10 +95,16 @@ class FlockManagementWidget(QWidget):
         self.add_btn.setEnabled(False)
         filter_layout.addWidget(self.add_btn)
         
+        self.delete_btn = QPushButton(tr("Delete Selected"))
+        self.delete_btn.clicked.connect(self.delete_selected_flocks)
+        self.delete_btn.setToolTip(tr("Delete selected flocks (supports multi-selection)"))
+        filter_layout.addWidget(self.delete_btn)
+        
         layout.addLayout(filter_layout)
         
         # Table
         self.table = DataTableWidget()
+        self.table.enable_multi_selection()  # Enable bulk selection
         self.table.set_headers(["ID", "Name", "Start Date", "Initial", "Live", "Age (Days)", "Actions"])
         self.table.view.setColumnHidden(0, True)
         layout.addWidget(self.table)
@@ -271,6 +277,64 @@ class FlockManagementWidget(QWidget):
                 fm.delete_flock(flock.id)
                 self.refresh_flocks()
                 QMessageBox.information(self, tr("Success"), "Flock deleted successfully")
+            except Exception as e:
+                QMessageBox.critical(self, tr("Error"), str(e))
+    
+    def delete_selected_flocks(self):
+        """Delete multiple selected flocks"""
+        selected_data = self.table.get_selected_row_data(columns=[0, 1])  # Get ID and Name
+        
+        if not selected_data:
+            QMessageBox.warning(self, tr("Selection Error"), "Please select flock(s) to delete.")
+            return
+        
+        # Extract flock IDs and names
+        flock_details = []
+        for row_data in selected_data:
+            flock_id = int(row_data[0]) if row_data[0] else None
+            flock_name = row_data[1] if len(row_data) > 1 else "Unknown"
+            if flock_id:
+                flock_details.append({'id': flock_id, 'name': flock_name})
+        
+        if not flock_details:
+            QMessageBox.warning(self, tr("Error"), "Could not identify selected flocks.")
+            return
+        
+        # Build confirmation message
+        if len(flock_details) == 1:
+            message = f"Delete flock '{flock_details[0]['name']}'? This cannot be undone."
+        else:
+            message = f"Are you sure you want to delete {len(flock_details)} flocks?\n\n"
+            message += "\n".join(f"• {fd['name']}" for fd in flock_details[:5])
+            if len(flock_details) > 5:
+                message += f"\n... and {len(flock_details) - 5} more"
+            message += "\n\nThis cannot be undone."
+        
+        reply = QMessageBox.question(self, "Confirm Bulk Delete", message)
+        
+        if reply == QMessageBox.Yes:
+            try:
+                fm = FlockManager()
+                deleted_count = 0
+                errors = []
+                
+                for fd in flock_details:
+                    try:
+                        fm.delete_flock(fd['id'])
+                        deleted_count += 1
+                    except Exception as e:
+                        errors.append(f"{fd['name']}: {str(e)}")
+                
+                self.refresh_flocks()
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(flock_details)} flocks.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    QMessageBox.information(self, tr("Success"), f"Successfully deleted {deleted_count} flock(s)")
             except Exception as e:
                 QMessageBox.critical(self, tr("Error"), str(e))
 

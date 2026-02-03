@@ -77,6 +77,10 @@ class ProductionFormWidget(QWidget):
         layout.addLayout(selector_layout)
         
         # New production button (aligned right in header)
+        delete_btn = QPushButton(tr("Delete Selected"))
+        delete_btn.clicked.connect(self.delete_selected_productions)
+        delete_btn.setToolTip(tr("Delete selected production records (supports multi-selection)"))
+        header_hbox.addWidget(delete_btn)
         new_prod_btn = QPushButton(tr("Record Production"))
         new_prod_btn.clicked.connect(self.record_production)
         new_prod_btn.setToolTip(tr("Record new production (Ctrl+N)"))
@@ -91,6 +95,7 @@ class ProductionFormWidget(QWidget):
         # Production table
         self.table = DataTableWidget()
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.enable_multi_selection()  # Enable bulk selection
         self.table.set_headers(["Date", "Small", "Medium", "Large", "Broken", "Total", "Actions"])
         layout.addWidget(self.table)
         
@@ -259,6 +264,106 @@ class ProductionFormWidget(QWidget):
         except Exception as e:
             self.loading_overlay.hide()
             QMessageBox.critical(self, tr("Delete Failed"), f"Failed to delete production: {str(e)}")
+    
+    def delete_selected_productions(self):
+        """Delete multiple selected production records"""
+        selected_data = self.table.get_selected_row_data(columns=[0])  # Get Date column
+        
+        if not selected_data:
+            QMessageBox.warning(self, tr("Selection Error"), "Please select production record(s) to delete.")
+            return
+        
+        # Get all productions for current shed to match with selected rows
+        selected_rows = self.table.get_selected_rows()
+        
+        if not self.current_shed_id:
+            QMessageBox.warning(self, tr("Error"), "No shed selected.")
+            return
+        
+        try:
+            all_productions = self.egg_manager.get_production_by_shed(self.current_shed_id)
+            
+            # Match selected rows with actual productions
+            productions_to_delete = []
+            for row_idx in selected_rows:
+                if row_idx < len(all_productions):
+                    productions_to_delete.append(all_productions[row_idx])
+        
+        except Exception as e:
+            QMessageBox.critical(self, tr("Error"), f"Failed to identify production records: {str(e)}")
+            return
+        
+        if not productions_to_delete:
+            QMessageBox.warning(self, tr("Error"), "Could not identify selected production records.")
+            return
+        
+        # Build confirmation message
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(tr("Confirm Bulk Delete"))
+        
+        if len(productions_to_delete) == 1:
+            prod = productions_to_delete[0]
+            total_eggs = prod.total_eggs if hasattr(prod, 'total_eggs') else 0
+            msg.setText(f"Are you sure you want to delete the production record for {format_value_for_ui(prod.date)}?")
+            msg.setInformativeText(
+                f"Total eggs: {total_eggs:,}\n"
+                f"Small: {prod.small_count}, Medium: {prod.medium_count}, "
+                f"Large: {prod.large_count}, Broken: {prod.broken_count}\n\n"
+                "This action cannot be undone."
+            )
+        else:
+            msg.setText(f"Are you sure you want to delete {len(productions_to_delete)} production records?")
+            
+            warning_parts = []
+            warning_parts.append(f"📋 {tr('Production records to delete')}:")
+            for i, prod in enumerate(productions_to_delete[:5], 1):
+                total_eggs = prod.total_eggs if hasattr(prod, 'total_eggs') else 0
+                warning_parts.append(f"   {i}. {format_value_for_ui(prod.date)} - Total: {total_eggs:,} eggs")
+            if len(productions_to_delete) > 5:
+                warning_parts.append(f"   ... and {len(productions_to_delete) - 5} more")
+            warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+            
+            msg.setInformativeText("\n".join(warning_parts))
+        
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                self.loading_overlay.set_message(f"Deleting {len(productions_to_delete)} production record(s)...")
+                self.loading_overlay.show()
+                
+                # Delete productions
+                deleted_count = 0
+                errors = []
+                
+                for prod in productions_to_delete:
+                    try:
+                        self.egg_manager.delete_production(prod.id)
+                        deleted_count += 1
+                    except Exception as e:
+                        errors.append(f"{format_value_for_ui(prod.date)}: {str(e)}")
+                
+                self.loading_overlay.hide()
+                self.refresh_productions()
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(productions_to_delete)} production records.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    success_msg = SuccessMessage(self, f"Successfully deleted {deleted_count} production record(s)")
+                    success_msg.show()
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(
+                    self,
+                    tr("Delete Failed"),
+                    f"Failed to delete production records.\n\nError: {str(e)}\n\nPlease try again."
+                )
 
 
 class ProductionDialog(QDialog):

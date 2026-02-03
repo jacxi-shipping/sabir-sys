@@ -224,6 +224,11 @@ class FarmFormWidget(QWidget):
         header_hbox.addWidget(self.farms_title)
         header_hbox.addStretch()
         
+        self.delete_farms_btn = QPushButton(tr("Delete Selected"))
+        self.delete_farms_btn.clicked.connect(self.delete_selected_farms)
+        self.delete_farms_btn.setToolTip(tr("Delete selected farms (supports multi-selection)"))
+        header_hbox.addWidget(self.delete_farms_btn)
+        
         self.new_farm_btn = QPushButton(tr("Add New Farm"))
         self.new_farm_btn.clicked.connect(self.add_farm)
         self.new_farm_btn.setToolTip(tr("Add a new farm"))
@@ -237,6 +242,7 @@ class FarmFormWidget(QWidget):
         })
         
         self.farms_table = DataTableWidget()
+        self.farms_table.enable_multi_selection()  # Enable bulk selection
         self.farms_table.set_headers(["ID", tr("Name"), tr("Location"), tr("Sheds"), tr("Actions")])
         self.farms_table.view.setColumnHidden(0, True)
         self.farms_table.view.selectionModel().selectionChanged.connect(self.farm_selected)
@@ -253,6 +259,12 @@ class FarmFormWidget(QWidget):
         shed_header_hbox.addWidget(self.sheds_title)
         shed_header_hbox.addStretch()
         
+        self.delete_sheds_btn = QPushButton(tr("Delete Selected"))
+        self.delete_sheds_btn.clicked.connect(self.delete_selected_sheds)
+        self.delete_sheds_btn.setToolTip(tr("Delete selected sheds (supports multi-selection)"))
+        self.delete_sheds_btn.setEnabled(False)
+        shed_header_hbox.addWidget(self.delete_sheds_btn)
+        
         self.add_shed_btn = QPushButton(tr("Add Shed"))
         self.add_shed_btn.clicked.connect(self.add_shed)
         self.add_shed_btn.setEnabled(False)
@@ -261,6 +273,7 @@ class FarmFormWidget(QWidget):
         sheds_layout.addLayout(shed_header_hbox)
         
         self.sheds_table = DataTableWidget()
+        self.sheds_table.enable_multi_selection()  # Enable bulk selection
         self.sheds_table.set_headers(["ID", tr("Name"), tr("Capacity"), tr("Actions")])
         self.sheds_table.view.setColumnHidden(0, True)
         sheds_layout.addWidget(self.sheds_table)
@@ -286,6 +299,7 @@ class FarmFormWidget(QWidget):
         # Simple concatenation for title
         self.sheds_title.setText(f"{tr('Sheds')} - {farm_name}")
         self.add_shed_btn.setEnabled(True)
+        self.delete_sheds_btn.setEnabled(True)
         self.refresh_sheds()
 
     def refresh_farms(self):
@@ -435,6 +449,90 @@ class FarmFormWidget(QWidget):
                 tr("Error"), 
                 f"{tr('Error')}: {str(e)}"
             )
+    
+    def delete_selected_farms(self):
+        """Delete multiple selected farms"""
+        selected_data = self.farms_table.get_selected_row_data(columns=[0, 1])  # Get ID and Name
+        
+        if not selected_data:
+            QMessageBox.warning(self, tr("Selection Error"), "Please select farm(s) to delete.")
+            return
+        
+        # Extract farm IDs and names
+        farm_details = []
+        for row_data in selected_data:
+            farm_id = int(row_data[0]) if row_data[0] else None
+            farm_name = row_data[1] if len(row_data) > 1 else "Unknown"
+            if farm_id:
+                farm_details.append({'id': farm_id, 'name': farm_name})
+        
+        if not farm_details:
+            QMessageBox.warning(self, tr("Error"), "Could not identify selected farms.")
+            return
+        
+        # Build confirmation message
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(tr("Confirm Bulk Delete"))
+        
+        if len(farm_details) == 1:
+            msg.setText(f"{tr('Are you sure you want to delete')} '{farm_details[0]['name']}'?")
+        else:
+            msg.setText(f"Are you sure you want to delete {len(farm_details)} farms?")
+        
+        warning_parts = []
+        warning_parts.append(f"📋 {tr('Farms to delete')}:")
+        for i, fd in enumerate(farm_details[:5], 1):
+            warning_parts.append(f"   {i}. {fd['name']}")
+        if len(farm_details) > 5:
+            warning_parts.append(f"   ... and {len(farm_details) - 5} more")
+        
+        warning_parts.append(f"\n⚠️ {tr('Impact')}:")
+        warning_parts.append(f"   {tr('All sheds and their associated data will be permanently deleted')}")
+        warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+        warning_parts.append(f"❌ {tr('All production records, flocks, and historical data will be lost')}")
+        
+        msg.setInformativeText("\n".join(warning_parts))
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                self.loading_overlay.set_message(f"Deleting {len(farm_details)} farm(s)...")
+                self.loading_overlay.show()
+                
+                # Delete farms
+                deleted_count = 0
+                errors = []
+                
+                with FarmManager() as fm:
+                    for fd in farm_details:
+                        try:
+                            fm.delete_farm(fd['id'])
+                            deleted_count += 1
+                        except Exception as e:
+                            errors.append(f"{fd['name']}: {str(e)}")
+                
+                self.loading_overlay.hide()
+                self.refresh_farms()
+                self.farm_changed.emit()
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(farm_details)} farms.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    success_msg = SuccessMessage(self, f"Successfully deleted {deleted_count} farm(s)")
+                    success_msg.show()
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(
+                    self,
+                    tr("Error"),
+                    f"{tr('Error')}: {str(e)}"
+                )
 
     def add_shed(self):
         if not self.selected_farm_id: return
@@ -535,3 +633,84 @@ class FarmFormWidget(QWidget):
         except Exception as e:
             self.loading_overlay.hide()
             QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
+    
+    def delete_selected_sheds(self):
+        """Delete multiple selected sheds"""
+        selected_data = self.sheds_table.get_selected_row_data(columns=[0, 1])  # Get ID and Name
+        
+        if not selected_data:
+            QMessageBox.warning(self, tr("Selection Error"), "Please select shed(s) to delete.")
+            return
+        
+        # Extract shed IDs and names
+        shed_details = []
+        for row_data in selected_data:
+            shed_id = int(row_data[0]) if row_data[0] else None
+            shed_name = row_data[1] if len(row_data) > 1 else "Unknown"
+            if shed_id:
+                shed_details.append({'id': shed_id, 'name': shed_name})
+        
+        if not shed_details:
+            QMessageBox.warning(self, tr("Error"), "Could not identify selected sheds.")
+            return
+        
+        # Build confirmation message
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(tr("Confirm Bulk Delete"))
+        
+        if len(shed_details) == 1:
+            msg.setText(f"{tr('Are you sure you want to delete')} '{shed_details[0]['name']}'?")
+        else:
+            msg.setText(f"Are you sure you want to delete {len(shed_details)} sheds?")
+        
+        warning_parts = []
+        warning_parts.append(f"📋 {tr('Sheds to delete')}:")
+        for i, sd in enumerate(shed_details[:5], 1):
+            warning_parts.append(f"   {i}. {sd['name']}")
+        if len(shed_details) > 5:
+            warning_parts.append(f"   ... and {len(shed_details) - 5} more")
+        
+        warning_parts.append(f"\n⚠️ {tr('Impact')}:")
+        warning_parts.append(f"   {tr('All flocks currently in these sheds will be deleted')}")
+        warning_parts.append(f"   {tr('All production records for these sheds will be lost')}")
+        warning_parts.append(f"   {tr('All feed consumption records will be deleted')}")
+        warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+        
+        msg.setInformativeText("\n".join(warning_parts))
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                self.loading_overlay.set_message(f"Deleting {len(shed_details)} shed(s)...")
+                self.loading_overlay.show()
+                
+                # Delete sheds
+                deleted_count = 0
+                errors = []
+                
+                with ShedManager() as sm:
+                    for sd in shed_details:
+                        try:
+                            sm.delete_shed(sd['id'])
+                            deleted_count += 1
+                        except Exception as e:
+                            errors.append(f"{sd['name']}: {str(e)}")
+                
+                self.loading_overlay.hide()
+                self.refresh_sheds()
+                self.refresh_farms()
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(shed_details)} sheds.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    success_msg = SuccessMessage(self, f"Successfully deleted {deleted_count} shed(s)")
+                    success_msg.show()
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(self, tr("Error"), f"{tr('Error')}: {str(e)}")
