@@ -291,8 +291,8 @@ class PartyFormWidget(QWidget):
         # Find party IDs by name (need to query database)
         party_details = []
         with PartyManager() as pm:
+            parties = pm.get_all_parties()  # Fetch once, not in loop
             for party_name in party_names:
-                parties = pm.get_all_parties()
                 party = next((p for p in parties if p.name == party_name), None)
                 if party:
                     balance_afg = self.ledger_manager.get_party_balance(party.id, "AFG")

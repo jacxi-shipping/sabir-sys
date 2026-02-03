@@ -48,6 +48,7 @@ class TransactionFormWidget(QWidget):
         self.farm_manager = FarmManager()
         self.loading_overlay = LoadingOverlay(self)
         self.selected_farm_filter = None  # None means "All Farms"
+        self.transaction_map = {}  # Maps row index to (transaction, type) tuple
         
         self.init_ui()
         self.refresh_data()
@@ -151,6 +152,7 @@ class TransactionFormWidget(QWidget):
         try:
             rows = []
             action_items = []
+            self.transaction_map = {}  # Clear and rebuild the mapping
 
             if self.transaction_type == 'sales':
                 with SalesManager(current_user=self.current_user) as sm:
@@ -172,6 +174,7 @@ class TransactionFormWidget(QWidget):
                             ""
                         ])
                         action_items.append((row, trans, 'sale'))
+                        self.transaction_map[row] = (trans, 'sale')  # Store mapping
 
             elif self.transaction_type == 'purchases':
                 with PurchaseManager() as pm:
@@ -213,6 +216,7 @@ class TransactionFormWidget(QWidget):
                         ""
                     ])
                     action_items.append((row, data['transaction'], 'purchase'))
+                    self.transaction_map[row] = (data['transaction'], 'purchase')  # Store mapping
 
             else:  # expenses
                 with ExpenseManager() as em:
@@ -229,6 +233,7 @@ class TransactionFormWidget(QWidget):
                             ""
                         ])
                         action_items.append((row, trans, 'expense'))
+                        self.transaction_map[row] = (trans, 'expense')  # Store mapping
 
             # populate rows and attach action widgets
             if rows:
@@ -444,39 +449,21 @@ class TransactionFormWidget(QWidget):
             QMessageBox.warning(self, tr("Selection Error"), "Please select transaction(s) to delete.")
             return
         
-        # The first column is date, we need to find transactions by matching displayed data
-        # This is complex because DataTableWidget stores display strings, not IDs
-        # We'll need to reload and match transactions
-        
-        # Get all current transactions from the display
+        # Use the transaction map instead of re-querying and matching by index
         transactions_to_delete = []
+        selected_rows = self.table.get_selected_rows()
         
-        try:
-            if self.transaction_type == 'sales':
-                all_transactions = self.sales_manager.get_sales(farm_id=self.selected_farm_filter)
-                trans_type = 'sale'
-            elif self.transaction_type == 'purchases':
-                all_transactions = self.purchases_manager.get_purchases(farm_id=self.selected_farm_filter)
-                trans_type = 'purchase'
-            else:  # expenses
-                all_transactions = self.expense_manager.get_expenses(farm_id=self.selected_farm_filter)
-                trans_type = 'expense'
-            
-            # Match selected rows with actual transactions
-            # We'll use row indices from selected data
-            selected_rows = self.table.get_selected_rows()
-            
-            for row_idx in selected_rows:
-                if row_idx < len(all_transactions):
-                    transactions_to_delete.append((all_transactions[row_idx], trans_type))
-        
-        except Exception as e:
-            QMessageBox.critical(self, tr("Error"), f"Failed to identify transactions: {str(e)}")
-            return
+        for row_idx in selected_rows:
+            if row_idx in self.transaction_map:
+                trans, ttype = self.transaction_map[row_idx]
+                transactions_to_delete.append((trans, ttype))
         
         if not transactions_to_delete:
             QMessageBox.warning(self, tr("Error"), "Could not identify selected transactions.")
             return
+        
+        # Get transaction type from first item
+        trans_type = transactions_to_delete[0][1]
         
         # Build confirmation message
         msg = QMessageBox(self)

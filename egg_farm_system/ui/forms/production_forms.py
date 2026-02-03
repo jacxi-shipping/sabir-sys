@@ -43,6 +43,8 @@ class ProductionFormWidget(QWidget):
         self.flock_manager = FlockManager()
         self.egg_manager = EggProductionManager()
         self.loading_overlay = LoadingOverlay(self)
+        self.current_shed_id = None
+        self.production_map = {}  # Maps row index to production object
         
         self.init_ui()
         self.refresh_data()
@@ -133,6 +135,10 @@ class ProductionFormWidget(QWidget):
     def _do_refresh_productions(self, shed_id):
         """Perform the actual refresh"""
         try:
+            # Store the current shed ID
+            self.current_shed_id = shed_id
+            self.production_map = {}  # Clear and rebuild the mapping
+            
             # Default to showing last 30 days, but handle errors gracefully
             try:
                 start_date = datetime.utcnow() - timedelta(days=30)
@@ -164,6 +170,7 @@ class ProductionFormWidget(QWidget):
                     ""
                 ])
                 action_widgets.append((row, prod))
+                self.production_map[row] = prod  # Store mapping
 
             self.loading_overlay.hide()
             self.table.set_rows(rows)
@@ -267,31 +274,21 @@ class ProductionFormWidget(QWidget):
     
     def delete_selected_productions(self):
         """Delete multiple selected production records"""
-        selected_data = self.table.get_selected_row_data(columns=[0])  # Get Date column
+        selected_rows = self.table.get_selected_rows()
         
-        if not selected_data:
+        if not selected_rows:
             QMessageBox.warning(self, tr("Selection Error"), "Please select production record(s) to delete.")
             return
-        
-        # Get all productions for current shed to match with selected rows
-        selected_rows = self.table.get_selected_rows()
         
         if not self.current_shed_id:
             QMessageBox.warning(self, tr("Error"), "No shed selected.")
             return
         
-        try:
-            all_productions = self.egg_manager.get_production_by_shed(self.current_shed_id)
-            
-            # Match selected rows with actual productions
-            productions_to_delete = []
-            for row_idx in selected_rows:
-                if row_idx < len(all_productions):
-                    productions_to_delete.append(all_productions[row_idx])
-        
-        except Exception as e:
-            QMessageBox.critical(self, tr("Error"), f"Failed to identify production records: {str(e)}")
-            return
+        # Use the production map instead of re-querying and matching by index
+        productions_to_delete = []
+        for row_idx in selected_rows:
+            if row_idx in self.production_map:
+                productions_to_delete.append(self.production_map[row_idx])
         
         if not productions_to_delete:
             QMessageBox.warning(self, tr("Error"), "Could not identify selected production records.")
