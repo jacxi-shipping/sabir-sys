@@ -347,7 +347,6 @@ class DataTableWidget(QWidget):
         result = []
         for row in selected_rows:
             row_data = []
-            col_count = self.model.columnCount() if columns is None else len(columns)
             cols_to_get = range(self.model.columnCount()) if columns is None else columns
             for col in cols_to_get:
                 item = self.model.item(row, col)

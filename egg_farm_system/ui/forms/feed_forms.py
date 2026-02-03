@@ -146,10 +146,25 @@ class RawMaterialsTab(QWidget):
         
         if reply == QMessageBox.Yes:
             try:
-                for mat_id in material_ids:
-                    self.manager.delete_material(mat_id)
+                deleted_count = 0
+                errors = []
+                for mat_id, mat_name in zip(material_ids, material_names):
+                    try:
+                        self.manager.delete_material(mat_id)
+                        deleted_count += 1
+                    except Exception as e:
+                        errors.append(f"{mat_name}: {str(e)}")
+                
                 self.load_materials()
-                QMessageBox.information(self, tr("Success"), f"Successfully deleted {len(material_ids)} material(s).")
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(material_ids)} materials.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    QMessageBox.information(self, tr("Success"), f"Successfully deleted {deleted_count} material(s).")
             except Exception as e: 
                 QMessageBox.critical(self, tr("Error"), str(e))
 
@@ -302,12 +317,27 @@ class FormulasTab(QWidget):
         
         if reply == QMessageBox.Yes:
             try:
-                for f_id in formula_ids:
-                    self.manager.delete_formula(f_id)
+                deleted_count = 0
+                errors = []
+                for f_id, f_name in zip(formula_ids, formula_names):
+                    try:
+                        self.manager.delete_formula(f_id)
+                        deleted_count += 1
+                    except Exception as e:
+                        errors.append(f"{f_name}: {str(e)}")
+                
                 self.load_formulas()
                 self.load_ingredients()
                 self.parent().parent().findChild(ProductionTab).load_formulas()
-                QMessageBox.information(self, tr("Success"), f"Successfully deleted {len(formula_ids)} formula(s).")
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(formula_ids)} formulas.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    QMessageBox.information(self, tr("Success"), f"Successfully deleted {deleted_count} formula(s).")
             except Exception as e: 
                 QMessageBox.critical(self, tr("Error"), str(e))
 

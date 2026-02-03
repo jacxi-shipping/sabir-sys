@@ -184,11 +184,26 @@ class EquipmentFormWidget(QWidget):
         
         if reply == QMessageBox.Yes:
             try:
+                deleted_count = 0
+                errors = []
                 with EquipmentManager() as em:
-                    for eq_id in equipment_ids:
-                        em.delete_equipment(eq_id)
+                    for eq_id, eq_name in zip(equipment_ids, equipment_names):
+                        try:
+                            em.delete_equipment(eq_id)
+                            deleted_count += 1
+                        except Exception as e:
+                            errors.append(f"{eq_name}: {str(e)}")
+                
                 self.load_equipment()
-                QMessageBox.information(self, tr("Success"), f"Successfully deleted {len(equipment_ids)} equipment record(s).")
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(equipment_ids)} equipment records.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    QMessageBox.information(self, tr("Success"), f"Successfully deleted {deleted_count} equipment record(s).")
             except Exception as e: 
                 QMessageBox.critical(self, tr("Error"), str(e))
             
