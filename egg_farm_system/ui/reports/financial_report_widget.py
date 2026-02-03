@@ -53,15 +53,26 @@ class FinancialReportWidget(QWidget):
         pnl_group = QGroupBox("Profit & Loss Statement")
         pnl_layout = QFormLayout()
         self.revenue_label = QLabel(tr("Total Revenue: Not calculated"))
+        self.revenue_usd_label = QLabel(tr("Total Revenue (USD): Not calculated"))
         self.cogs_label = QLabel(tr("Cost of Goods Sold (Feed): Not calculated"))
+        self.cogs_usd_label = QLabel(tr("Cost of Goods Sold (USD): Not calculated"))
         self.gross_profit_label = QLabel(tr("Gross Profit: Not calculated"))
+        self.gross_profit_usd_label = QLabel(tr("Gross Profit (USD): Not calculated"))
         self.expenses_label = QLabel(tr("Operating Expenses: Not calculated"))
+        self.expenses_usd_label = QLabel(tr("Operating Expenses (USD): Not calculated"))
         self.net_profit_label = QLabel(tr("Net Profit: Not calculated"))
+        self.net_profit_usd_label = QLabel(tr("Net Profit (USD): Not calculated"))
+        
         pnl_layout.addRow(self.revenue_label)
+        pnl_layout.addRow(self.revenue_usd_label)
         pnl_layout.addRow(self.cogs_label)
+        pnl_layout.addRow(self.cogs_usd_label)
         pnl_layout.addRow(self.gross_profit_label)
+        pnl_layout.addRow(self.gross_profit_usd_label)
         pnl_layout.addRow(self.expenses_label)
+        pnl_layout.addRow(self.expenses_usd_label)
         pnl_layout.addRow(self.net_profit_label)
+        pnl_layout.addRow(self.net_profit_usd_label)
         pnl_group.setLayout(pnl_layout)
         layout.addWidget(pnl_group)
 
@@ -69,16 +80,23 @@ class FinancialReportWidget(QWidget):
         cash_flow_group = QGroupBox("Cash Flow Statement")
         cash_flow_layout = QFormLayout()
         self.inflows_label = QLabel(tr("Total Cash Inflows: Not calculated"))
+        self.inflows_usd_label = QLabel(tr("Total Cash Inflows (USD): Not calculated"))
         self.outflows_label = QLabel(tr("Total Cash Outflows: Not calculated"))
+        self.outflows_usd_label = QLabel(tr("Total Cash Outflows (USD): Not calculated"))
         self.net_cash_flow_label = QLabel(tr("Net Cash Flow: Not calculated"))
+        self.net_cash_flow_usd_label = QLabel(tr("Net Cash Flow (USD): Not calculated"))
+        
         cash_flow_layout.addRow(self.inflows_label)
+        cash_flow_layout.addRow(self.inflows_usd_label)
         cash_flow_layout.addRow(self.outflows_label)
+        cash_flow_layout.addRow(self.outflows_usd_label)
         cash_flow_layout.addRow(self.net_cash_flow_label)
+        cash_flow_layout.addRow(self.net_cash_flow_usd_label)
         cash_flow_group.setLayout(cash_flow_layout)
         layout.addWidget(cash_flow_group)
 
         # Style bold labels
-        for label in [self.net_profit_label, self.net_cash_flow_label]:
+        for label in [self.net_profit_label, self.net_profit_usd_label, self.net_cash_flow_label, self.net_cash_flow_usd_label]:
             font = label.font()
             font.setBold(True)
             label.setFont(font)
@@ -105,31 +123,47 @@ class FinancialReportWidget(QWidget):
 
     def update_pnl_labels(self, pnl_data):
         self.revenue_label.setText(f"Total Revenue: {pnl_data['total_revenue']:,.2f} AFN")
+        self.revenue_usd_label.setText(f"Total Revenue (USD): ${pnl_data['total_revenue_usd']:,.2f}")
         self.cogs_label.setText(f"Cost of Goods Sold (Feed): {pnl_data['total_cogs']:,.2f} AFN")
+        self.cogs_usd_label.setText(f"Cost of Goods Sold (USD): ${pnl_data['total_cogs_usd']:,.2f}")
         self.gross_profit_label.setText(f"Gross Profit: {pnl_data['gross_profit']:,.2f} AFN")
+        self.gross_profit_usd_label.setText(f"Gross Profit (USD): ${pnl_data['gross_profit_usd']:,.2f}")
         self.expenses_label.setText(f"Operating Expenses: {pnl_data['total_expenses']:,.2f} AFN")
+        self.expenses_usd_label.setText(f"Operating Expenses (USD): ${pnl_data['total_expenses_usd']:,.2f}")
         
         net_profit = pnl_data['net_profit']
+        net_profit_usd = pnl_data['net_profit_usd']
         self.net_profit_label.setText(f"Net Profit: {net_profit:,.2f} AFN")
+        self.net_profit_usd_label.setText(f"Net Profit (USD): ${net_profit_usd:,.2f}")
         
         # Use theme-aware state property instead of hardcoded colors
         self.net_profit_label.setProperty('state', 'success' if net_profit >= 0 else 'error')
+        self.net_profit_usd_label.setProperty('state', 'success' if net_profit_usd >= 0 else 'error')
         # Force style refresh
         self.net_profit_label.style().unpolish(self.net_profit_label)
         self.net_profit_label.style().polish(self.net_profit_label)
+        self.net_profit_usd_label.style().unpolish(self.net_profit_usd_label)
+        self.net_profit_usd_label.style().polish(self.net_profit_usd_label)
 
     def update_cash_flow_labels(self, cash_data):
         self.inflows_label.setText(f"Total Cash Inflows: {cash_data['total_inflows']:,.2f} AFN")
+        self.inflows_usd_label.setText(f"Total Cash Inflows (USD): ${cash_data['total_inflows_usd']:,.2f}")
         self.outflows_label.setText(f"Total Cash Outflows: {cash_data['total_outflows']:,.2f} AFN")
+        self.outflows_usd_label.setText(f"Total Cash Outflows (USD): ${cash_data['total_outflows_usd']:,.2f}")
         
         net_cash_flow = cash_data['net_cash_flow']
+        net_cash_flow_usd = cash_data['net_cash_flow_usd']
         self.net_cash_flow_label.setText(f"Net Cash Flow: {net_cash_flow:,.2f} AFN")
+        self.net_cash_flow_usd_label.setText(f"Net Cash Flow (USD): ${net_cash_flow_usd:,.2f}")
         
         # Use theme-aware state property instead of hardcoded colors
         self.net_cash_flow_label.setProperty('state', 'success' if net_cash_flow >= 0 else 'error')
+        self.net_cash_flow_usd_label.setProperty('state', 'success' if net_cash_flow_usd >= 0 else 'error')
         # Force style refresh
         self.net_cash_flow_label.style().unpolish(self.net_cash_flow_label)
         self.net_cash_flow_label.style().polish(self.net_cash_flow_label)
+        self.net_cash_flow_usd_label.style().unpolish(self.net_cash_flow_usd_label)
+        self.net_cash_flow_usd_label.style().polish(self.net_cash_flow_usd_label)
 
     def set_farm_id(self, farm_id):
         self.farm_id = farm_id
@@ -138,22 +172,36 @@ class FinancialReportWidget(QWidget):
     def clear_labels(self):
         # Clear P&L
         self.revenue_label.setText(tr("Total Revenue: Not calculated"))
+        self.revenue_usd_label.setText(tr("Total Revenue (USD): Not calculated"))
         self.cogs_label.setText(tr("Cost of Goods Sold (Feed): Not calculated"))
+        self.cogs_usd_label.setText(tr("Cost of Goods Sold (USD): Not calculated"))
         self.gross_profit_label.setText(tr("Gross Profit: Not calculated"))
+        self.gross_profit_usd_label.setText(tr("Gross Profit (USD): Not calculated"))
         self.expenses_label.setText(tr("Operating Expenses: Not calculated"))
+        self.expenses_usd_label.setText(tr("Operating Expenses (USD): Not calculated"))
         self.net_profit_label.setText(tr("Net Profit: Not calculated"))
+        self.net_profit_usd_label.setText(tr("Net Profit (USD): Not calculated"))
         self.net_profit_label.setProperty('state', None)
+        self.net_profit_usd_label.setProperty('state', None)
         # Force style refresh
         self.net_profit_label.style().unpolish(self.net_profit_label)
         self.net_profit_label.style().polish(self.net_profit_label)
+        self.net_profit_usd_label.style().unpolish(self.net_profit_usd_label)
+        self.net_profit_usd_label.style().polish(self.net_profit_usd_label)
         # Clear Cash Flow
         self.inflows_label.setText(tr("Total Cash Inflows: Not calculated"))
+        self.inflows_usd_label.setText(tr("Total Cash Inflows (USD): Not calculated"))
         self.outflows_label.setText(tr("Total Cash Outflows: Not calculated"))
+        self.outflows_usd_label.setText(tr("Total Cash Outflows (USD): Not calculated"))
         self.net_cash_flow_label.setText(tr("Net Cash Flow: Not calculated"))
+        self.net_cash_flow_usd_label.setText(tr("Net Cash Flow (USD): Not calculated"))
         self.net_cash_flow_label.setProperty('state', None)
+        self.net_cash_flow_usd_label.setProperty('state', None)
         # Force style refresh
         self.net_cash_flow_label.style().unpolish(self.net_cash_flow_label)
         self.net_cash_flow_label.style().polish(self.net_cash_flow_label)
+        self.net_cash_flow_usd_label.style().unpolish(self.net_cash_flow_usd_label)
+        self.net_cash_flow_usd_label.style().polish(self.net_cash_flow_usd_label)
 
     def closeEvent(self, event):
         self.session.close()

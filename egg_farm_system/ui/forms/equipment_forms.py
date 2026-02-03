@@ -94,6 +94,7 @@ class EquipmentFormWidget(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(6); self.table.setHorizontalHeaderLabels(["ID", "Name", "Description", "Purchase Date", "Price", "Status"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers); self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.ExtendedSelection)  # Enable multi-selection
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
         self.table.verticalHeader().setMinimumSectionSize(40)
         self.table.verticalHeader().setDefaultSectionSize(40)
@@ -156,18 +157,55 @@ class EquipmentFormWidget(QWidget):
                 except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
     
     def delete_equipment(self):
-        row = self.table.currentRow()
-        if row < 0: return QMessageBox.warning(self, tr("Selection Error"), "Please select an equipment to delete.")
-        eq_id = int(self.table.item(row, 0).text())
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            return QMessageBox.warning(self, tr("Selection Error"), "Please select equipment to delete.")
         
-        reply = QMessageBox.question(self, "Confirm Deletion", "Are you sure you want to delete this equipment record?")
+        # Get equipment IDs and names
+        equipment_ids = []
+        equipment_names = []
+        for index in selected_rows:
+            row = index.row()
+            eq_id = int(self.table.item(row, 0).text())
+            eq_name = self.table.item(row, 1).text()
+            equipment_ids.append(eq_id)
+            equipment_names.append(eq_name)
+        
+        # Confirmation message
+        if len(equipment_ids) == 1:
+            message = f"Are you sure you want to delete this equipment record?\n\n{equipment_names[0]}"
+        else:
+            message = f"Are you sure you want to delete {len(equipment_ids)} equipment records?\n\n"
+            message += "\n".join(f"• {name}" for name in equipment_names[:5])
+            if len(equipment_names) > 5:
+                message += f"\n... and {len(equipment_names) - 5} more"
+        
+        reply = QMessageBox.question(self, "Confirm Deletion", message)
         
         if reply == QMessageBox.Yes:
             try:
+                deleted_count = 0
+                errors = []
                 with EquipmentManager() as em:
-                    em.delete_equipment(eq_id)
+                    for eq_id, eq_name in zip(equipment_ids, equipment_names):
+                        try:
+                            em.delete_equipment(eq_id)
+                            deleted_count += 1
+                        except Exception as e:
+                            errors.append(f"{eq_name}: {str(e)}")
+                
                 self.load_equipment()
-            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(equipment_ids)} equipment records.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    QMessageBox.information(self, tr("Success"), f"Successfully deleted {deleted_count} equipment record(s).")
+            except Exception as e: 
+                QMessageBox.critical(self, tr("Error"), str(e))
             
     def refresh_data(self):
         self.load_equipment()

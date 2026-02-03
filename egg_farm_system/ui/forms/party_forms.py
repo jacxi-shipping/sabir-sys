@@ -53,6 +53,10 @@ class PartyFormWidget(QWidget):
         title.setFont(title_font)
         header_hbox.addWidget(title)
         header_hbox.addStretch()
+        delete_selected_btn = QPushButton(tr("Delete Selected"))
+        delete_selected_btn.clicked.connect(self.delete_selected_parties)
+        delete_selected_btn.setToolTip(tr("Delete selected parties (supports multi-selection)"))
+        header_hbox.addWidget(delete_selected_btn)
         transaction_btn = QPushButton(tr("Add Transaction"))
         transaction_btn.clicked.connect(self.add_transaction)
         transaction_btn.setToolTip(tr("Add credit/debit transaction to a party"))
@@ -72,6 +76,7 @@ class PartyFormWidget(QWidget):
         # Parties table
         self.table = DataTableWidget()
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.enable_multi_selection()  # Enable bulk selection
         self.table.set_headers(["Name", "Phone", "Balance AFG", "Balance USD", "Actions"])
         layout.addWidget(self.table)
         
@@ -271,6 +276,106 @@ class PartyFormWidget(QWidget):
                         tr("Delete Failed"), 
                         f"Failed to delete party.\n\nError: {str(e)}\n\nPlease try again."
                     )
+    
+    def delete_selected_parties(self):
+        """Delete multiple selected parties"""
+        selected_data = self.table.get_selected_row_data(columns=[0])  # Get party names from first column
+        
+        if not selected_data:
+            QMessageBox.warning(self, tr("Selection Error"), "Please select party/parties to delete.")
+            return
+        
+        # Get party details from the table
+        party_names = [row[0] for row in selected_data]
+        
+        # Find party IDs by name (need to query database)
+        party_details = []
+        with PartyManager() as pm:
+            parties = pm.get_all_parties()  # Fetch once, not in loop
+            for party_name in party_names:
+                party = next((p for p in parties if p.name == party_name), None)
+                if party:
+                    balance_afg = self.ledger_manager.get_party_balance(party.id, "AFG")
+                    balance_usd = self.ledger_manager.get_party_balance(party.id, "USD")
+                    party_details.append({
+                        'id': party.id,
+                        'name': party.name,
+                        'balance_afg': balance_afg,
+                        'balance_usd': balance_usd
+                    })
+        
+        if not party_details:
+            QMessageBox.warning(self, tr("Error"), "Could not find selected parties.")
+            return
+        
+        # Build confirmation message
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(tr("Confirm Bulk Delete"))
+        
+        if len(party_details) == 1:
+            msg.setText(f"Are you sure you want to delete the party '{party_details[0]['name']}'?")
+        else:
+            msg.setText(f"Are you sure you want to delete {len(party_details)} parties?")
+        
+        # Build detailed warning
+        warning_parts = []
+        warning_parts.append(f"📋 {tr('Parties to delete')}:")
+        for i, pd in enumerate(party_details[:5], 1):
+            warning_parts.append(f"   {i}. {pd['name']} (AFG: {pd['balance_afg']:,.2f}, USD: {pd['balance_usd']:,.2f})")
+        if len(party_details) > 5:
+            warning_parts.append(f"   ... and {len(party_details) - 5} more")
+        
+        # Check for non-zero balances
+        has_balance = any(pd['balance_afg'] != 0 or pd['balance_usd'] != 0 for pd in party_details)
+        if has_balance:
+            warning_parts.append(f"\n⚠️ {tr('Warning')}: {tr('Some parties have outstanding balances')}!")
+        
+        warning_parts.append(f"\n⚠️ {tr('Impact')}:")
+        warning_parts.append(f"   {tr('All transaction history will be permanently deleted')}")
+        warning_parts.append(f"   {tr('All sales and purchase records will be lost')}")
+        warning_parts.append(f"   {tr('All ledger entries will be removed')}")
+        warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+        
+        msg.setInformativeText("\n".join(warning_parts))
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                self.loading_overlay.set_message(f"Deleting {len(party_details)} party/parties...")
+                self.loading_overlay.show()
+                
+                # Delete parties
+                deleted_count = 0
+                errors = []
+                with PartyManager() as pm:
+                    for pd in party_details:
+                        try:
+                            pm.delete_party(pd['id'])
+                            deleted_count += 1
+                        except Exception as e:
+                            errors.append(f"{pd['name']}: {str(e)}")
+                
+                self.loading_overlay.hide()
+                self.refresh_parties()
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(party_details)} parties.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    success_msg = SuccessMessage(self, f"Successfully deleted {deleted_count} party/parties")
+                    success_msg.show()
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(
+                    self, 
+                    tr("Delete Failed"), 
+                    f"Failed to delete parties.\n\nError: {str(e)}\n\nPlease try again."
+                )
 
 
 class PartyDialog(QDialog):

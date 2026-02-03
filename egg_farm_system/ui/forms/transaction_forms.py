@@ -48,6 +48,7 @@ class TransactionFormWidget(QWidget):
         self.farm_manager = FarmManager()
         self.loading_overlay = LoadingOverlay(self)
         self.selected_farm_filter = None  # None means "All Farms"
+        self.transaction_map = {}  # Maps row index to (transaction, type) tuple
         
         self.init_ui()
         self.refresh_data()
@@ -75,6 +76,10 @@ class TransactionFormWidget(QWidget):
         title.setFont(title_font)
         header_hbox.addWidget(title)
         header_hbox.addStretch()
+        delete_selected_btn = QPushButton("Delete Selected")
+        delete_selected_btn.clicked.connect(self.delete_selected_transactions)
+        delete_selected_btn.setToolTip("Delete selected transactions (supports multi-selection)")
+        header_hbox.addWidget(delete_selected_btn)
         new_btn = QPushButton(f"New {title_text.split()[0]}")
         new_btn.clicked.connect(self.add_transaction)
         new_btn.setToolTip(f"Add new {self.transaction_type} (Ctrl+N)")
@@ -125,6 +130,7 @@ class TransactionFormWidget(QWidget):
         
         self.table = DataTableWidget()
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.enable_multi_selection()  # Enable bulk selection
         self.table.set_headers(headers)
         layout.addWidget(self.table)
         
@@ -146,6 +152,7 @@ class TransactionFormWidget(QWidget):
         try:
             rows = []
             action_items = []
+            self.transaction_map = {}  # Clear and rebuild the mapping
 
             if self.transaction_type == 'sales':
                 with SalesManager(current_user=self.current_user) as sm:
@@ -167,6 +174,7 @@ class TransactionFormWidget(QWidget):
                             ""
                         ])
                         action_items.append((row, trans, 'sale'))
+                        self.transaction_map[row] = (trans, 'sale')  # Store mapping
 
             elif self.transaction_type == 'purchases':
                 with PurchaseManager() as pm:
@@ -208,6 +216,7 @@ class TransactionFormWidget(QWidget):
                         ""
                     ])
                     action_items.append((row, data['transaction'], 'purchase'))
+                    self.transaction_map[row] = (data['transaction'], 'purchase')  # Store mapping
 
             else:  # expenses
                 with ExpenseManager() as em:
@@ -224,6 +233,7 @@ class TransactionFormWidget(QWidget):
                             ""
                         ])
                         action_items.append((row, trans, 'expense'))
+                        self.transaction_map[row] = (trans, 'expense')  # Store mapping
 
             # populate rows and attach action widgets
             if rows:
@@ -429,6 +439,125 @@ class TransactionFormWidget(QWidget):
         except Exception as e:
             self.loading_overlay.hide()
             QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {str(e)}")
+    
+    def delete_selected_transactions(self):
+        """Delete multiple selected transactions"""
+        # Get the first column which contains transaction identifier (date or other unique info)
+        selected_data = self.table.get_selected_row_data()
+        
+        if not selected_data:
+            QMessageBox.warning(self, tr("Selection Error"), "Please select transaction(s) to delete.")
+            return
+        
+        # Use the transaction map instead of re-querying and matching by index
+        transactions_to_delete = []
+        selected_rows = self.table.get_selected_rows()
+        
+        for row_idx in selected_rows:
+            if row_idx in self.transaction_map:
+                trans, ttype = self.transaction_map[row_idx]
+                transactions_to_delete.append((trans, ttype))
+        
+        if not transactions_to_delete:
+            QMessageBox.warning(self, tr("Error"), "Could not identify selected transactions.")
+            return
+        
+        # Get transaction type from first item
+        trans_type = transactions_to_delete[0][1]
+        
+        # Build confirmation message
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(tr("Confirm Bulk Delete"))
+        
+        if len(transactions_to_delete) == 1:
+            msg.setText(f"Are you sure you want to delete this {trans_type}?")
+        else:
+            msg.setText(f"Are you sure you want to delete {len(transactions_to_delete)} {trans_type}s?")
+        
+        warning_parts = []
+        warning_parts.append(f"📋 {tr('Transactions to delete')}:")
+        
+        for i, (trans, ttype) in enumerate(transactions_to_delete[:5], 1):
+            if ttype == 'sale':
+                party = self.party_manager.get_party_by_id(trans.party_id)
+                warning_parts.append(f"   {i}. {format_value_for_ui(trans.date)} - {party.name if party else 'N/A'} ({trans.total_afg:,.2f} AFG)")
+            elif ttype == 'purchase':
+                party = self.party_manager.get_party_by_id(trans.party_id)
+                warning_parts.append(f"   {i}. {format_value_for_ui(trans.date)} - {party.name if party else 'N/A'} ({trans.total_afg:,.2f} AFG)")
+            else:  # expense
+                party = self.party_manager.get_party_by_id(trans.party_id) if trans.party_id else None
+                warning_parts.append(f"   {i}. {format_value_for_ui(trans.date)} - {trans.category} ({trans.amount_afg:,.2f} AFG)")
+        
+        if len(transactions_to_delete) > 5:
+            warning_parts.append(f"   ... and {len(transactions_to_delete) - 5} more")
+        
+        warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+        warning_parts.append(f"⚠️ {tr('All ledger entries will be removed')}")
+        
+        msg.setInformativeText("\n".join(warning_parts))
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        
+        if msg.exec() == QMessageBox.Yes:
+            try:
+                self.loading_overlay.set_message(f"Deleting {len(transactions_to_delete)} transaction(s)...")
+                self.loading_overlay.show()
+                
+                # Delete transactions
+                deleted_count = 0
+                errors = []
+                
+                session = DatabaseManager.get_session()
+                try:
+                    for trans, ttype in transactions_to_delete:
+                        try:
+                            obj = None
+                            
+                            if ttype == 'sale':
+                                obj = session.query(Sale).filter(Sale.id == trans.id).first()
+                                if obj:
+                                    self._delete_ledger_entries(session, "Sale", trans.id)
+                                    session.delete(obj)
+                            elif ttype == 'purchase':
+                                obj = session.query(Purchase).filter(Purchase.id == trans.id).first()
+                                if obj:
+                                    self._delete_ledger_entries(session, "Purchase", trans.id)
+                                    session.delete(obj)
+                            else:  # expense
+                                obj = session.query(Expense).filter(Expense.id == trans.id).first()
+                                if obj:
+                                    self._delete_ledger_entries(session, "Expense", trans.id)
+                                    session.delete(obj)
+                            
+                            if obj:
+                                deleted_count += 1
+                        except Exception as e:
+                            errors.append(f"ID {trans.id}: {str(e)}")
+                    
+                    session.commit()
+                finally:
+                    session.close()
+                
+                self.loading_overlay.hide()
+                self.refresh_data()
+                
+                # Show result
+                if errors:
+                    error_msg = f"Deleted {deleted_count} of {len(transactions_to_delete)} transactions.\n\nErrors:\n" + "\n".join(errors[:5])
+                    if len(errors) > 5:
+                        error_msg += f"\n... and {len(errors) - 5} more errors"
+                    QMessageBox.warning(self, tr("Partial Success"), error_msg)
+                else:
+                    success_msg = SuccessMessage(self, f"Successfully deleted {deleted_count} transaction(s)")
+                    success_msg.show()
+            except Exception as e:
+                self.loading_overlay.hide()
+                QMessageBox.critical(
+                    self,
+                    tr("Delete Failed"),
+                    f"Failed to delete transactions.\n\nError: {str(e)}\n\nPlease try again."
+                )
 
     def edit_sale(self, sale):
         """Edit sale using advanced dialog"""
