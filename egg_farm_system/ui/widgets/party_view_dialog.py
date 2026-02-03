@@ -385,6 +385,7 @@ class PartyViewDialog(QDialog):
             def save_changes():
                 session = DatabaseManager.get_session()
                 success = False
+                error_msg = None
                 try:
                     entry.date = date_edit.dateTime().toPython()
                     entry.description = desc_edit.text()
@@ -398,15 +399,17 @@ class PartyViewDialog(QDialog):
                 except Exception as e:
                     session.rollback()
                     logger.error(f"Error saving transaction: {e}")
-                    QMessageBox.critical(self, tr("Error"), f"Failed to save transaction: {e}")
+                    error_msg = str(e)
                 finally:
                     session.close()
                 
-                # Success actions after transaction is complete
+                # UI updates after transaction is complete
                 if success:
                     dialog.accept()
                     self.load_data()
                     QMessageBox.information(self, tr("Success"), "Transaction updated successfully")
+                else:
+                    QMessageBox.critical(self, tr("Error"), f"Failed to save transaction: {error_msg}")
             
             save_btn.clicked.connect(save_changes)
             cancel_btn.clicked.connect(dialog.reject)
@@ -443,6 +446,7 @@ class PartyViewDialog(QDialog):
             if reply == QMessageBox.Yes:
                 session = DatabaseManager.get_session()
                 success = False
+                error_msg = None
                 try:
                     session.delete(entry)
                     session.commit()
@@ -450,14 +454,16 @@ class PartyViewDialog(QDialog):
                 except Exception as e:
                     session.rollback()
                     logger.error(f"Error in delete operation: {e}")
-                    QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {e}")
+                    error_msg = str(e)
                 finally:
                     session.close()
                 
-                # Success actions after transaction is complete
+                # UI updates after transaction is complete
                 if success:
                     self.load_data()
                     QMessageBox.information(self, tr("Success"), "Transaction deleted successfully")
+                else:
+                    QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {error_msg}")
         except Exception as e:
             logger.error(f"Error deleting transaction: {e}")
             QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {e}")
