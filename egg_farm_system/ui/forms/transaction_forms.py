@@ -385,42 +385,39 @@ class TransactionFormWidget(QWidget):
                 self.loading_overlay.hide()
                 QMessageBox.critical(self, tr("Delete Failed"), f"Failed to delete transaction: {str(e)}")
     
+    def _delete_ledger_entries(self, session, reference_type, reference_id):
+        """Delete ledger entries associated with a transaction"""
+        session.query(Ledger).filter(
+            Ledger.reference_type == reference_type,
+            Ledger.reference_id == reference_id
+        ).delete()
+
     def _do_delete_transaction(self, transaction, trans_type):
         """Perform the actual delete"""
         try:
             session = DatabaseManager.get_session()
             try:
-                obj = None
                 deleted = False
                 
                 if trans_type == 'sale':
                     obj = session.query(Sale).filter(Sale.id == transaction.id).first()
                     if obj:
                         # Delete associated ledger entries first
-                        session.query(Ledger).filter(
-                            Ledger.reference_type == "Sale",
-                            Ledger.reference_id == transaction.id
-                        ).delete()
+                        self._delete_ledger_entries(session, "Sale", transaction.id)
                         session.delete(obj)
                         deleted = True
                 elif trans_type == 'purchase':
                     obj = session.query(Purchase).filter(Purchase.id == transaction.id).first()
                     if obj:
                         # Delete associated ledger entries first
-                        session.query(Ledger).filter(
-                            Ledger.reference_type == "Purchase",
-                            Ledger.reference_id == transaction.id
-                        ).delete()
+                        self._delete_ledger_entries(session, "Purchase", transaction.id)
                         session.delete(obj)
                         deleted = True
                 else:  # expense
                     obj = session.query(Expense).filter(Expense.id == transaction.id).first()
                     if obj:
                         # Delete associated ledger entries first
-                        session.query(Ledger).filter(
-                            Ledger.reference_type == "Expense",
-                            Ledger.reference_id == transaction.id
-                        ).delete()
+                        self._delete_ledger_entries(session, "Expense", transaction.id)
                         session.delete(obj)
                         deleted = True
 
