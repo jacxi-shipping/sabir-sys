@@ -446,7 +446,8 @@ class PartyViewDialog(QDialog):
                     QMessageBox.information(self, tr("Success"), "Transaction deleted successfully")
                 except Exception as e:
                     session.rollback()
-                    raise e
+                    logger.error(f"Error in delete operation: {e}")
+                    QMessageBox.critical(self, tr("Error"), f"Failed to delete transaction: {e}")
                 finally:
                     session.close()
         except Exception as e:
