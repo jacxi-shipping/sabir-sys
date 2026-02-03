@@ -99,7 +99,7 @@ class RawMaterialSaleManager:
                     session=self.session
                 )
                 
-                # If payment method is Cash, create a payment record for cash flow tracking
+                # If payment method is Cash, create a payment record and offset ledger entry
                 if payment_method == "Cash":
                     from egg_farm_system.database.models import Payment
                     cash_payment = Payment(
@@ -113,6 +113,20 @@ class RawMaterialSaleManager:
                         exchange_rate_used=exchange_rate_used
                     )
                     self.session.add(cash_payment)
+                    self.session.flush()  # Get payment ID
+                    
+                    # Create offsetting ledger entry to reduce party balance to zero
+                    ledger_manager.post_entry(
+                        party_id=party_id,
+                        date=date,
+                        description=f"Payment received: Raw Material Sale #{raw_material_sale.id}",
+                        credit_afg=total_afg,
+                        credit_usd=total_usd,
+                        exchange_rate_used=exchange_rate_used,
+                        reference_type="Payment",
+                        reference_id=cash_payment.id,
+                        session=self.session
+                    )
                 
                 self.session.commit()
                 
@@ -233,6 +247,35 @@ class SalesManager:
                     session=self.session # Pass the current session
                 )
                 
+                # If payment method is Cash, create a payment record and offset ledger entry
+                if payment_method == "Cash":
+                    from egg_farm_system.database.models import Payment
+                    cash_payment = Payment(
+                        party_id=party_id,
+                        date=date,
+                        amount_afg=total_afg,
+                        amount_usd=total_usd,
+                        payment_type="Received",  # We received cash from customer
+                        payment_method="Cash",
+                        reference=f"Sale #{sale.id}",
+                        exchange_rate_used=exchange_rate_used
+                    )
+                    self.session.add(cash_payment)
+                    self.session.flush()  # Get payment ID
+                    
+                    # Create offsetting ledger entry to reduce party balance to zero
+                    ledger_manager.post_entry(
+                        party_id=party_id,
+                        date=date,
+                        description=f"Payment received: Sale #{sale.id}",
+                        credit_afg=total_afg,
+                        credit_usd=total_usd,
+                        exchange_rate_used=exchange_rate_used,
+                        reference_type="Payment",
+                        reference_id=cash_payment.id,
+                        session=self.session
+                    )
+                
                 self.session.commit()
                 
                 # Invalidate caches after successful save
@@ -325,7 +368,7 @@ class SalesManager:
                 session=self.session
             )
             
-            # If payment method is Cash, create a payment record for cash flow tracking
+            # If payment method is Cash, create a payment record and offset ledger entry
             if payment_method == "Cash":
                 from egg_farm_system.database.models import Payment
                 cash_payment = Payment(
@@ -339,6 +382,20 @@ class SalesManager:
                     exchange_rate_used=exchange_rate_used
                 )
                 self.session.add(cash_payment)
+                self.session.flush()  # Get payment ID
+                
+                # Create offsetting ledger entry to reduce party balance to zero
+                ledger_manager.post_entry(
+                    party_id=party_id,
+                    date=date,
+                    description=f"Payment received: Sale #{sale.id}",
+                    credit_afg=total_afg,
+                    credit_usd=total_usd,
+                    exchange_rate_used=exchange_rate_used,
+                    reference_type="Payment",
+                    reference_id=cash_payment.id,
+                    session=self.session
+                )
             
             self.session.commit()
             

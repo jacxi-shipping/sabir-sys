@@ -394,13 +394,16 @@ class FarmFormWidget(QWidget):
         msg.setWindowTitle(tr("Confirm Delete"))
         msg.setText(f"{tr('Are you sure you want to delete')} '{farm.name}'?")
         
+        # Build detailed warning message
+        warning_parts = []
         if shed_count > 0:
-            msg.setInformativeText(
-                f"{tr('This action cannot be undone')}"
-            )
-        else:
-            msg.setInformativeText(tr("This action cannot be undone"))
+            warning_parts.append(f"⚠️ {tr('This farm has')} {shed_count} {tr('shed(s)')}")
+            warning_parts.append(f"   {tr('All sheds and their associated data will be permanently deleted')}")
         
+        warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+        warning_parts.append(f"❌ {tr('All production records, flocks, and historical data will be lost')}")
+        
+        msg.setInformativeText("\n".join(warning_parts))
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.No)
         
@@ -493,7 +496,18 @@ class FarmFormWidget(QWidget):
         msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle(tr("Confirm Delete"))
         msg.setText(f"{tr('Are you sure you want to delete')} '{shed.name}'?")
-        msg.setInformativeText(tr("This action cannot be undone"))
+        
+        # Build detailed warning message
+        warning_parts = []
+        warning_parts.append(f"📊 {tr('Shed Details')}:")
+        warning_parts.append(f"   {tr('Capacity')}: {shed.capacity} {tr('birds')}")
+        warning_parts.append(f"\n⚠️ {tr('Impact')}:")
+        warning_parts.append(f"   {tr('All flocks currently in this shed will be deleted')}")
+        warning_parts.append(f"   {tr('All production records for this shed will be lost')}")
+        warning_parts.append(f"   {tr('All feed consumption records will be deleted')}")
+        warning_parts.append(f"\n❌ {tr('This action cannot be undone')}")
+        
+        msg.setInformativeText("\n".join(warning_parts))
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.No)
         

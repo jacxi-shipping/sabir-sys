@@ -5,14 +5,15 @@ from egg_farm_system.utils.i18n import tr
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QMessageBox, QDateEdit, QFileDialog, QSizePolicy, QGroupBox
+    QMessageBox, QFileDialog, QSizePolicy, QGroupBox
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from pathlib import Path
 
 from egg_farm_system.modules.reports import ReportGenerator
 from egg_farm_system.modules.parties import PartyManager
+from egg_farm_system.modules.farms import FarmManager
 from egg_farm_system.ui.reports.production_analytics_widget import ProductionAnalyticsWidget
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.utils.excel_export import ExcelExporter
@@ -20,6 +21,7 @@ from egg_farm_system.utils.print_manager import PrintManager
 from egg_farm_system.ui.widgets.datatable import DataTableWidget
 from egg_farm_system.utils.jalali import format_value_for_ui
 from egg_farm_system.ui.widgets.charts import TimeSeriesChart
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
 from datetime import datetime, date
 
 class ReportViewerWidget(QWidget):
@@ -46,7 +48,7 @@ class ReportViewerWidget(QWidget):
         header_hbox.addWidget(title)
         header_hbox.addStretch()
         
-        # Report selector
+        # Report selector and farm filter
         selector_layout = QHBoxLayout()
         selector_layout.addWidget(QLabel(tr("Report:")))
         
@@ -57,26 +59,39 @@ class ReportViewerWidget(QWidget):
         self.report_combo.addItem("Party Statement", "party_statement")
         self.report_combo.currentIndexChanged.connect(self.on_report_changed)
         selector_layout.addWidget(self.report_combo)
+        
+        # Farm filter
+        selector_layout.addWidget(QLabel(tr("Farm:")))
+        self.farm_combo = QComboBox()
+        self.farm_combo.setMinimumWidth(150)
+        self.farm_combo.setToolTip(tr("Select a farm to filter reports, or 'All Farms' to show all"))
+        self.farm_combo.addItem(tr("All Farms"), None)
+        try:
+            fm = FarmManager()
+            farms = fm.get_all_farms()
+            for farm in farms:
+                self.farm_combo.addItem(farm.name, farm.id)
+        except Exception as e:
+            print(f"Error loading farms: {e}")
+        selector_layout.addWidget(self.farm_combo)
+        
         selector_layout.addStretch()
         layout.addLayout(selector_layout)
         
         # Date selectors / filters
         date_layout = QHBoxLayout()
         date_layout.addWidget(QLabel(tr("Date:")))
-        self.date_edit = QDateEdit()
-        self.date_edit.setDate(QDate.currentDate())
+        self.date_edit = JalaliDateEdit(initial=date.today())
         date_layout.addWidget(self.date_edit)
 
         # Range selectors for feed usage
         date_layout.addWidget(QLabel(tr("From:")))
-        self.start_date_edit = QDateEdit()
-        self.start_date_edit.setDate(QDate.currentDate())
+        self.start_date_edit = JalaliDateEdit(initial=date.today())
         self.start_date_edit.setVisible(False)
         date_layout.addWidget(self.start_date_edit)
 
         date_layout.addWidget(QLabel(tr("To:")))
-        self.end_date_edit = QDateEdit()
-        self.end_date_edit.setDate(QDate.currentDate())
+        self.end_date_edit = JalaliDateEdit(initial=date.today())
         self.end_date_edit.setVisible(False)
         date_layout.addWidget(self.end_date_edit)
 
@@ -175,21 +190,25 @@ class ReportViewerWidget(QWidget):
             self.start_date_edit.setVisible(True)
             self.end_date_edit.setVisible(True)
             self.party_combo.setVisible(False)
+            self.farm_combo.setVisible(True)  # Farm filter is relevant for feed usage
         elif report_type == 'monthly_production':
             self.date_edit.setVisible(True)
             self.start_date_edit.setVisible(False)
             self.end_date_edit.setVisible(False)
             self.party_combo.setVisible(False)
+            self.farm_combo.setVisible(True)  # Farm filter is relevant for production
         elif report_type == 'party_statement':
             self.date_edit.setVisible(False)
             self.start_date_edit.setVisible(False)
             self.end_date_edit.setVisible(False)
             self.party_combo.setVisible(True)
-        else:
+            self.farm_combo.setVisible(False)  # Party statements are party-specific, not farm-specific
+        else:  # daily_production
             self.date_edit.setVisible(True)
             self.start_date_edit.setVisible(False)
             self.end_date_edit.setVisible(False)
             self.party_combo.setVisible(False)
+            self.farm_combo.setVisible(True)  # Farm filter is relevant for production
 
     def set_farm_id(self, farm_id):
         self.farm_id = farm_id
@@ -205,8 +224,13 @@ class ReportViewerWidget(QWidget):
         report_type = self.report_combo.currentData()
         self.chart.setVisible(False) # Hide previous chart
         
+        # Get selected farm ID from combo box (None means "All Farms")
+        selected_farm_id = self.farm_combo.currentData()
+        # If a specific farm is selected, use it; otherwise use self.farm_id or 1 as fallback
+        farm_id_to_use = selected_farm_id if selected_farm_id is not None else (self.farm_id or 1)
+        
         try:
-            date_val = self.date_edit.date().toPython()
+            date_val = self.date_edit.date()
             
             with ReportGenerator() as rg:
                 if report_type == "daily_production":
@@ -215,13 +239,12 @@ class ReportViewerWidget(QWidget):
                     # We can bar chart sheds?
                     # Let's keep it simple for now or implement Bar Chart in future
                     from datetime import datetime as _dt
-                    farm_id = self.farm_id or 1
                     # ensure a datetime is passed
                     if hasattr(date_val, 'year') and not hasattr(date_val, 'hour'):
                         date_dt = _dt.combine(date_val, _dt.min.time())
                     else:
                         date_dt = date_val
-                    data = rg.daily_egg_production_report(farm_id, date_dt)
+                    data = rg.daily_egg_production_report(farm_id_to_use, date_dt)
                     if data:
                         # Update info
                         date_str = format_value_for_ui(data.get('date'))
@@ -258,10 +281,9 @@ class ReportViewerWidget(QWidget):
                         self.current_report_type = report_type
 
                 elif report_type == 'monthly_production':
-                    farm_id = self.farm_id or 1
                     year = self.date_edit.date().year()
                     month = self.date_edit.date().month()
-                    data = rg.monthly_egg_production_report(farm_id, year, month)
+                    data = rg.monthly_egg_production_report(farm_id_to_use, year, month)
                     if data:
                         # Update info
                         self.info_label.setText(f"<b>Farm:</b> {data['farm']}<br><b>Month:</b> {data['month']}/{data['year']}")
@@ -303,10 +325,9 @@ class ReportViewerWidget(QWidget):
                         self.current_report_type = report_type
 
                 elif report_type == 'feed_usage':
-                    farm_id = self.farm_id or 1
-                    start = self.start_date_edit.date().toPython()
-                    end = self.end_date_edit.date().toPython()
-                    data = rg.feed_usage_report(farm_id, start, end)
+                    start = self.start_date_edit.date()
+                    end = self.end_date_edit.date()
+                    data = rg.feed_usage_report(farm_id_to_use, start, end)
                     if data:
                         # Update info
                         start_str = format_value_for_ui(data.get('start_date'))

@@ -27,6 +27,7 @@ from egg_farm_system.modules.expenses import ExpenseManager, PaymentManager
 from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.modules.inventory import InventoryManager
 from egg_farm_system.modules.feed_mill import RawMaterialManager
+from egg_farm_system.modules.farms import FarmManager
 from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES
@@ -44,7 +45,9 @@ class TransactionFormWidget(QWidget):
         self.current_user = current_user
         self.party_manager = PartyManager()
         self.inventory_manager = InventoryManager()
+        self.farm_manager = FarmManager()
         self.loading_overlay = LoadingOverlay(self)
+        self.selected_farm_filter = None  # None means "All Farms"
         
         self.init_ui()
         self.refresh_data()
@@ -84,6 +87,34 @@ class TransactionFormWidget(QWidget):
         })
         layout.addLayout(header_hbox)
         
+        # Filter bar with farm filter
+        filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(10)
+        
+        # Farm filter dropdown
+        farm_label = QLabel("Filter by Farm:")
+        farm_label.setToolTip("Filter transactions by farm")
+        filter_layout.addWidget(farm_label)
+        
+        self.farm_filter = QComboBox()
+        self.farm_filter.setMinimumWidth(200)
+        self.farm_filter.setToolTip("Select a farm to filter transactions, or 'All Farms' to show all")
+        self.farm_filter.addItem("All Farms", None)
+        
+        # Load farms
+        try:
+            farms = self.farm_manager.get_all_farms()
+            for farm in farms:
+                self.farm_filter.addItem(farm.name, farm.id)
+        except Exception as e:
+            logger.error(f"Error loading farms for filter: {e}")
+        
+        self.farm_filter.currentIndexChanged.connect(self.on_farm_filter_changed)
+        filter_layout.addWidget(self.farm_filter)
+        filter_layout.addStretch()
+        
+        layout.addLayout(filter_layout)
+        
         # Transactions table
         if self.transaction_type == 'sales':
             headers = ["Date", "Party", "Quantity", "Rate AFG", "Total AFG", "Actions"]
@@ -98,6 +129,11 @@ class TransactionFormWidget(QWidget):
         layout.addWidget(self.table)
         
         self.setLayout(layout)
+    
+    def on_farm_filter_changed(self, index):
+        """Handle farm filter change"""
+        self.selected_farm_filter = self.farm_filter.currentData()
+        self.refresh_data()
     
     def refresh_data(self):
         """Refresh transaction data"""
@@ -114,6 +150,10 @@ class TransactionFormWidget(QWidget):
             if self.transaction_type == 'sales':
                 with SalesManager(current_user=self.current_user) as sm:
                     transactions = sm.get_sales()
+                    # Filter by farm if selected
+                    if self.selected_farm_filter is not None:
+                        transactions = [t for t in transactions if t.farm_id == self.selected_farm_filter]
+                    
                     for row, trans in enumerate(transactions):
                         party = self.party_manager.get_party_by_id(trans.party_id)
                         # Show cartons if available, otherwise show quantity
@@ -131,6 +171,10 @@ class TransactionFormWidget(QWidget):
             elif self.transaction_type == 'purchases':
                 with PurchaseManager() as pm:
                     transactions = pm.get_purchases()
+                    # Filter by farm if selected
+                    if self.selected_farm_filter is not None:
+                        transactions = [t for t in transactions if t.farm_id == self.selected_farm_filter]
+                    
                     # Extract all data while session is still open to avoid detached instance errors
                     purchase_data = []
                     for trans in transactions:
@@ -167,7 +211,9 @@ class TransactionFormWidget(QWidget):
 
             else:  # expenses
                 with ExpenseManager() as em:
-                    transactions = em.get_expenses(farm_id=self.farm_id)
+                    # Use selected_farm_filter if available, otherwise fall back to self.farm_id
+                    filter_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
+                    transactions = em.get_expenses(farm_id=filter_farm_id)
                     for row, trans in enumerate(transactions):
                         party = self.party_manager.get_party_by_id(trans.party_id) if trans.party_id else None
                         rows.append([

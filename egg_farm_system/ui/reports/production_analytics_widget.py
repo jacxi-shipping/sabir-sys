@@ -5,11 +5,12 @@ from egg_farm_system.utils.i18n import tr
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QComboBox,
-    QDateEdit, QPushButton, QLabel, QGroupBox, QMessageBox
+    QPushButton, QLabel, QGroupBox, QMessageBox
 )
-from PySide6.QtCore import QDate
+from datetime import date, timedelta
 from egg_farm_system.database.models import Flock
 from egg_farm_system.utils.calculations import FeedCalculations, EggCalculations, MortalityCalculations
+from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
 
 class ProductionAnalyticsWidget(QWidget):
     def __init__(self, session):
@@ -27,10 +28,12 @@ class ProductionAnalyticsWidget(QWidget):
         filters_group = QGroupBox("Filters")
         filters_layout = QFormLayout()
         self.flock_combo = QComboBox()
-        self.start_date_edit = QDateEdit(calendarPopup=True)
-        self.end_date_edit = QDateEdit(calendarPopup=True)
-        self.start_date_edit.setDate(QDate.currentDate().addMonths(-1))
-        self.end_date_edit.setDate(QDate.currentDate())
+        
+        # Calculate dates
+        one_month_ago = date.today() - timedelta(days=30)
+        
+        self.start_date_edit = JalaliDateEdit(initial=one_month_ago)
+        self.end_date_edit = JalaliDateEdit(initial=date.today())
         filters_layout.addRow("Flock:", self.flock_combo)
         filters_layout.addRow("Start Date:", self.start_date_edit)
         filters_layout.addRow("End Date:", self.end_date_edit)
@@ -85,8 +88,8 @@ class ProductionAnalyticsWidget(QWidget):
 
     def run_calculations(self):
         flock_id = self.flock_combo.currentData()
-        start_date = self.start_date_edit.date().toPython()
-        end_date = self.end_date_edit.date().toPython()
+        start_date = self.start_date_edit.date()
+        end_date = self.end_date_edit.date()
 
         if not flock_id:
             QMessageBox.warning(self, tr("Warning"), "Please select a flock.")

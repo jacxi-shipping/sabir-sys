@@ -112,7 +112,7 @@ class PurchaseManager:
                 session=self.session  # Pass session for transactional consistency
             )
             
-            # If payment method is Cash, create a payment record for cash flow tracking
+            # If payment method is Cash, create a payment record and offset ledger entry
             if payment_method == "Cash":
                 from egg_farm_system.database.models import Payment
                 cash_payment = Payment(
@@ -126,6 +126,20 @@ class PurchaseManager:
                     exchange_rate_used=exchange_rate_used
                 )
                 self.session.add(cash_payment)
+                self.session.flush()  # Get payment ID
+                
+                # Create offsetting ledger entry to reduce party balance to zero
+                self.ledger_manager.post_entry(
+                    party_id=party_id,
+                    date=date,
+                    description=f"Payment paid: Purchase #{purchase.id}",
+                    debit_afg=total_afg,
+                    debit_usd=total_usd,
+                    exchange_rate_used=exchange_rate_used,
+                    reference_type="Payment",
+                    reference_id=cash_payment.id,
+                    session=self.session
+                )
             
             self.session.commit()
             logger.info(f"Purchase recorded: {quantity}kg from party {party_id}")

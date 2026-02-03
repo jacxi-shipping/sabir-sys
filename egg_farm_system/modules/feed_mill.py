@@ -290,7 +290,22 @@ class FeedProductionManager:
             if abs(formula.get_total_percentage() - 100.0) > 0.01:
                 raise ValueError("Formula is not valid (total percentage != 100%)")
             
-            # Calculate cost
+            # First, check if we have enough stock for all ingredients
+            insufficient_materials = []
+            for ingredient in formula.ingredients:
+                material = ingredient.material
+                amount_kg = (quantity_kg * ingredient.percentage) / 100
+                if material.current_stock < amount_kg:
+                    insufficient_materials.append(
+                        f"{material.name}: need {amount_kg:.2f}{material.unit}, have {material.current_stock:.2f}{material.unit}"
+                    )
+            
+            if insufficient_materials:
+                raise ValueError(
+                    f"Insufficient stock to manufacture feed:\n" + "\n".join(insufficient_materials)
+                )
+            
+            # Calculate cost and consume stock
             cost_afg = 0
             for ingredient in formula.ingredients:
                 material = ingredient.material
