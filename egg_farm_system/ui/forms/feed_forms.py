@@ -73,6 +73,7 @@ class RawMaterialsTab(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(7); self.table.setHorizontalHeaderLabels(["ID", "Name", "Current Stock (kg)", "Avg Price (AFG)", "Avg Price (USD)", "Total Value (AFG)", "Low Stock Alert"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers); self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.ExtendedSelection)  # Enable multi-selection
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.table.setColumnHidden(0, True)
         self.table.verticalHeader().setMinimumSectionSize(40)
         self.table.verticalHeader().setDefaultSectionSize(40)
@@ -117,16 +118,40 @@ class RawMaterialsTab(QWidget):
             except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
 
     def delete_material(self):
-        row = self.table.currentRow()
-        if row < 0: return QMessageBox.warning(self, tr("Selection Error"), "Please select a material.")
-        mat_id = int(self.table.item(row, 0).text())
-        name = self.table.item(row, 1).text()
-        reply = QMessageBox.question(self, "Confirm Delete", f"Delete '{name}'? This cannot be undone.")
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            return QMessageBox.warning(self, tr("Selection Error"), "Please select material(s) to delete.")
+        
+        # Get material IDs and names
+        material_ids = []
+        material_names = []
+        for index in selected_rows:
+            row = index.row()
+            mat_id = int(self.table.item(row, 0).text())
+            mat_name = self.table.item(row, 1).text()
+            material_ids.append(mat_id)
+            material_names.append(mat_name)
+        
+        # Confirmation message
+        if len(material_ids) == 1:
+            message = f"Delete '{material_names[0]}'? This cannot be undone."
+        else:
+            message = f"Are you sure you want to delete {len(material_ids)} raw materials?\n\n"
+            message += "\n".join(f"• {name}" for name in material_names[:5])
+            if len(material_names) > 5:
+                message += f"\n... and {len(material_names) - 5} more"
+            message += "\n\nThis cannot be undone."
+        
+        reply = QMessageBox.question(self, "Confirm Delete", message)
+        
         if reply == QMessageBox.Yes:
             try:
-                self.manager.delete_material(mat_id)
+                for mat_id in material_ids:
+                    self.manager.delete_material(mat_id)
                 self.load_materials()
-            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
+                QMessageBox.information(self, tr("Success"), f"Successfully deleted {len(material_ids)} material(s).")
+            except Exception as e: 
+                QMessageBox.critical(self, tr("Error"), str(e))
 
 # --- Dialogs for Formula Tab ---
 class FormulaDialog(QDialog):
@@ -201,6 +226,7 @@ class FormulasTab(QWidget):
         formulas_layout.addLayout(formula_buttons)
         self.formulas_table = QTableWidget(); self.formulas_table.setColumnCount(3); self.formulas_table.setHorizontalHeaderLabels(["ID", "Name", "Type"])
         self.formulas_table.setSelectionBehavior(QTableWidget.SelectRows); self.formulas_table.setColumnHidden(0, True)
+        self.formulas_table.setSelectionMode(QTableWidget.ExtendedSelection)  # Enable multi-selection
         self.formulas_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.formulas_table.selectionModel().selectionChanged.connect(self.load_ingredients)
         self.formulas_table.verticalHeader().setMinimumSectionSize(40); self.formulas_table.verticalHeader().setDefaultSectionSize(40)
         formulas_layout.addWidget(self.formulas_table); splitter.addWidget(formulas_widget)
@@ -248,16 +274,42 @@ class FormulasTab(QWidget):
             except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
 
     def delete_formula(self):
-        formula_id = self.get_selected_formula_id()
-        if not formula_id: return QMessageBox.warning(self, tr("Selection Error"), "Please select a formula.")
-        reply = QMessageBox.question(self, "Confirm Delete", "Delete selected formula? This is final.")
+        selected_rows = self.formulas_table.selectionModel().selectedRows()
+        if not selected_rows:
+            return QMessageBox.warning(self, tr("Selection Error"), "Please select formula(s) to delete.")
+        
+        # Get formula IDs and names
+        formula_ids = []
+        formula_names = []
+        for index in selected_rows:
+            row = index.row()
+            f_id = int(self.formulas_table.item(row, 0).text())
+            f_name = self.formulas_table.item(row, 1).text()
+            formula_ids.append(f_id)
+            formula_names.append(f_name)
+        
+        # Confirmation message
+        if len(formula_ids) == 1:
+            message = "Delete selected formula? This is final."
+        else:
+            message = f"Are you sure you want to delete {len(formula_ids)} formulas?\n\n"
+            message += "\n".join(f"• {name}" for name in formula_names[:5])
+            if len(formula_names) > 5:
+                message += f"\n... and {len(formula_names) - 5} more"
+            message += "\n\nThis is final."
+        
+        reply = QMessageBox.question(self, "Confirm Delete", message)
+        
         if reply == QMessageBox.Yes:
-            try: 
-                self.manager.delete_formula(formula_id)
+            try:
+                for f_id in formula_ids:
+                    self.manager.delete_formula(f_id)
                 self.load_formulas()
                 self.load_ingredients()
                 self.parent().parent().findChild(ProductionTab).load_formulas()
-            except Exception as e: QMessageBox.critical(self, tr("Error"), str(e))
+                QMessageBox.information(self, tr("Success"), f"Successfully deleted {len(formula_ids)} formula(s).")
+            except Exception as e: 
+                QMessageBox.critical(self, tr("Error"), str(e))
 
     def add_ingredient(self):
         formula_id = self.get_selected_formula_id()

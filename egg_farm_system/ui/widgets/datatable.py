@@ -319,6 +319,42 @@ class DataTableWidget(QWidget):
             logger.exception("Failed to set cell widget at %s,%s: %s", row, col, e)
             traceback.print_exc()
 
+    def enable_multi_selection(self):
+        """Enable multi-row selection in the table view."""
+        self.view.setSelectionMode(QAbstractItemView.ExtendedSelection)
+    
+    def get_selected_rows(self):
+        """Get list of selected row indices (in source model coordinates)."""
+        selected_indexes = self.view.selectionModel().selectedRows()
+        selected_rows = []
+        for proxy_index in selected_indexes:
+            source_index = self.proxy.mapToSource(proxy_index)
+            if source_index.isValid():
+                selected_rows.append(source_index.row())
+        return selected_rows
+    
+    def get_selected_row_data(self, columns=None):
+        """
+        Get data from selected rows.
+        
+        Args:
+            columns: List of column indices to retrieve. If None, retrieves all columns.
+        
+        Returns:
+            List of lists, where each inner list contains the data for one selected row.
+        """
+        selected_rows = self.get_selected_rows()
+        result = []
+        for row in selected_rows:
+            row_data = []
+            col_count = self.model.columnCount() if columns is None else len(columns)
+            cols_to_get = range(self.model.columnCount()) if columns is None else columns
+            for col in cols_to_get:
+                item = self.model.item(row, col)
+                row_data.append(item.text() if item else "")
+            result.append(row_data)
+        return result
+
     # Backwards compatibility shims for code that used QTableWidget APIs
     def setItem(self, row, col, item):
         """Compatibility: accept a QTableWidgetItem and put its text into the model."""
