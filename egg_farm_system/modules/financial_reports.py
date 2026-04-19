@@ -45,6 +45,51 @@ class FinancialReportGenerator:
             return date_obj.replace(hour=23, minute=59, second=59, microsecond=999999)
         return datetime.combine(date_obj, time.max)
 
+    def _payment_belongs_to_farm(self, payment, farm_id):
+        """Infer farm ownership for payment rows from their source reference."""
+        if farm_id is None:
+            return True
+
+        reference = (payment.reference or "").strip()
+        if not reference:
+            return False
+
+        try:
+            if reference.startswith("Sale #"):
+                sale_id = int(reference.split("#", 1)[1])
+                return self.session.query(Sale.id).filter(
+                    Sale.id == sale_id,
+                    Sale.farm_id == farm_id,
+                ).first() is not None
+
+            if reference.startswith("Purchase #"):
+                purchase_id = int(reference.split("#", 1)[1])
+                return self.session.query(Purchase.id).filter(
+                    Purchase.id == purchase_id,
+                    Purchase.farm_id == farm_id,
+                ).first() is not None
+
+            if reference.startswith("Expense #"):
+                expense_id = int(reference.split("#", 1)[1])
+                return self.session.query(Expense.id).filter(
+                    Expense.id == expense_id,
+                    Expense.farm_id == farm_id,
+                ).first() is not None
+
+            if reference.startswith("Expense:"):
+                category = reference.split(":", 1)[1].strip()
+                return self.session.query(Expense.id).filter(
+                    Expense.category == category,
+                    Expense.date == payment.date,
+                    Expense.party_id == payment.party_id,
+                    Expense.farm_id == farm_id,
+                ).first() is not None
+
+        except Exception:
+            return False
+
+        return False
+
     def generate_pnl_statement(self, start_date, end_date, farm_id=None):
         """
         Generates a Profit and Loss (P&L) statement for a given period.
@@ -66,8 +111,8 @@ class FinancialReportGenerator:
                 Sale.date >= start_date,
                 Sale.date <= query_end_date
             )
-            # Note: Sales are currently global and linked to Parties, not specific Farms/Sheds.
-            # Farm-specific revenue filtering is not possible without schema changes.
+            if farm_id:
+                revenue_query = revenue_query.filter(Sale.farm_id == farm_id)
             total_revenue = revenue_query.scalar() or 0
 
             # 2. Calculate Cost of Goods Sold (COGS) - primarily feed cost for now
@@ -122,19 +167,29 @@ class FinancialReportGenerator:
         # --- Cash Inflows ---
         # Only Payments Received (Cash Sales should have a corresponding Payment record)
         # Sales records themselves are Accrual (AR).
-        payments_received = self.session.query(func.sum(Payment.amount_afg)).filter(
-            Payment.date >= start_date, Payment.date <= query_end_date,
+        payments_received_query = self.session.query(Payment).filter(
+            Payment.date >= start_date,
+            Payment.date <= query_end_date,
             Payment.payment_type == 'Received'
-        ).scalar() or 0
+        )
+        payments_received_rows = payments_received_query.all()
+        if farm_id:
+            payments_received_rows = [p for p in payments_received_rows if self._payment_belongs_to_farm(p, farm_id)]
+        payments_received = sum(p.amount_afg or 0 for p in payments_received_rows)
 
         total_inflows = payments_received
 
         # --- Cash Outflows ---
         # 1. Payments Paid (for Credit Purchases/Expenses)
-        payments_paid = self.session.query(func.sum(Payment.amount_afg)).filter(
-            Payment.date >= start_date, Payment.date <= query_end_date,
+        payments_paid_query = self.session.query(Payment).filter(
+            Payment.date >= start_date,
+            Payment.date <= query_end_date,
             Payment.payment_type == 'Paid'
-        ).scalar() or 0
+        )
+        payments_paid_rows = payments_paid_query.all()
+        if farm_id:
+            payments_paid_rows = [p for p in payments_paid_rows if self._payment_belongs_to_farm(p, farm_id)]
+        payments_paid = sum(p.amount_afg or 0 for p in payments_paid_rows)
         
         # 2. Direct Cash Expenses (Expenses without a Party linked)
         # If an Expense has a Party, it's a Credit Expense (Liability) -> Paid via Payment later.

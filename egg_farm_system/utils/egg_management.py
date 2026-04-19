@@ -7,9 +7,10 @@ from egg_farm_system.utils.i18n import tr
 import logging
 from typing import Dict, Optional, Tuple
 from datetime import datetime
+from sqlalchemy import func
 
 from egg_farm_system.database.db import DatabaseManager
-from egg_farm_system.database.models import EggProduction
+from egg_farm_system.database.models import EggProduction, Sale, Shed
 from egg_farm_system.modules.settings import SettingsManager
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class EggManagementSystem:
     TRAYS_EXPENSE_PER_CARTON = 7  # Packaging trays used per carton
     
     def __init__(self):
-        self.session = DatabaseManager.get_session()
+        self.session = None
     
     @staticmethod
     def eggs_to_trays(eggs: int) -> float:
@@ -118,21 +119,8 @@ class EggManagementSystem:
             Available count
         """
         try:
-            from egg_farm_system.database.models import EggInventory, EggGrade
-            
-            grade_map = {
-                'small': EggGrade.SMALL,
-                'medium': EggGrade.MEDIUM,
-                'large': EggGrade.LARGE,
-                'broken': EggGrade.BROKEN
-            }
-            
-            if grade not in grade_map:
-                return 0
-                
-            inv = self.session.query(EggInventory).filter(EggInventory.grade == grade_map[grade]).first()
-            return inv.current_stock if inv else 0
-        
+            summary = self.get_egg_stock_summary(farm_id)
+            return int(summary.get(grade.lower(), 0))
         except Exception as e:
             logger.error(f"Error getting available eggs: {e}")
             return 0
@@ -140,24 +128,64 @@ class EggManagementSystem:
     def get_egg_stock_summary(self, farm_id: int) -> Dict[str, int]:
         """Get egg stock summary by grade"""
         try:
-            from egg_farm_system.database.models import EggInventory, EggGrade
-            
-            # Initialize with zeros
-            summary = {'small': 0, 'medium': 0, 'large': 0, 'broken': 0}
-            
-            # Query current stock from EggInventory
-            inventories = self.session.query(EggInventory).all()
-            
-            for inv in inventories:
-                if inv.grade == EggGrade.SMALL:
-                    summary['small'] = inv.current_stock
-                elif inv.grade == EggGrade.MEDIUM:
-                    summary['medium'] = inv.current_stock
-                elif inv.grade == EggGrade.LARGE:
-                    summary['large'] = inv.current_stock
-                elif inv.grade == EggGrade.BROKEN:
-                    summary['broken'] = inv.current_stock
-            
+            session = DatabaseManager.get_session()
+            try:
+                summary = {'small': 0, 'medium': 0, 'large': 0, 'broken': 0}
+
+                if farm_id is None:
+                    # Backward compatibility fallback when no farm is selected.
+                    from egg_farm_system.database.models import EggInventory, EggGrade
+                    inventories = session.query(EggInventory).all()
+                    for inv in inventories:
+                        if inv.grade == EggGrade.SMALL:
+                            summary['small'] = inv.current_stock
+                        elif inv.grade == EggGrade.MEDIUM:
+                            summary['medium'] = inv.current_stock
+                        elif inv.grade == EggGrade.LARGE:
+                            summary['large'] = inv.current_stock
+                        elif inv.grade == EggGrade.BROKEN:
+                            summary['broken'] = inv.current_stock
+                else:
+                    produced = (
+                        session.query(
+                            func.coalesce(func.sum(EggProduction.small_count), 0),
+                            func.coalesce(func.sum(EggProduction.medium_count), 0),
+                            func.coalesce(func.sum(EggProduction.large_count), 0),
+                            func.coalesce(func.sum(EggProduction.broken_count), 0),
+                        )
+                        .join(Shed, EggProduction.shed_id == Shed.id)
+                        .filter(Shed.farm_id == farm_id)
+                        .one()
+                    )
+                    summary['small'] = int(produced[0] or 0)
+                    summary['medium'] = int(produced[1] or 0)
+                    summary['large'] = int(produced[2] or 0)
+                    summary['broken'] = int(produced[3] or 0)
+
+                    sold_usable = int(
+                        session.query(func.coalesce(func.sum(Sale.quantity), 0))
+                        .filter(Sale.farm_id == farm_id)
+                        .scalar()
+                        or 0
+                    )
+
+                    # Mirror inventory consumption order used during sales.
+                    remaining = sold_usable
+                    for key in ('large', 'medium', 'small'):
+                        if remaining <= 0:
+                            break
+                        take = min(summary[key], remaining)
+                        summary[key] -= take
+                        remaining -= take
+
+                    summary['small'] = max(summary['small'], 0)
+                    summary['medium'] = max(summary['medium'], 0)
+                    summary['large'] = max(summary['large'], 0)
+                    summary['broken'] = max(summary['broken'], 0)
+
+            finally:
+                session.close()
+
             summary['total'] = sum(summary.values())
             summary['usable'] = summary['small'] + summary['medium'] + summary['large']
             
@@ -169,6 +197,5 @@ class EggManagementSystem:
     
     def close(self):
         """Close session"""
-        if self.session:
-            self.session.close()
+        return None
 

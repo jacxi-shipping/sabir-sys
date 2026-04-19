@@ -78,6 +78,11 @@ class InventoryFormWidget(QWidget):
         dlg = PackagingPurchaseDialog(self, farm_id=self.farm_id)
         dlg.purchase_saved.connect(self.refresh_data)
         dlg.exec()
+
+    def set_farm_id(self, farm_id):
+        """Update farm context and refresh inventory tables."""
+        self.farm_id = farm_id
+        self.refresh_data()
     
     def create_table(self, headers):
         """Create data table with consistent column stretching"""
@@ -102,7 +107,7 @@ class InventoryFormWidget(QWidget):
             dashboard_cache.invalidate_all()
             
             # Raw materials
-            raw_materials = self.inventory_manager.get_raw_materials_inventory()
+            raw_materials = self.inventory_manager.get_raw_materials_inventory(farm_id=self.farm_id)
             self.raw_materials_table.setRowCount(len(raw_materials))
             
             if len(raw_materials) == 0:
@@ -123,7 +128,7 @@ class InventoryFormWidget(QWidget):
                     self.raw_materials_table.setItem(row, 5, QTableWidgetItem(status))
             
             # Finished feed
-            finished_feed = self.inventory_manager.get_finished_feed_inventory()
+            finished_feed = self.inventory_manager.get_finished_feed_inventory(farm_id=self.farm_id)
             self.finished_feed_table.setRowCount(len(finished_feed))
             
             for row, feed in enumerate(finished_feed):
@@ -136,7 +141,7 @@ class InventoryFormWidget(QWidget):
                 self.finished_feed_table.setItem(row, 4, QTableWidgetItem(status))
             
             # Summary
-            totals = self.inventory_manager.get_total_inventory_value()
+            totals = self.inventory_manager.get_total_inventory_value(farm_id=self.farm_id)
             summary_text = f"Total Inventory Value: Afs {totals['total_afg']:,.2f} (${totals['total_usd']:,.2f})"
             self.summary_label.setText(summary_text)
         except Exception as e:

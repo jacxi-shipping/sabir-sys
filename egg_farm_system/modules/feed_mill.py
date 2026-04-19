@@ -3,21 +3,23 @@ Feed manufacturing and management module
 """
 from egg_farm_system.utils.i18n import tr
 
-from datetime import datetime
+from datetime import UTC, datetime
 from egg_farm_system.database.models import (
     RawMaterial, FeedFormula, FeedFormulation, FeedBatch, FinishedFeed, FeedIssue
 )
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.utils.currency import CurrencyConverter
 import logging
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
 class RawMaterialManager:
     """Manage raw materials"""
     
-    def __init__(self):
+    def __init__(self, farm_id=None):
         self.session = DatabaseManager.get_session()
+        self.farm_id = farm_id
     
     def __enter__(self):
         return self
@@ -28,13 +30,14 @@ class RawMaterialManager:
             logger.error(f"Transaction rolled back due to exception: {exc_val}")
         self.session.close()
     
-    def create_material(self, name, cost_afg, cost_usd, supplier_id=None, low_stock_alert=50):
+    def create_material(self, name, cost_afg, cost_usd, supplier_id=None, low_stock_alert=50, farm_id=None):
         """Create raw material"""
         try:
             # Note: cost_afg and cost_usd are calculated properties in the new model based on purchase history.
             # We ignore the initial values here as they cannot be set directly without a purchase.
             # Future improvement: Create an initial "opening balance" purchase if needed.
             material = RawMaterial(
+                farm_id=self.farm_id if farm_id is None else farm_id,
                 name=name,
                 supplier_id=supplier_id,
                 low_stock_alert=low_stock_alert
@@ -48,18 +51,26 @@ class RawMaterialManager:
             logger.error(f"Error creating raw material: {e}")
             raise
     
-    def get_all_materials(self):
+    def get_all_materials(self, farm_id=None):
         """Get all raw materials"""
         try:
-            return self.session.query(RawMaterial).all()
+            effective_farm_id = self.farm_id if farm_id is None else farm_id
+            query = self.session.query(RawMaterial)
+            if effective_farm_id is not None:
+                query = query.filter(RawMaterial.farm_id == effective_farm_id)
+            return query.all()
         except Exception as e:
             logger.error(f"Error getting materials: {e}")
             return []
     
-    def get_material_by_id(self, material_id):
+    def get_material_by_id(self, material_id, farm_id=None):
         """Get material by ID"""
         try:
-            return self.session.query(RawMaterial).filter(RawMaterial.id == material_id).first()
+            effective_farm_id = self.farm_id if farm_id is None else farm_id
+            query = self.session.query(RawMaterial).filter(RawMaterial.id == material_id)
+            if effective_farm_id is not None:
+                query = query.filter(RawMaterial.farm_id == effective_farm_id)
+            return query.first()
         except Exception as e:
             logger.error(f"Error getting material: {e}")
             return None
@@ -130,12 +141,16 @@ class RawMaterialManager:
             logger.error(f"Error updating material stock: {e}")
             raise
     
-    def get_low_stock_alerts(self):
+    def get_low_stock_alerts(self, farm_id=None):
         """Get materials below low stock threshold"""
         try:
-            return self.session.query(RawMaterial).filter(
+            effective_farm_id = self.farm_id if farm_id is None else farm_id
+            query = self.session.query(RawMaterial).filter(
                 RawMaterial.current_stock <= RawMaterial.low_stock_alert
-            ).all()
+            )
+            if effective_farm_id is not None:
+                query = query.filter(RawMaterial.farm_id == effective_farm_id)
+            return query.all()
         except Exception as e:
             logger.error(f"Error getting low stock alerts: {e}")
             return []
@@ -323,7 +338,7 @@ class FeedProductionManager:
             # Create batch record
             batch = FeedBatch(
                 formula_id=formula_id,
-                batch_date=datetime.utcnow(),
+                batch_date=utcnow_naive(),
                 quantity_kg=quantity_kg,
                 cost_afg=cost_afg,
                 cost_usd=cost_usd,

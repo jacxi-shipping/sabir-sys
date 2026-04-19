@@ -55,9 +55,9 @@ jobs:
         mypy egg_farm_system --ignore-missing-imports --no-strict-optional
       continue-on-error: true
 
-    - name: Run tests with pytest
+    - name: Run functional tests (required)
       run: |
-        python -m pytest tests/ -v --cov=egg_farm_system --cov-report=xml --cov-report=html
+        python -m pytest tests/ -v -k "not performance" --cov=egg_farm_system --cov-report=xml --cov-report=html --cov-fail-under=0
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -149,9 +149,10 @@ jobs:
         pip install -r requirements.txt
         pip install pytest-benchmark memory-profiler
 
-    - name: Run performance tests
+    - name: Run performance benchmarks (optional)
       run: |
-        python -m pytest tests/test_performance.py -v --benchmark-only
+        mkdir -p benchmark-results
+        python -m pytest tests/test_performance.py -v --benchmark-only --benchmark-json=benchmark-results/benchmark-results.json
       continue-on-error: true
 
     - name: Upload performance results

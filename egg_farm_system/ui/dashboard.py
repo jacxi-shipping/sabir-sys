@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QColor
 from PySide6.QtCore import Qt, QSize
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from egg_farm_system.modules.reports import ReportGenerator
@@ -27,6 +27,7 @@ from egg_farm_system.ui.animation_helper import AnimationHelper
 from egg_farm_system.config import get_asset_path
 from egg_farm_system.utils.audit_trail import get_audit_trail
 import logging
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -528,7 +529,7 @@ class DashboardWidget(QWidget):
             
             # Today's sales
             sales_manager = SalesManager()
-            today_sales = sales_manager.get_sales_summary(None, today, today)
+            today_sales = sales_manager.get_sales_summary(None, today, today, farm_id=self.farm_id)
             
             sales_labels = self.today_sales_card.findChildren(QLabel)
             if len(sales_labels) > 1:
@@ -579,7 +580,7 @@ class DashboardWidget(QWidget):
             end_date = datetime.now().date()
             start_date = end_date - timedelta(days=30)
             sales_manager = SalesManager()
-            summary = sales_manager.get_sales_summary(None, start_date, end_date)
+            summary = sales_manager.get_sales_summary(None, start_date, end_date, farm_id=self.farm_id)
             total = summary.get('total_afg', 0)
             
             lbls = self.total_sales_label.findChildren(QLabel)
@@ -591,13 +592,13 @@ class DashboardWidget(QWidget):
         """Update alerts section"""
         try:
             inventory_manager = InventoryManager()
-            alerts = inventory_manager.get_low_stock_alerts()
+            alerts = inventory_manager.get_low_stock_alerts(farm_id=self.farm_id)
             
             if alerts:
                 self.alerts_frame.setVisible(True)
                 count = len(alerts)
                 first = alerts[0]
-                text = f"⚠️ <b>{count} Low Stock Alert(s):</b> {first['name']} ({first['stock']} {first['unit']})"
+                text = f"âš ï¸ <b>{count} Low Stock Alert(s):</b> {first['name']} ({first['stock']} {first['unit']})"
                 if count > 1:
                     text += " ..."
                 self.alerts_label.setText(text)
@@ -656,7 +657,7 @@ class DashboardWidget(QWidget):
                 item_layout.addWidget(desc, 1)
                 
                 # Time
-                time_diff = datetime.utcnow() - log.timestamp
+                time_diff = utcnow_naive() - log.timestamp
                 if time_diff.total_seconds() < 60:
                     time_str = "Just now"
                 elif time_diff.total_seconds() < 3600:

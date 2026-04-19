@@ -207,6 +207,8 @@ class CashFlowWidget(QWidget):
                     Expense.party_id == None,
                     Expense.payment_method == "Cash"
                 ).all()
+                if self.farm_id is not None:
+                    direct_expenses = [e for e in direct_expenses if e.farm_id == self.farm_id]
                 for expense in direct_expenses:
                     transactions.append({
                         'date': expense.date,
@@ -225,6 +227,8 @@ class CashFlowWidget(QWidget):
                     Payment.date >= start_date,
                     Payment.date <= end_date
                 ).all()
+                if self.farm_id is not None:
+                    payments = [p for p in payments if self._payment_belongs_to_farm(p, session)]
                 for payment in payments:
                     transactions.append({
                         'date': payment.date,
@@ -320,12 +324,16 @@ class CashFlowWidget(QWidget):
                 Expense.date < start_date,
                 Expense.party_id == None
             ).all()
+            if self.farm_id is not None:
+                expenses = [e for e in expenses if e.farm_id == self.farm_id]
             total_outflow += sum(e.amount_afg for e in expenses)
             
             # Payments - All
             payments = session.query(Payment).filter(
                 Payment.date < start_date
             ).all()
+            if self.farm_id is not None:
+                payments = [p for p in payments if self._payment_belongs_to_farm(p, session)]
             for payment in payments:
                 if payment.payment_type == "Received":
                     total_inflow += payment.amount_afg
@@ -336,6 +344,57 @@ class CashFlowWidget(QWidget):
         except Exception as e:
             logger.error(f"Error calculating opening balance: {e}")
             return 0
+
+    def _payment_belongs_to_farm(self, payment, session):
+        """Infer whether a payment belongs to the selected farm using its source reference."""
+        if self.farm_id is None:
+            return True
+
+        reference = (payment.reference or "").strip()
+        if not reference:
+            return False
+
+        try:
+            if reference.startswith("Sale #"):
+                sale_id = int(reference.split("#", 1)[1])
+                return session.query(Sale.id).filter(
+                    Sale.id == sale_id,
+                    Sale.farm_id == self.farm_id,
+                ).first() is not None
+
+            if reference.startswith("Purchase #"):
+                purchase_id = int(reference.split("#", 1)[1])
+                return session.query(Purchase.id).filter(
+                    Purchase.id == purchase_id,
+                    Purchase.farm_id == self.farm_id,
+                ).first() is not None
+
+            if reference.startswith("Expense #"):
+                expense_id = int(reference.split("#", 1)[1])
+                return session.query(Expense.id).filter(
+                    Expense.id == expense_id,
+                    Expense.farm_id == self.farm_id,
+                ).first() is not None
+
+            if reference.startswith("Expense:"):
+                category = reference.split(":", 1)[1].strip()
+                return session.query(Expense.id).filter(
+                    Expense.category == category,
+                    Expense.date == payment.date,
+                    Expense.party_id == payment.party_id,
+                    Expense.farm_id == self.farm_id,
+                ).first() is not None
+
+            # Unknown reference format: avoid cross-farm leakage.
+            return False
+
+        except Exception:
+            return False
+
+    def set_farm_id(self, farm_id):
+        """Update selected farm and reload cash flow data."""
+        self.farm_id = farm_id
+        self.load_data()
     
     def add_cash_inflow(self):
         """Add manual cash inflow"""

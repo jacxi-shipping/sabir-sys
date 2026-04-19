@@ -25,13 +25,14 @@ class AddTransactionDialog(QDialog):
     """
 
     def __init__(self, parent, party: Optional[object] = None, transaction_type: str = "Debit",
-                 ledger_manager=None, converter=None, party_manager: Optional[PartyManager] = None):
+                 ledger_manager=None, converter=None, party_manager: Optional[PartyManager] = None, farm_id=None):
         super().__init__(parent)
         self.party = party
         self.transaction_type = transaction_type  # "Credit" or "Debit"
         self.ledger_manager = ledger_manager
         self.converter = converter
         self.party_manager = party_manager or PartyManager()
+        self.farm_id = farm_id
 
         title = f"{transaction_type} Account"
         if party:
@@ -176,6 +177,7 @@ class AddTransactionDialog(QDialog):
             if transaction_type == "Debit":
                 self.ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=self.farm_id,
                     date=date,
                     description=description,
                     debit_afg=amount_afg,
@@ -190,6 +192,7 @@ class AddTransactionDialog(QDialog):
             else:
                 self.ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=self.farm_id,
                     date=date,
                     description=description,
                     debit_afg=0,

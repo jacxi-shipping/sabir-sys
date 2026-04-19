@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 class PartyViewDialog(QDialog):
     """Premium party view dialog with ledger management"""
     
-    def __init__(self, parent, party):
+    def __init__(self, parent, party, farm_id=None):
         super().__init__(parent)
         self.party = party
+        self.farm_id = farm_id
         self.ledger_manager = LedgerManager()
         self.party_manager = PartyManager()
         self.converter = CurrencyConverter()
@@ -256,9 +257,9 @@ class PartyViewDialog(QDialog):
         """Load party ledger data"""
         try:
             # Get ledger entries with running balance
-            entries_afg = self.ledger_manager.get_balance_with_running(self.party.id, "AFG")
-            entries_usd = self.ledger_manager.get_balance_with_running(self.party.id, "USD")
-            summary = self.ledger_manager.get_ledger_summary(self.party.id)
+            entries_afg = self.ledger_manager.get_balance_with_running(self.party.id, "AFG", farm_id=self.farm_id)
+            entries_usd = self.ledger_manager.get_balance_with_running(self.party.id, "USD", farm_id=self.farm_id)
+            summary = self.ledger_manager.get_ledger_summary(self.party.id, farm_id=self.farm_id)
             
             # Update balance cards with direct label references
             if summary:
@@ -278,7 +279,7 @@ class PartyViewDialog(QDialog):
                 self.total_credit_value.setText(f"{total_credit_afg:,.2f}")
             
             # Load ledger entries
-            all_entries = self.ledger_manager.get_party_ledger(self.party.id)
+            all_entries = self.ledger_manager.get_party_ledger(self.party.id, farm_id=self.farm_id)
             self.ledger_table.setRowCount(len(all_entries))
             
             running_balance_afg = 0
@@ -470,13 +471,13 @@ class PartyViewDialog(QDialog):
     
     def show_debit_dialog(self):
         """Show dialog to debit party account"""
-        dialog = AddTransactionDialog(self, self.party, "Debit", self.ledger_manager, self.converter)
+        dialog = AddTransactionDialog(self, self.party, "Debit", self.ledger_manager, self.converter, farm_id=self.farm_id)
         if dialog.exec():
             self.load_data()
     
     def show_credit_dialog(self):
         """Show dialog to credit party account"""
-        dialog = AddTransactionDialog(self, self.party, "Credit", self.ledger_manager, self.converter)
+        dialog = AddTransactionDialog(self, self.party, "Credit", self.ledger_manager, self.converter, farm_id=self.farm_id)
         if dialog.exec():
             self.load_data()
 
@@ -490,6 +491,7 @@ class CreditDebitDialog(QDialog):
         self.transaction_type = transaction_type  # "Credit" or "Debit"
         self.ledger_manager = ledger_manager
         self.converter = converter
+        self.farm_id = getattr(parent, 'farm_id', None)
         
         self.setWindowTitle(f"{transaction_type} Account - {party.name}")
         self.setMinimumWidth(500)
@@ -602,6 +604,7 @@ class CreditDebitDialog(QDialog):
                     # Debit party (party owes us)
                     self.ledger_manager.post_entry(
                         party_id=self.party.id,
+                        farm_id=self.farm_id,
                         date=date,
                         description=description,
                         debit_afg=amount_afg,
@@ -617,6 +620,7 @@ class CreditDebitDialog(QDialog):
                     # Credit party (we owe party)
                     self.ledger_manager.post_entry(
                         party_id=self.party.id,
+                        farm_id=self.farm_id,
                         date=date,
                         description=description,
                         debit_afg=0,

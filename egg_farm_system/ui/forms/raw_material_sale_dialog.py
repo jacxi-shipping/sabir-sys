@@ -24,8 +24,9 @@ class RawMaterialSaleDialog(QDialog):
 
     sale_saved = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, farm_id=None):
         super().__init__(parent)
+        self.farm_id = farm_id
         self.setWindowTitle(tr("Sell Raw Material"))
         self.setModal(True)
         self.setMinimumWidth(560)
@@ -141,8 +142,8 @@ class RawMaterialSaleDialog(QDialog):
 
         # Raw materials
         self.raw_material_combo.clear()
-        with RawMaterialManager() as rmm:
-            for m in rmm.get_all_materials():
+        with RawMaterialManager(farm_id=self.farm_id) as rmm:
+            for m in rmm.get_all_materials(farm_id=self.farm_id):
                 self.raw_material_combo.addItem(f"{m.name} ({m.unit})", m.id)
 
         # Initialize fields
@@ -165,8 +166,8 @@ class RawMaterialSaleDialog(QDialog):
             self.quantity_spin.setMaximum(0.0)
             return
 
-        with RawMaterialManager() as rmm:
-            m = rmm.get_material_by_id(material_id)
+        with RawMaterialManager(farm_id=self.farm_id) as rmm:
+            m = rmm.get_material_by_id(material_id, farm_id=self.farm_id)
             if not m:
                 self.available_label.setText(tr("Available: N/A"))
                 self.quantity_spin.setMaximum(0.0)
@@ -226,8 +227,8 @@ class RawMaterialSaleDialog(QDialog):
             return False
         # Stock check
         material_id = self.raw_material_combo.currentData()
-        with RawMaterialManager() as rmm:
-            m = rmm.get_material_by_id(material_id)
+        with RawMaterialManager(farm_id=self.farm_id) as rmm:
+            m = rmm.get_material_by_id(material_id, farm_id=self.farm_id)
             if m and self.quantity_spin.value() > m.current_stock:
                 QMessageBox.warning(self, tr("Insufficient Stock"), tr("Requested quantity exceeds available stock."))
                 return False
@@ -257,6 +258,7 @@ class RawMaterialSaleDialog(QDialog):
                     date=self.date_edit.dateTime(),
                     payment_method=payment_method,
                     notes=notes,
+                    farm_id=self.farm_id,
                 )
 
             QMessageBox.information(self, tr("Success"), tr("Saved successfully"))

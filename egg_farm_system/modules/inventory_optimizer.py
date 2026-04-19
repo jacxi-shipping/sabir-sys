@@ -4,7 +4,7 @@ Provides advanced inventory management with EOQ, demand forecasting, and optimiz
 """
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Dict, List, Tuple, Optional, Any
 from scipy import optimize
 import math
@@ -15,6 +15,7 @@ from egg_farm_system.database.models import (
     Farm, RawMaterial, FinishedFeed, Purchase, Sale, FeedIssue, EggProduction
 )
 from egg_farm_system.utils.performance_monitoring import measure_time
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ class InventoryOptimizer:
     def _get_historical_consumption(self, item_id: int, item_type: str, days: int = 90) -> List[Dict]:
         """Get historical consumption data for an item"""
         try:
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=days)
             
             consumption_data = []
@@ -196,7 +197,7 @@ class InventoryOptimizer:
                 
                 forecasts.append({
                     'period': i,
-                    'date': (datetime.utcnow().date() + timedelta(days=i)).strftime('%Y-%m-%d'),
+                    'date': (utcnow_naive().date() + timedelta(days=i)).strftime('%Y-%m-%d'),
                     'predicted_consumption': round(predicted),
                     'confidence': 'medium'
                 })
@@ -247,7 +248,7 @@ class InventoryOptimizer:
                 
                 forecasts.append({
                     'period': i,
-                    'date': (datetime.utcnow().date() + timedelta(days=i)).strftime('%Y-%m-%d'),
+                    'date': (utcnow_naive().date() + timedelta(days=i)).strftime('%Y-%m-%d'),
                     'predicted_consumption': round(predicted),
                     'confidence': 'high' if len(historical_data) >= 20 else 'medium'
                 })
@@ -289,7 +290,7 @@ class InventoryOptimizer:
                 
                 forecasts.append({
                     'period': i,
-                    'date': (datetime.utcnow().date() + timedelta(days=i)).strftime('%Y-%m-%d'),
+                    'date': (utcnow_naive().date() + timedelta(days=i)).strftime('%Y-%m-%d'),
                     'predicted_consumption': round(predicted),
                     'lower_bound': round(lower_bound),
                     'upper_bound': round(upper_bound),
@@ -336,7 +337,7 @@ class InventoryOptimizer:
             
             # Generate forecasts
             forecasts = []
-            base_date = datetime.utcnow().date()
+            base_date = utcnow_naive().date()
             
             for i in range(1, periods_ahead + 1):
                 forecast_date = base_date + timedelta(days=i)
@@ -697,7 +698,7 @@ class InventoryOptimizer:
         """Calculate annual demand for an item based on historical data"""
         try:
             # Get last 12 months of consumption data
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=365)
             
             consumption_data = self._get_historical_consumption(item_id, item_type, days=365)
@@ -887,8 +888,8 @@ class InventoryOptimizer:
         """
         try:
             # Get all inventory items
-            raw_materials = self.session.query(RawMaterial).all()
-            finished_feeds = self.session.query(FinishedFeed).all()
+            raw_materials = self.session.query(RawMaterial).filter(RawMaterial.farm_id == farm_id).all()
+            finished_feeds = self.session.query(FinishedFeed).filter(FinishedFeed.farm_id == farm_id).all()
             
             # Optimize each item
             optimization_results = []
@@ -922,7 +923,7 @@ class InventoryOptimizer:
             
             return {
                 "farm_id": farm_id,
-                "analysis_date": datetime.utcnow().strftime('%Y-%m-%d'),
+                "analysis_date": utcnow_naive().strftime('%Y-%m-%d'),
                 "total_items_analyzed": len(optimization_results),
                 "individual_optimizations": optimization_results,
                 "optimization_summary": optimization_summary,
@@ -1359,3 +1360,4 @@ class InventoryOptimizer:
         except Exception as e:
             logger.error(f"Error calculating expected benefits: {e}")
             return {"error": "Benefit calculation failed"}
+

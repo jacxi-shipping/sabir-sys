@@ -4,9 +4,10 @@ Employee and Salary Management Module
 from egg_farm_system.utils.i18n import tr
 
 import logging
-from datetime import datetime, date
+from datetime import UTC, datetime, date
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import Employee, SalaryPayment, SalaryPeriod, Expense
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class EmployeeManager:
                 job_title=job_title,
                 salary_amount=salary_amount,
                 salary_period=salary_period,
-                hire_date=hire_date or datetime.utcnow()
+                hire_date=hire_date or utcnow_naive()
             )
             session.add(employee)
             session.commit()
@@ -101,7 +102,7 @@ class SalaryManager:
             if isinstance(period_end, date) and not isinstance(period_end, datetime):
                 period_end = datetime.combine(period_end, datetime.min.time())
             if payment_date is None:
-                payment_date = datetime.utcnow()
+                payment_date = utcnow_naive()
             elif isinstance(payment_date, date) and not isinstance(payment_date, datetime):
                 payment_date = datetime.combine(payment_date, datetime.min.time())
 
@@ -154,4 +155,5 @@ class SalaryManager:
             return []
         finally:
             session.close()
+
 

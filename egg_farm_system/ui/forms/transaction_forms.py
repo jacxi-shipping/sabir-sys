@@ -47,7 +47,7 @@ class TransactionFormWidget(QWidget):
         self.inventory_manager = InventoryManager()
         self.farm_manager = FarmManager()
         self.loading_overlay = LoadingOverlay(self)
-        self.selected_farm_filter = None  # None means "All Farms"
+        self.selected_farm_filter = farm_id  # None means "All Farms"
         
         self.init_ui()
         self.refresh_data()
@@ -110,6 +110,10 @@ class TransactionFormWidget(QWidget):
             logger.error(f"Error loading farms for filter: {e}")
         
         self.farm_filter.currentIndexChanged.connect(self.on_farm_filter_changed)
+        if self.farm_id is not None:
+            idx = self.farm_filter.findData(self.farm_id)
+            if idx >= 0:
+                self.farm_filter.setCurrentIndex(idx)
         filter_layout.addWidget(self.farm_filter)
         filter_layout.addStretch()
         
@@ -149,10 +153,8 @@ class TransactionFormWidget(QWidget):
 
             if self.transaction_type == 'sales':
                 with SalesManager(current_user=self.current_user) as sm:
-                    transactions = sm.get_sales()
-                    # Filter by farm if selected
-                    if self.selected_farm_filter is not None:
-                        transactions = [t for t in transactions if t.farm_id == self.selected_farm_filter]
+                    filter_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
+                    transactions = sm.get_sales(farm_id=filter_farm_id)
                     
                     for row, trans in enumerate(transactions):
                         party = self.party_manager.get_party_by_id(trans.party_id)
@@ -170,10 +172,8 @@ class TransactionFormWidget(QWidget):
 
             elif self.transaction_type == 'purchases':
                 with PurchaseManager() as pm:
-                    transactions = pm.get_purchases()
-                    # Filter by farm if selected
-                    if self.selected_farm_filter is not None:
-                        transactions = [t for t in transactions if t.farm_id == self.selected_farm_filter]
+                    filter_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
+                    transactions = pm.get_purchases(farm_id=filter_farm_id)
                     
                     # Extract all data while session is still open to avoid detached instance errors
                     purchase_data = []
@@ -310,21 +310,22 @@ class TransactionFormWidget(QWidget):
     
     def add_transaction(self):
         """Add new transaction"""
+        active_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
         if self.transaction_type == 'sales':
             # Use advanced sales dialog
-            dialog = AdvancedSalesDialog(self.window(), None, farm_id=self.farm_id)
+            dialog = AdvancedSalesDialog(self.window(), None, farm_id=active_farm_id)
             dialog.sale_saved.connect(self.refresh_data)
             if dialog.exec():
                 success_msg = SuccessMessage(self, "Sale added successfully")
                 success_msg.show()
         elif self.transaction_type == 'purchases':
-            dialog = PurchaseDialog(self, None, self.party_manager, self.inventory_manager)
+            dialog = PurchaseDialog(self, None, self.party_manager, self.inventory_manager, farm_id=active_farm_id)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Purchase added successfully")
                 success_msg.show()
         else:
-            dialog = ExpenseDialog(self, None, self.party_manager, farm_id=self.farm_id)
+            dialog = ExpenseDialog(self, None, self.party_manager, farm_id=active_farm_id)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Expense added successfully")
@@ -432,39 +433,43 @@ class TransactionFormWidget(QWidget):
 
     def edit_sale(self, sale):
         """Edit sale using advanced dialog"""
-        dialog = AdvancedSalesDialog(self.window(), sale, farm_id=self.farm_id)
+        active_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
+        dialog = AdvancedSalesDialog(self.window(), sale, farm_id=active_farm_id)
         dialog.sale_saved.connect(self.refresh_data)
         dialog.exec()
     
     def edit_purchase(self, purchase):
         """Edit purchase"""
-        dialog = PurchaseDialog(self, purchase, self.party_manager, self.inventory_manager)
+        active_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
+        dialog = PurchaseDialog(self, purchase, self.party_manager, self.inventory_manager, farm_id=active_farm_id)
         if dialog.exec():
             self.refresh_data()
     
     def edit_expense(self, expense):
         """Edit expense"""
-        dialog = ExpenseDialog(self, expense, self.party_manager, farm_id=self.farm_id)
+        active_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
+        dialog = ExpenseDialog(self, expense, self.party_manager, farm_id=active_farm_id)
         if dialog.exec():
             self.refresh_data()
     
     def edit_transaction(self, transaction, trans_type):
         """Edit transaction"""
+        active_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
         if trans_type == 'sale':
             # Use advanced sales dialog for editing
-            dialog = AdvancedSalesDialog(self.window(), transaction, farm_id=self.farm_id)
+            dialog = AdvancedSalesDialog(self.window(), transaction, farm_id=active_farm_id)
             dialog.sale_saved.connect(self.refresh_data)
             if dialog.exec():
                 success_msg = SuccessMessage(self, "Sale updated successfully")
                 success_msg.show()
         elif trans_type == 'purchase':
-            dialog = PurchaseDialog(self, transaction, self.party_manager, self.inventory_manager)
+            dialog = PurchaseDialog(self, transaction, self.party_manager, self.inventory_manager, farm_id=active_farm_id)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Purchase updated successfully")
                 success_msg.show()
         else:  # expense
-            dialog = ExpenseDialog(self, transaction, self.party_manager, farm_id=self.farm_id)
+            dialog = ExpenseDialog(self, transaction, self.party_manager, farm_id=active_farm_id)
             if dialog.exec():
                 self.refresh_data()
                 success_msg = SuccessMessage(self, "Expense updated successfully")
@@ -473,6 +478,13 @@ class TransactionFormWidget(QWidget):
     def set_farm_id(self, farm_id):
         """Set current farm id and refresh data"""
         self.farm_id = farm_id
+        self.selected_farm_filter = farm_id
+        try:
+            idx = self.farm_filter.findData(farm_id)
+            if idx >= 0 and self.farm_filter.currentIndex() != idx:
+                self.farm_filter.setCurrentIndex(idx)
+        except Exception:
+            pass
         try:
             self.refresh_data()
         except Exception:
@@ -562,11 +574,12 @@ class SalesDialog(QDialog):
 class PurchaseDialog(QDialog):
     """Purchase dialog"""
     
-    def __init__(self, parent, purchase, party_manager, inventory_manager):
+    def __init__(self, parent, purchase, party_manager, inventory_manager, farm_id=None):
         super().__init__(parent)
         self.purchase = purchase
         self.party_manager = party_manager
         self.inventory_manager = inventory_manager
+        self.farm_id = farm_id
         
         self.setWindowTitle(tr("New Purchase"))
         self.setGeometry(100, 100, 400, 300)
@@ -584,8 +597,8 @@ class PurchaseDialog(QDialog):
         materials = []
         try:
             # Use RawMaterialManager as context manager to properly close session
-            with RawMaterialManager() as material_manager:
-                materials = material_manager.get_all_materials()
+            with RawMaterialManager(farm_id=self.farm_id) as material_manager:
+                materials = material_manager.get_all_materials(farm_id=self.farm_id)
                 # Extract data before session closes
                 material_data = [(m.name, m.id) for m in materials]
         except Exception as e:
@@ -747,6 +760,8 @@ class PurchaseDialog(QDialog):
                         purchase.total_afg = purchase.quantity * purchase.rate_afg
                         purchase.total_usd = purchase.quantity * purchase.rate_usd
                         purchase.payment_method = self.payment_method_combo.currentText()
+                        if self.farm_id is not None:
+                            purchase.farm_id = self.farm_id
                         session.commit()
                         message = "Purchase updated successfully."
                 finally:
@@ -761,7 +776,8 @@ class PurchaseDialog(QDialog):
                         self.rate_afg_spin.value(),
                         self.rate_usd_spin.value(),
                         date=self.date_edit.dateTime(),
-                        payment_method=self.payment_method_combo.currentText()
+                        payment_method=self.payment_method_combo.currentText(),
+                        farm_id=self.farm_id
                     )
                 message = "Purchase recorded successfully."
             

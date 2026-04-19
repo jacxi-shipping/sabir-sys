@@ -20,6 +20,9 @@ class DatabaseManager:
     def initialize(cls):
         """Initialize database connection and create tables with performance optimizations"""
         try:
+            if cls._engine is not None and cls._SessionLocal is not None:
+                return
+
             # SQLite configuration optimizations
             # Use StaticPool for better performance with SQLite file databases
             # NullPool would be used for in-memory databases
@@ -66,28 +69,45 @@ class DatabaseManager:
                 bind=cls._engine,
                 expire_on_commit=False  # Prevent re-fetching on commit
             )
-            
-            # Run migrations
-            from egg_farm_system.database.migrate_sales_table import migrate_sales_table
-            migrate_sales_table()
-            
-            from egg_farm_system.database.migrate_payment_method import migrate_payment_method
-            migrate_payment_method()
-            
-            from egg_farm_system.database.migrate_raw_materials_avg_cost import migrate_raw_materials_avg_cost
-            migrate_raw_materials_avg_cost()
 
-            from egg_farm_system.database.migrate_egg_inventory import migrate_egg_inventory
-            migrate_egg_inventory()
-
-            from egg_farm_system.database.migrate_egg_production_packaging import migrate_egg_production_packaging
-            migrate_egg_production_packaging()
+            cls._run_migrations()
             
             logger.info("Database initialized successfully with performance optimizations")
             
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
             raise
+
+    @classmethod
+    def _run_migrations(cls):
+        """Run all database migrations from a single centralized path."""
+        migrations = []
+
+        from egg_farm_system.database.migrate_sales_table import migrate_sales_table
+        migrations.append(("migrate_sales_table", migrate_sales_table))
+
+        from egg_farm_system.database.migrate_payment_method import migrate_payment_method
+        migrations.append(("migrate_payment_method", migrate_payment_method))
+
+        from egg_farm_system.database.migrate_raw_materials_avg_cost import migrate_raw_materials_avg_cost
+        migrations.append(("migrate_raw_materials_avg_cost", migrate_raw_materials_avg_cost))
+
+        from egg_farm_system.database.migrate_add_farm_id import migrate_add_farm_id
+        migrations.append(("migrate_add_farm_id", migrate_add_farm_id))
+
+        from egg_farm_system.database.migrate_farm_scope_inventory_accounting import migrate_farm_scope_inventory_accounting
+        migrations.append(("migrate_farm_scope_inventory_accounting", migrate_farm_scope_inventory_accounting))
+
+        from egg_farm_system.database.migrate_egg_inventory import migrate_egg_inventory
+        migrations.append(("migrate_egg_inventory", migrate_egg_inventory))
+
+        from egg_farm_system.database.migrate_egg_production_packaging import migrate_egg_production_packaging
+        migrations.append(("migrate_egg_production_packaging", migrate_egg_production_packaging))
+
+        for migration_name, migration_func in migrations:
+            logger.info("Running migration: %s", migration_name)
+            migration_func()
+        logger.info("All database migrations completed")
     
     @classmethod
     def get_session(cls):

@@ -4,7 +4,7 @@ Provides budgeting, forecasting, and advanced financial planning capabilities
 """
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Dict, List, Tuple, Optional, Any
 from decimal import Decimal, ROUND_HALF_UP
 import math
@@ -15,6 +15,7 @@ from egg_farm_system.database.models import (
     Farm, Sale, Purchase, Expense, Ledger, Party, Payment
 )
 from egg_farm_system.utils.performance_monitoring import measure_time
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class FinancialPlanner:
                 "farm_id": farm_id,
                 "farm_name": farm.name,
                 "budget_year": year,
-                "creation_date": datetime.utcnow().strftime('%Y-%m-%d'),
+                "creation_date": utcnow_naive().strftime('%Y-%m-%d'),
                 "assumptions": assumptions,
                 "revenue_budget": revenue_budget,
                 "expense_budget": expense_budget,
@@ -813,7 +814,7 @@ class FinancialPlanner:
         """Get current financial position"""
         try:
             # Get current month's financial data
-            current_month = datetime.utcnow().replace(day=1)
+            current_month = utcnow_naive().replace(day=1)
             next_month = (current_month + timedelta(days=32)).replace(day=1)
             
             # Current month sales
@@ -863,7 +864,7 @@ class FinancialPlanner:
     def _analyze_financial_trends(self, farm_id: int, months: int = 24) -> Dict:
         """Analyze historical financial trends"""
         try:
-            end_date = datetime.utcnow().replace(day=1)
+            end_date = utcnow_naive().replace(day=1)
             start_date = (end_date - timedelta(days=months*30)).replace(day=1)
             
             # Get monthly aggregated data
@@ -1025,7 +1026,7 @@ class FinancialPlanner:
                 base_forecast = last_revenue + (trend_slope * i)
                 
                 # Apply seasonal adjustment
-                forecast_month = (datetime.utcnow().month + i - 1) % 12 + 1
+                forecast_month = (utcnow_naive().month + i - 1) % 12 + 1
                 seasonal_factor = seasonal_patterns.get("seasonal_indices", {}).get(forecast_month, 1.0)
                 
                 # Final forecast

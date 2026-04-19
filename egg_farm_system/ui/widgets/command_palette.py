@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
+from egg_farm_system.utils.i18n import tr
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class CommandPalette(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Command Palette")
+        self.setWindowTitle(tr("Command Palette"))
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
         self.setMinimumWidth(500)
         self.setMaximumWidth(600)
@@ -64,13 +65,13 @@ class CommandPalette(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         
         # Header
-        header = QLabel(" Quick Actions (Ctrl+K)")
+        header = QLabel(f" {tr('Quick Actions')} (Ctrl+K)")
         header.setProperty('class', 'command-palette-header')
         layout.addWidget(header)
         
         # Search box
         self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("Type to search commands...")
+        self.search_box.setPlaceholderText(tr("Type to search commands..."))
         self.search_box.setProperty('class', 'command-palette-search')
         self.search_box.textChanged.connect(self.filter_commands)
         layout.addWidget(self.search_box)
@@ -84,7 +85,7 @@ class CommandPalette(QDialog):
         layout.addWidget(self.command_list)
         
         # Footer with hint
-        footer = QLabel("↵ Enter to execute • Esc to close")
+        footer = QLabel(f"↵ {tr('Enter to execute')} • {tr('Esc to close')}")
         footer.setProperty('class', 'command-palette-footer')
         footer.setAlignment(Qt.AlignCenter)
         layout.addWidget(footer)
@@ -112,7 +113,8 @@ class CommandPalette(QDialog):
         search_text = text.lower()
         
         for cmd_id, cmd_name, category, data in self.COMMANDS:
-            if not search_text or search_text in cmd_name.lower() or search_text in category.lower():
+            display_name = tr(cmd_name)
+            if not search_text or search_text in cmd_name.lower() or search_text in display_name.lower() or search_text in category.lower():
                 # Create item with icon/category indicator
                 category_icon = {
                     'navigation': '🧭',
@@ -120,7 +122,7 @@ class CommandPalette(QDialog):
                     'tool': '🔧'
                 }.get(category, '•')
                 
-                item_text = f"{category_icon} {cmd_name}"
+                item_text = f"{category_icon} {display_name}"
                 item = QListWidgetItem(item_text)
                 item.setData(Qt.UserRole, cmd_id)
                 item.setData(Qt.UserRole + 1, data)

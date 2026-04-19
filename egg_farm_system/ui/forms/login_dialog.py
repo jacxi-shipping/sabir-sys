@@ -1,11 +1,8 @@
 from egg_farm_system.utils.i18n import tr
 from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QToolButton
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QIcon
 from egg_farm_system.modules.users import UserManager
 from datetime import datetime, timedelta
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +52,8 @@ class LoginDialog(QDialog):
         """)
         password_layout.addWidget(self.toggle_password_btn)
 
-        layout.addRow('Username:', self.username)
-        layout.addRow('Password:', password_layout)
+        layout.addRow(tr('Username:'), self.username)
+        layout.addRow(tr('Password:'), password_layout)
 
         btn = QPushButton(tr('Login'))
         btn.clicked.connect(self.attempt_login)
@@ -81,7 +78,7 @@ class LoginDialog(QDialog):
         uname = self.username.text().strip()
         pwd = self.password.text()
         if not uname or not pwd:
-            QMessageBox.warning(self, tr('Validation'), 'Enter username and password')
+            QMessageBox.warning(self, tr('Validation'), tr('Enter username and password'))
             return
 
         # Check if account is locked out

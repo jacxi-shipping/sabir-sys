@@ -1,9 +1,10 @@
 """
 Calculation utilities for egg farm system
 """
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from sqlalchemy import func
 from egg_farm_system.database.models import Flock, FeedIssue, EggProduction, Mortality
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 
 class EggCalculations:
@@ -229,7 +230,7 @@ class MortalityCalculations:
     def flock_age_days(start_date, end_date=None):
         """Calculate flock age in days"""
         if end_date is None:
-            end_date = datetime.utcnow()
+            end_date = utcnow_naive()
         return (end_date - start_date).days
     
     @staticmethod
@@ -285,4 +286,5 @@ class InventoryCalculations:
         
         total_cost = (opening_stock * opening_cost) + sum(p['quantity'] * p['unit_cost'] for p in purchases)
         return total_cost / total_qty
+
 

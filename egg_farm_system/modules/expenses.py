@@ -1,13 +1,14 @@
 """
 Expenses and payments module with performance optimizations
 """
-from datetime import datetime
+from datetime import UTC, datetime
 from egg_farm_system.database.models import Expense, Payment
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.ledger import LedgerManager
 from egg_farm_system.utils.advanced_caching import CacheInvalidationManager
 from egg_farm_system.utils.performance_monitoring import measure_time
 import logging
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class ExpenseManager:
                     raise ValueError("Category is required")
                 
                 if date is None:
-                    date = datetime.utcnow()
+                    date = utcnow_naive()
                 
                 expense = Expense(
                     farm_id=farm_id,
@@ -75,6 +76,7 @@ class ExpenseManager:
                     ledger_manager = LedgerManager() # Instantiate LedgerManager
                     ledger_manager.post_entry(
                         party_id=party_id,
+                        farm_id=farm_id,
                         date=date,
                         description=f"Expense: {category} - {description or ''}",
                         credit_afg=amount_afg,
@@ -120,7 +122,7 @@ class ExpenseManager:
         try:
             query = self.session.query(Expense)
             
-            if farm_id:
+            if farm_id is not None:
                 query = query.filter(Expense.farm_id == farm_id)
             
             if start_date:
@@ -199,7 +201,7 @@ class PaymentManager:
     
     def record_payment(self, party_id, amount_afg, amount_usd, payment_type,
                       payment_method="Cash", reference=None, exchange_rate_used=78.0, 
-                      date=None, notes=None):
+                      date=None, notes=None, farm_id=None):
         """Record payment and post to ledger"""
         try:
             # Input validation
@@ -213,7 +215,7 @@ class PaymentManager:
                 raise ValueError("Payment type must be 'Received' or 'Paid'")
             
             if date is None:
-                date = datetime.utcnow()
+                date = utcnow_naive()
             
             payment = Payment(
                 party_id=party_id,
@@ -235,6 +237,7 @@ class PaymentManager:
                 # Debit cash, Credit party
                 ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     description=f"Payment received: {reference or 'Cash'}",
                     credit_afg=amount_afg,
@@ -248,6 +251,7 @@ class PaymentManager:
                 # Debit party, Credit cash
                 ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     description=f"Payment paid: {reference or 'Cash'}",
                     debit_afg=amount_afg,
@@ -289,3 +293,4 @@ class PaymentManager:
         """Close database session"""
         if self.session:
             self.session.close()
+

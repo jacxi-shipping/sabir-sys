@@ -5,10 +5,11 @@ from egg_farm_system.utils.i18n import tr
 
 import logging
 from typing import Any, Optional, Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 import hashlib
 import json
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,12 @@ class CacheEntry:
     
     def __init__(self, value: Any, ttl_seconds: int = 300):
         self.value = value
-        self.created_at = datetime.utcnow()
+        self.created_at = utcnow_naive()
         self.ttl_seconds = ttl_seconds
     
     def is_expired(self) -> bool:
         """Check if cache entry is expired"""
-        age = (datetime.utcnow() - self.created_at).total_seconds()
+        age = (utcnow_naive() - self.created_at).total_seconds()
         return age > self.ttl_seconds
 
 
@@ -126,4 +127,5 @@ def cached(ttl_seconds: int = 300, key_prefix: str = ""):
 def get_cache_manager() -> CacheManager:
     """Get global cache manager"""
     return _cache_manager
+
 

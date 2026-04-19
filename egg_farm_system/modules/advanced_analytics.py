@@ -4,7 +4,7 @@ Provides predictive analytics, trend analysis, and advanced reporting capabiliti
 """
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Dict, List, Tuple, Optional, Any
 from scipy import stats
 from sklearn.preprocessing import StandardScaler
@@ -21,6 +21,7 @@ from egg_farm_system.database.models import (
 )
 from egg_farm_system.utils.performance_monitoring import measure_time
 import logging
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class AdvancedAnalytics:
         """
         try:
             # Get historical production data (last 90 days)
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=90)
             
             # Get farm and shed data
@@ -132,6 +133,8 @@ class AdvancedAnalytics:
                 })
         
         df = pd.DataFrame(data)
+        # Ensure date math uses pandas datetime semantics for .dt accessors.
+        df['date'] = pd.to_datetime(df['date'])
         
         # Add derived features
         df['usable_ratio'] = df['usable_eggs'] / df['total_eggs']
@@ -145,7 +148,7 @@ class AdvancedAnalytics:
         # Add trend features
         df['days_since_start'] = (df['date'] - df['date'].min()).dt.days
         
-        return df.fillna(method='bfill')
+        return df.bfill()
     
     def _train_production_models(self, df: pd.DataFrame) -> Dict:
         """Train multiple ML models for production forecasting"""
@@ -218,6 +221,7 @@ class AdvancedAnalytics:
     def _generate_ensemble_forecast(self, models: Dict, forecast_dates: List, df: pd.DataFrame) -> List[Dict]:
         """Generate ensemble forecast using multiple models"""
         forecasts = []
+        start_date = df['date'].min().date()
         
         # Get last known values for context
         last_row = df.iloc[-1]
@@ -233,7 +237,7 @@ class AdvancedAnalytics:
                 'usable_ratio': last_row['usable_ratio'],
                 'broken_ratio': last_row['broken_ratio'],
                 'large_ratio': last_row['large_ratio'],
-                'days_since_start': (date - df['date'].min()).days
+                'days_since_start': (date - start_date).days
             }
             
             # Get predictions from each model
@@ -383,7 +387,7 @@ class AdvancedAnalytics:
         Forecast financial performance including revenue, costs, and profitability
         """
         try:
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=365)  # Last year
             
             # Get farm data
@@ -496,7 +500,7 @@ class AdvancedAnalytics:
                 avg_value = np.mean([d[f'{value_type}_afg'] for d in data])
                 forecasts = []
                 for i in range(1, periods_ahead + 1):
-                    month = datetime.utcnow().replace(day=1) + timedelta(days=32*i)
+                    month = utcnow_naive().replace(day=1) + timedelta(days=32*i)
                     month = month.replace(day=1)
                     forecasts.append({
                         'month': month.strftime('%Y-%m'),
@@ -524,7 +528,7 @@ class AdvancedAnalytics:
                 lower_bound = max(0, predicted_value - 1.96 * uncertainty)
                 upper_bound = predicted_value + 1.96 * uncertainty
                 
-                month = datetime.utcnow().replace(day=1) + timedelta(days=32*i)
+                month = utcnow_naive().replace(day=1) + timedelta(days=32*i)
                 month = month.replace(day=1)
                 
                 forecasts.append({
@@ -598,8 +602,8 @@ class AdvancedAnalytics:
         """
         try:
             # Get current inventory levels
-            raw_materials = self.session.query(RawMaterial).all()
-            finished_feeds = self.session.query(FinishedFeed).all()
+            raw_materials = self.session.query(RawMaterial).filter(RawMaterial.farm_id == farm_id).all()
+            finished_feeds = self.session.query(FinishedFeed).filter(FinishedFeed.farm_id == farm_id).all()
             
             # ABC Analysis for inventory categorization
             abc_analysis = self._perform_abc_analysis(raw_materials, finished_feeds)
@@ -617,7 +621,7 @@ class AdvancedAnalytics:
             
             return {
                 "farm_id": farm_id,
-                "analysis_date": datetime.utcnow().strftime('%Y-%m-%d'),
+                "analysis_date": utcnow_naive().strftime('%Y-%m-%d'),
                 "abc_analysis": abc_analysis,
                 "reorder_analysis": reorder_analysis,
                 "stockout_risk": stockout_risk,
@@ -936,3 +940,4 @@ class AdvancedAnalytics:
         except Exception as e:
             logger.error(f"Error calculating potential savings: {e}")
             return {"error": "Savings calculation failed"}
+

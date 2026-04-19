@@ -14,12 +14,13 @@ from PySide6.QtGui import QFont, QPalette, QBrush, QColor, QPixmap
 import pyqtgraph as pg
 from pyqtgraph import PlotWidget, BarGraphItem
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import logging
 
 from egg_farm_system.modules.advanced_analytics import AdvancedAnalytics
 from egg_farm_system.modules.inventory_optimizer import InventoryOptimizer
 from egg_farm_system.modules.financial_planner import FinancialPlanner
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +54,9 @@ class KPIWidget(QWidget):
             "neutral": "#6c757d"
         }
         self.trend_indicators = {
-            "up": "↗",
-            "down": "↘",
-            "neutral": "→"
+            "up": "â†—",
+            "down": "â†˜",
+            "neutral": "â†’"
         }
         
         self.trend_label = QLabel(f"{self.trend_indicators[trend]} Trend")
@@ -639,7 +640,7 @@ class InventoryOptimizationWidget(QWidget):
             # Update recommendations text
             recommendations = data.get('optimization_recommendations', [])
             if recommendations:
-                recommendations_text = "\n".join([f"• {rec}" for rec in recommendations])
+                recommendations_text = "\n".join([f"â€¢ {rec}" for rec in recommendations])
                 self.recommendations_text.setPlainText(recommendations_text)
             
             # Update implementation plan
@@ -693,7 +694,7 @@ class FinancialDashboardWidget(QWidget):
         header_layout.addWidget(title_label)
         
         self.year_combo = QComboBox()
-        current_year = datetime.utcnow().year
+        current_year = utcnow_naive().year
         self.year_combo.addItems([str(year) for year in range(current_year - 2, current_year + 3)])
         self.year_combo.setCurrentText(str(current_year))
         self.year_combo.currentTextChanged.connect(self.load_financial_data)
@@ -946,3 +947,4 @@ class BudgetThread(QThread):
             self.result_ready.emit(result)
         except Exception as e:
             self.error_occurred.emit(str(e))
+

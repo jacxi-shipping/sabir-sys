@@ -5,12 +5,13 @@ from egg_farm_system.utils.i18n import tr
 
 import logging
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from collections import defaultdict
 import statistics
 
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import (
+from egg_farm_system.utils.time_utils import utcnow_naive
     EggProduction, Shed, Flock, Sale, Purchase, Expense, FeedIssue,
     RawMaterial, FinishedFeed
 )
@@ -31,7 +32,7 @@ class ProductionAnalytics:
         Returns list of anomalies with details
         """
         try:
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=days)
             
             sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
@@ -93,7 +94,7 @@ class ProductionAnalytics:
         Analyze seasonal trends in production
         """
         try:
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=years * 365)
             
             sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
@@ -142,7 +143,7 @@ class ProductionAnalytics:
         Compare performance across sheds
         """
         try:
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=days)
             
             sheds = self.session.query(Shed).filter(Shed.farm_id == farm_id).all()
@@ -307,7 +308,7 @@ class FinancialAnalytics:
         Calculate Return on Investment
         """
         try:
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=period_days)
             
             pnl = self.profit_loss_analysis(farm_id, start_date, end_date)
@@ -364,7 +365,7 @@ class InventoryAnalytics:
             avg_purchase_quantity = statistics.mean([p.quantity for p in purchases]) if purchases else 0
             
             # Estimate daily consumption (simplified)
-            days_since_last_purchase = (datetime.utcnow().date() - purchases[0].date.date()).days if purchases else 30
+            days_since_last_purchase = (utcnow_naive().date() - purchases[0].date.date()).days if purchases else 30
             estimated_daily_consumption = (avg_purchase_quantity - current_stock) / days_since_last_purchase if days_since_last_purchase > 0 else 0
             
             # Calculate days until stockout
@@ -388,7 +389,7 @@ class InventoryAnalytics:
         Calculate inventory turnover ratio
         """
         try:
-            end_date = datetime.utcnow().date()
+            end_date = utcnow_naive().date()
             start_date = end_date - timedelta(days=days)
             
             # Get purchases in period
@@ -472,4 +473,5 @@ class InventoryAnalytics:
         except Exception as e:
             logger.error(f"Error in ABC analysis: {e}")
             return {'A': [], 'B': [], 'C': [], 'total_value': 0}
+
 

@@ -7,8 +7,9 @@ from sqlalchemy.orm import joinedload, selectinload, contains_eager
 from sqlalchemy import func
 import logging
 from functools import wraps
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, List, Dict
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ class CachedQueryResult:
     
     def _is_expired(self, timestamp) -> bool:
         """Check if cached result has expired"""
-        return datetime.utcnow() - timestamp > self.ttl
+        return utcnow_naive() - timestamp > self.ttl
     
     def get(self, key: str):
         """Get value from cache if not expired"""
@@ -169,7 +170,7 @@ class CachedQueryResult:
     
     def set(self, key: str, value: Any):
         """Set value in cache"""
-        self.cache[key] = (value, datetime.utcnow())
+        self.cache[key] = (value, utcnow_naive())
     
     def clear(self):
         """Clear entire cache"""
@@ -322,3 +323,4 @@ class AggregationHelper:
         except Exception as e:
             logger.error(f"Error getting sales summary: {e}")
             return None
+

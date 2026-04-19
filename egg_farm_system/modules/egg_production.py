@@ -52,13 +52,18 @@ class EggProductionManager:
             self.session.add(production)
             self.session.flush()
 
+            shed = self.session.query(Shed).filter(Shed.id == shed_id).first()
+            if not shed:
+                raise ValueError(f"Shed {shed_id} not found")
+            farm_id = shed.farm_id
+
             inv_mgr = InventoryManager()
             # Add eggs to inventory (only usable eggs)
-            inv_mgr.add_eggs(self.session, small=small, medium=medium, large=large)
+            inv_mgr.add_eggs(self.session, farm_id=farm_id, small=small, medium=medium, large=large)
 
             # Consume packaging if provided
             if cartons_used or trays_used:
-                inv_mgr.consume_packaging(self.session, cartons_used, trays_used)
+                inv_mgr.consume_packaging(self.session, cartons_used, trays_used, farm_id=farm_id)
 
             self.session.commit()
             logger.info(f"Egg production recorded for shed {shed_id} on {date}")

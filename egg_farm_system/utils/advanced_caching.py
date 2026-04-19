@@ -5,10 +5,11 @@ Includes request-scoped cache, result cache, and invalidation strategies
 from egg_farm_system.utils.i18n import tr
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Callable, Dict, Optional
 from functools import wraps
 import hashlib
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class MemoryCache:
     
     def _cleanup_expired(self):
         """Remove expired entries"""
-        now = datetime.utcnow()
+        now = utcnow_naive()
         expired_keys = [
             k for k, (_, timestamp) in self.cache.items()
             if now - timestamp > self.default_ttl
@@ -53,7 +54,7 @@ class MemoryCache:
         
         if key in self.cache:
             value, timestamp = self.cache[key]
-            if datetime.utcnow() - timestamp <= self.default_ttl:
+            if utcnow_naive() - timestamp <= self.default_ttl:
                 self.hits += 1
                 return value
             else:
@@ -67,7 +68,7 @@ class MemoryCache:
         self._cleanup_expired()
         self._evict_lru()
         
-        self.cache[key] = (value, datetime.utcnow())
+        self.cache[key] = (value, utcnow_naive())
     
     def delete(self, key: str):
         """Delete key from cache"""
@@ -298,3 +299,4 @@ class CacheInvalidationManager:
 dashboard_cache = DashboardCache()
 report_cache = ReportCache()
 query_cache = QueryCache()
+

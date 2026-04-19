@@ -4,9 +4,10 @@ Performance monitoring and profiling utilities
 import logging
 import time
 from functools import wraps
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Dict, List, Any, Callable
 from contextlib import contextmanager
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ class QueryProfiler:
     def record_query(self, query: str, duration: float):
         """Record a query execution"""
         entry = {
-            'timestamp': datetime.utcnow(),
+            'timestamp': utcnow_naive(),
             'query': query,
             'duration': duration,
             'is_slow': duration > self.slow_query_threshold
@@ -265,3 +266,4 @@ class BatchOperationOptimizer:
 performance_metrics = PerformanceMetrics()
 query_profiler = QueryProfiler()
 ui_monitor = UIPerformanceMonitor()
+

@@ -12,19 +12,28 @@ logger = logging.getLogger(__name__)
 
 class InventoryManager:
     """Manage inventory operations"""
+
+    @staticmethod
+    def _cache_farm_id(farm_id):
+        """Map optional farm_id to a stable cache key id."""
+        return farm_id if farm_id is not None else 0
     
-    def get_raw_materials_inventory(self):
+    def get_raw_materials_inventory(self, farm_id=None):
         """Get all raw materials with inventory (cached for 5 minutes)"""
         with measure_time("get_raw_materials_inventory"):
             # Check cache first
-            cached = dashboard_cache.get_daily_metrics(farm_id=1)
+            cache_farm_id = self._cache_farm_id(farm_id)
+            cached = dashboard_cache.get_daily_metrics(farm_id=cache_farm_id)
             if cached and 'raw_materials' in cached:
                 logger.info("Raw materials inventory cache hit")
                 return cached['raw_materials']
             
             session = DatabaseManager.get_session()
             try:
-                materials = session.query(RawMaterial).all()
+                query = session.query(RawMaterial)
+                if farm_id is not None:
+                    query = query.filter(RawMaterial.farm_id == farm_id)
+                materials = query.all()
                 inventory = []
                 
                 for material in materials:
@@ -56,7 +65,7 @@ class InventoryManager:
                     })
                 
                 # Cache for 5 minutes
-                dashboard_cache.set_daily_metrics(farm_id=1, data={'raw_materials': inventory})
+                dashboard_cache.set_daily_metrics(farm_id=cache_farm_id, data={'raw_materials': inventory})
                 return inventory
             except Exception as e:
                 logger.error(f"Error getting raw materials inventory: {e}")
@@ -64,18 +73,22 @@ class InventoryManager:
             finally:
                 session.close()
     
-    def get_finished_feed_inventory(self):
+    def get_finished_feed_inventory(self, farm_id=None):
         """Get finished feed inventory (cached for 5 minutes)"""
         with measure_time("get_finished_feed_inventory"):
             # Check cache first
-            cached = dashboard_cache.get_daily_metrics(farm_id=1)
+            cache_farm_id = self._cache_farm_id(farm_id)
+            cached = dashboard_cache.get_daily_metrics(farm_id=cache_farm_id)
             if cached and 'finished_feed' in cached:
                 logger.info("Finished feed inventory cache hit")
                 return cached['finished_feed']
             
             session = DatabaseManager.get_session()
             try:
-                feeds = session.query(FinishedFeed).all()
+                query = session.query(FinishedFeed)
+                if farm_id is not None:
+                    query = query.filter(FinishedFeed.farm_id == farm_id)
+                feeds = query.all()
                 inventory = []
                 
                 for feed in feeds:
@@ -96,7 +109,7 @@ class InventoryManager:
                     })
                 
                 # Cache for 5 minutes
-                dashboard_cache.set_daily_metrics(farm_id=1, data={'finished_feed': inventory})
+                dashboard_cache.set_daily_metrics(farm_id=cache_farm_id, data={'finished_feed': inventory})
                 return inventory
             except Exception as e:
                 logger.error(f"Error getting finished feed inventory: {e}")
@@ -104,7 +117,7 @@ class InventoryManager:
             finally:
                 session.close()
     
-    def get_total_inventory_value(self):
+    def get_total_inventory_value(self, farm_id=None):
         """Get total inventory value"""
         session = DatabaseManager.get_session()
         try:
@@ -112,13 +125,19 @@ class InventoryManager:
             total_usd = 0
             
             # Raw materials
-            materials = session.query(RawMaterial).all()
+            materials_query = session.query(RawMaterial)
+            if farm_id is not None:
+                materials_query = materials_query.filter(RawMaterial.farm_id == farm_id)
+            materials = materials_query.all()
             for material in materials:
                 total_afg += material.current_stock * material.cost_afg
                 total_usd += material.current_stock * material.cost_usd
             
             # Finished feed
-            feeds = session.query(FinishedFeed).all()
+            feeds_query = session.query(FinishedFeed)
+            if farm_id is not None:
+                feeds_query = feeds_query.filter(FinishedFeed.farm_id == farm_id)
+            feeds = feeds_query.all()
             for feed in feeds:
                 total_afg += feed.current_stock * feed.cost_per_kg_afg
                 total_usd += feed.current_stock * feed.cost_per_kg_usd
@@ -133,16 +152,19 @@ class InventoryManager:
         finally:
             session.close()
     
-    def get_low_stock_alerts(self):
+    def get_low_stock_alerts(self, farm_id=None):
         """Get all low stock alerts"""
         session = DatabaseManager.get_session()
         try:
             alerts = []
             
             # Raw materials
-            low_materials = session.query(RawMaterial).filter(
+            low_materials_query = session.query(RawMaterial).filter(
                 RawMaterial.current_stock <= RawMaterial.low_stock_alert
-            ).all()
+            )
+            if farm_id is not None:
+                low_materials_query = low_materials_query.filter(RawMaterial.farm_id == farm_id)
+            low_materials = low_materials_query.all()
             
             for material in low_materials:
                 alerts.append({
@@ -154,9 +176,12 @@ class InventoryManager:
                 })
             
             # Finished feed
-            low_feeds = session.query(FinishedFeed).filter(
+            low_feeds_query = session.query(FinishedFeed).filter(
                 FinishedFeed.current_stock <= FinishedFeed.low_stock_alert
-            ).all()
+            )
+            if farm_id is not None:
+                low_feeds_query = low_feeds_query.filter(FinishedFeed.farm_id == farm_id)
+            low_feeds = low_feeds_query.all()
             
             for feed in low_feeds:
                 alerts.append({
@@ -175,49 +200,58 @@ class InventoryManager:
             session.close()
 
     # --- Egg inventory and packaging helpers ---
-    def ensure_packaging_materials(self, session):
+    def ensure_packaging_materials(self, session, farm_id):
         """Ensure RawMaterial entries for Carton and Tray exist."""
-        carton = session.query(RawMaterial).filter(RawMaterial.name == 'Carton').first()
-        tray = session.query(RawMaterial).filter(RawMaterial.name == 'Tray').first()
+        carton = session.query(RawMaterial).filter(
+            RawMaterial.farm_id == farm_id,
+            RawMaterial.name == 'Carton'
+        ).first()
+        tray = session.query(RawMaterial).filter(
+            RawMaterial.farm_id == farm_id,
+            RawMaterial.name == 'Tray'
+        ).first()
         created = False
         if not carton:
-            carton = RawMaterial(name='Carton', unit='pcs', current_stock=0)
+            carton = RawMaterial(farm_id=farm_id, name='Carton', unit='pcs', current_stock=0)
             session.add(carton)
             created = True
         if not tray:
-            tray = RawMaterial(name='Tray', unit='pcs', current_stock=0)
+            tray = RawMaterial(farm_id=farm_id, name='Tray', unit='pcs', current_stock=0)
             session.add(tray)
             created = True
         if created:
             session.flush()
         return carton, tray
 
-    def add_eggs(self, session, small=0, medium=0, large=0):
+    def add_eggs(self, session, farm_id, small=0, medium=0, large=0):
         """Add eggs produced to `egg_inventory` by grade."""
         for grade_name, count in (('SMALL', small), ('MEDIUM', medium), ('LARGE', large)):
             if count <= 0:
                 continue
             grade_enum = EggGrade[grade_name]
-            inv = session.query(EggInventory).filter(EggInventory.grade == grade_enum).first()
+            inv = session.query(EggInventory).filter(
+                EggInventory.farm_id == farm_id,
+                EggInventory.grade == grade_enum
+            ).first()
             if not inv:
-                inv = EggInventory(grade=grade_enum, current_stock=0)
+                inv = EggInventory(farm_id=farm_id, grade=grade_enum, current_stock=0)
                 session.add(inv)
                 session.flush()
             inv.current_stock = (inv.current_stock or 0) + int(count)
             session.add(inv)
 
-    def total_usable_eggs(self, session):
-        rows = session.query(EggInventory).all()
+    def total_usable_eggs(self, session, farm_id):
+        rows = session.query(EggInventory).filter(EggInventory.farm_id == farm_id).all()
         return sum(r.current_stock for r in rows)
 
-    def consume_eggs(self, session, quantity):
+    def consume_eggs(self, session, quantity, farm_id):
         """Consume eggs from inventory. Deducts from Large -> Medium -> Small.
         Raises ValueError if insufficient stock.
         Returns breakdown consumed per grade.
         """
         if quantity <= 0:
             return {'small':0,'medium':0,'large':0}
-        total = self.total_usable_eggs(session)
+        total = self.total_usable_eggs(session, farm_id)
         if total < quantity:
             raise ValueError(f"Insufficient egg stock. Available: {total}, requested: {quantity}")
 
@@ -228,7 +262,10 @@ class InventoryManager:
             if remaining <= 0:
                 break
             grade_enum = EggGrade[enum_name]
-            inv = session.query(EggInventory).filter(EggInventory.grade == grade_enum).first()
+            inv = session.query(EggInventory).filter(
+                EggInventory.farm_id == farm_id,
+                EggInventory.grade == grade_enum
+            ).first()
             avail = inv.current_stock if inv else 0
             take = min(avail, remaining)
             if take > 0:
@@ -240,13 +277,13 @@ class InventoryManager:
             raise ValueError("Failed to consume required eggs; inventory mismatch")
         return consumed
 
-    def consume_packaging(self, session, cartons_needed, trays_needed):
+    def consume_packaging(self, session, cartons_needed, trays_needed, farm_id):
         """Consume integer cartons and trays from RawMaterial entries.
         Raises ValueError if insufficient packaging stock.
         """
         cartons_needed = int(math.ceil(cartons_needed)) if cartons_needed else 0
         trays_needed = int(math.ceil(trays_needed)) if trays_needed else 0
-        carton, tray = self.ensure_packaging_materials(session)
+        carton, tray = self.ensure_packaging_materials(session, farm_id)
 
         if carton.current_stock < cartons_needed:
             raise ValueError(f"Insufficient Carton stock. Available: {carton.current_stock}, required: {cartons_needed}")

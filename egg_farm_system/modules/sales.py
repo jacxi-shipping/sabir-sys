@@ -1,7 +1,7 @@
 """
 Sales module with auto ledger posting and performance optimizations
 """
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from egg_farm_system.database.models import Sale, EggProduction
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.ledger import LedgerManager
@@ -11,6 +11,7 @@ from egg_farm_system.utils.performance_monitoring import measure_time
 from egg_farm_system.utils.audit_trail import get_audit_trail, ActionType
 import logging
 from egg_farm_system.modules.inventory import InventoryManager
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class RawMaterialSaleManager:
         self.close_session()
     
     def record_raw_material_sale(self, party_id, material_id, quantity, rate_afg, rate_usd,
-                                 exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash"):
+                                 exchange_rate_used=78.0, date=None, notes=None, payment_method="Cash", farm_id=None):
         """Record raw material sale and post to ledger"""
         try:
             with measure_time(f"record_raw_material_sale_party_{party_id}"):
@@ -52,9 +53,12 @@ class RawMaterialSaleManager:
                     raise ValueError("Exchange rate must be greater than 0")
                 
                 if date is None:
-                    date = datetime.utcnow()
+                    date = utcnow_naive()
                 
-                material = self.session.query(RawMaterial).filter(RawMaterial.id == material_id).first()
+                material_query = self.session.query(RawMaterial).filter(RawMaterial.id == material_id)
+                if farm_id is not None:
+                    material_query = material_query.filter(RawMaterial.farm_id == farm_id)
+                material = material_query.first()
                 if not material:
                     raise ValueError(f"Raw Material {material_id} not found")
                 
@@ -89,6 +93,7 @@ class RawMaterialSaleManager:
                 ledger_manager = LedgerManager()
                 ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     description=f"Raw Material Sale: {quantity}{material.unit} {material.name}",
                     debit_afg=total_afg,
@@ -118,6 +123,7 @@ class RawMaterialSaleManager:
                     # Create offsetting ledger entry to reduce party balance to zero
                     ledger_manager.post_entry(
                         party_id=party_id,
+                        farm_id=farm_id,
                         date=date,
                         description=f"Payment received: Raw Material Sale #{raw_material_sale.id}",
                         credit_afg=total_afg,
@@ -206,10 +212,10 @@ class SalesManager:
                     raise ValueError("Payment method must be 'Cash' or 'Credit'")
                 
                 if date is None:
-                    date = datetime.utcnow()
+                    date = utcnow_naive()
                 
                 # Validate date not too far in the future
-                if date > datetime.utcnow() + timedelta(days=1):
+                if date > utcnow_naive() + timedelta(days=1):
                     raise ValueError("Sale date cannot be more than 1 day in the future")
                 
                 total_afg = quantity * rate_afg
@@ -232,11 +238,12 @@ class SalesManager:
                 self.session.flush()  # Get sale ID
                 # Consume eggs from inventory
                 inv_mgr = InventoryManager()
-                inv_mgr.consume_eggs(self.session, quantity)
+                inv_mgr.consume_eggs(self.session, quantity, farm_id=farm_id)
                 # Post to ledger: Debit party, Credit sales
                 ledger_manager = LedgerManager() # Instantiate LedgerManager
                 ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     description=f"Egg sale: {quantity} units",
                     debit_afg=total_afg,
@@ -266,6 +273,7 @@ class SalesManager:
                     # Create offsetting ledger entry to reduce party balance to zero
                     ledger_manager.post_entry(
                         party_id=party_id,
+                        farm_id=farm_id,
                         date=date,
                         description=f"Payment received: Sale #{sale.id}",
                         credit_afg=total_afg,
@@ -322,7 +330,7 @@ class SalesManager:
                 raise ValueError("Exchange rate must be greater than 0")
             
             if date is None:
-                date = datetime.utcnow()
+                date = utcnow_naive()
             
             total_afg = eggs * rate_afg
             total_usd = eggs * rate_usd
@@ -351,13 +359,14 @@ class SalesManager:
 
             # Consume eggs only (packaging was already consumed during production)
             inv_mgr = InventoryManager()
-            inv_mgr.consume_eggs(self.session, eggs)
+            inv_mgr.consume_eggs(self.session, eggs, farm_id=farm_id)
             # NOTE: Cartons/trays are NOT consumed here - they're consumed during egg production
             
             # Post to ledger: Debit party, Credit sales
             ledger_manager = LedgerManager()
             ledger_manager.post_entry(
                 party_id=party_id,
+                farm_id=farm_id,
                 date=date,
                 description=f"Egg sale: {cartons:.2f} cartons ({eggs} eggs) - {grade}",
                 debit_afg=total_afg,
@@ -387,6 +396,7 @@ class SalesManager:
                 # Create offsetting ledger entry to reduce party balance to zero
                 ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     description=f"Payment received: Sale #{sale.id}",
                     credit_afg=total_afg,
@@ -418,7 +428,7 @@ class SalesManager:
             logger.error(f"Error recording advanced sale: {e}")
             raise
     
-    def get_sales(self, party_id=None, start_date=None, end_date=None):
+    def get_sales(self, party_id=None, start_date=None, end_date=None, farm_id=None):
         """Get sales records"""
         try:
             query = self.session.query(Sale)
@@ -431,16 +441,19 @@ class SalesManager:
             
             if end_date:
                 query = query.filter(Sale.date <= end_date)
+
+            if farm_id is not None:
+                query = query.filter(Sale.farm_id == farm_id)
             
             return query.order_by(Sale.date.desc()).all()
         except Exception as e:
             logger.error(f"Error getting sales: {e}")
             return []
     
-    def get_sales_summary(self, party_id=None, start_date=None, end_date=None):
+    def get_sales_summary(self, party_id=None, start_date=None, end_date=None, farm_id=None):
         """Get sales summary"""
         try:
-            sales = self.get_sales(party_id, start_date, end_date)
+            sales = self.get_sales(party_id, start_date, end_date, farm_id=farm_id)
             
             total_quantity = sum(s.quantity for s in sales)
             total_afg = sum(s.total_afg for s in sales)

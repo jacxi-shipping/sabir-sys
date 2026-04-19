@@ -2,7 +2,7 @@
 Reports generation and export module with performance optimizations
 """
 import csv
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from io import StringIO
 from sqlalchemy import func
 from egg_farm_system.database.db import DatabaseManager
@@ -15,6 +15,7 @@ from egg_farm_system.utils.advanced_caching import report_cache, CacheInvalidati
 from egg_farm_system.utils.query_optimizer import QueryOptimizer, AggregationHelper
 from egg_farm_system.utils.performance_monitoring import measure_time, profile_operation
 import logging
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +48,14 @@ class ReportGenerator:
         Uses caching for better performance.
         """
         # Check cache first
-        cache_key = f"{farm_id}_{days}_{datetime.utcnow().date()}"
+        cache_key = f"{farm_id}_{days}_{utcnow_naive().date()}"
         cached = report_cache.get_report("daily_production", {'farm_id': farm_id, 'days': days})
         if cached:
             return cached
         
         try:
             with measure_time(f"production_summary_farm_{farm_id}"):
-                end_date = datetime.utcnow().date()
+                end_date = utcnow_naive().date()
                 start_date = end_date - timedelta(days=days - 1)
 
                 # Get all sheds for the farm using optimized query
@@ -95,7 +96,7 @@ class ReportGenerator:
             if not farm:
                 return None
             
-            from datetime import timedelta
+            from datetime import UTC, timedelta
             start_date = datetime.combine(date.date(), datetime.min.time())
             end_date = start_date + timedelta(days=1)
             
@@ -154,7 +155,7 @@ class ReportGenerator:
         """Generate monthly egg production report"""
         try:
             from egg_farm_system.modules.farms import FarmManager
-            from datetime import date, timedelta
+            from datetime import UTC, date, timedelta
             
             fm = FarmManager()
             farm = fm.get_farm_by_id(farm_id)

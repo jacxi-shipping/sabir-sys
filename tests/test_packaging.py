@@ -4,6 +4,7 @@ from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.purchases import PurchaseManager
 from egg_farm_system.modules.egg_production import EggProductionManager
 from egg_farm_system.database.models import RawMaterial, Party, Farm, Shed, EggInventory
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 
 def setup_module(module):
@@ -73,7 +74,7 @@ def test_production_consumes_packaging_and_adds_eggs():
         from datetime import datetime
         epm = EggProductionManager()
         try:
-            prod = epm.record_production(shed.id, datetime.utcnow(), small=10, medium=5, large=3, broken=0, cartons_used=3, trays_used=2)
+            prod = epm.record_production(shed.id, utcnow_naive(), small=10, medium=5, large=3, broken=0, cartons_used=3, trays_used=2)
         finally:
             epm.session.close()
 
@@ -87,3 +88,4 @@ def test_production_consumes_packaging_and_adds_eggs():
         assert total_eggs >= 18
     finally:
         dbs.close()
+

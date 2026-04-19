@@ -1,12 +1,13 @@
 """
 SQLAlchemy models for Egg Farm Management System
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey, Enum, Index
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey, Enum, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 
 from egg_farm_system.database.db import Base
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 # Enums
 class SalaryPeriod(enum.Enum):
@@ -37,13 +38,17 @@ class Farm(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False, unique=True)
     location = Column(String(255))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
     sheds = relationship("Shed", back_populates="farm", cascade="all, delete-orphan")
     expenses = relationship("Expense", back_populates="farm", cascade="all, delete-orphan")
     equipments = relationship("Equipment", back_populates="farm", cascade="all, delete-orphan")
+    raw_materials = relationship("RawMaterial", back_populates="farm")
+    finished_feeds = relationship("FinishedFeed", back_populates="farm")
+    egg_inventory_rows = relationship("EggInventory", back_populates="farm")
+    ledger_entries = relationship("Ledger", back_populates="farm")
     
     def __repr__(self):
         return f"<Farm {self.name}>"
@@ -57,8 +62,8 @@ class Shed(Base):
     farm_id = Column(Integer, ForeignKey("farms.id"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     capacity = Column(Integer, nullable=False)  # Maximum bird capacity
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
     farm = relationship("Farm", back_populates="sheds")
@@ -83,8 +88,8 @@ class Flock(Base):
     name = Column(String(100), nullable=False)
     start_date = Column(DateTime, nullable=False)
     initial_count = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
     shed = relationship("Shed", back_populates="flocks")
@@ -98,7 +103,7 @@ class Flock(Base):
     def get_live_count(self, as_of_date=None):
         """Calculate live bird count"""
         if as_of_date is None:
-            as_of_date = datetime.utcnow()
+            as_of_date = utcnow_naive()
         
         # Ensure as_of_date is a datetime for comparison
         if hasattr(as_of_date, 'year') and not hasattr(as_of_date, 'hour'):
@@ -115,7 +120,7 @@ class Flock(Base):
     def get_age_days(self, as_of_date=None):
         """Get flock age in days"""
         if as_of_date is None:
-            as_of_date = datetime.utcnow()
+            as_of_date = utcnow_naive()
         
         return (as_of_date - self.start_date).days
     
@@ -139,7 +144,7 @@ class Mortality(Base):
     date = Column(DateTime, nullable=False, index=True)
     count = Column(Integer, nullable=False)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     flock = relationship("Flock", back_populates="mortalities")
@@ -165,7 +170,7 @@ class Medication(Base):
     dose_unit = Column(String(50), default="ml")
     administered_by = Column(String(100))
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     # Relationships
     flock = relationship("Flock", back_populates="medications")
@@ -193,8 +198,8 @@ class EggProduction(Base):
     cartons_used = Column(Integer, default=0)
     trays_used = Column(Integer, default=0)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
     shed = relationship("Shed", back_populates="egg_productions")
@@ -229,8 +234,8 @@ class FeedFormula(Base):
     name = Column(String(100), nullable=False)
     feed_type = Column(Enum(FeedType), nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
     ingredients = relationship("FeedFormulation", back_populates="formula")
@@ -259,7 +264,7 @@ class FeedFormulation(Base):
     formula_id = Column(Integer, ForeignKey("feed_formulas.id"), nullable=False, index=True)
     material_id = Column(Integer, ForeignKey("raw_materials.id"), nullable=False, index=True)
     percentage = Column(Float, nullable=False)  # Percentage by weight
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     formula = relationship("FeedFormula", back_populates="ingredients")
@@ -286,7 +291,7 @@ class FeedBatch(Base):
     cost_usd = Column(Float, nullable=False)
     exchange_rate_used = Column(Float, nullable=False)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     formula = relationship("FeedFormula", back_populates="batches")
@@ -310,15 +315,17 @@ class FinishedFeed(Base):
     __tablename__ = "finished_feeds"
     
     id = Column(Integer, primary_key=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True, index=True)
     feed_type = Column(Enum(FeedType), nullable=False)
     current_stock = Column(Float, default=0)  # in kg
     cost_per_kg_afg = Column(Float, nullable=False)
     cost_per_kg_usd = Column(Float, nullable=False)
     low_stock_alert = Column(Float, default=100)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
+    farm = relationship("Farm", back_populates="finished_feeds")
     feed_issues = relationship("FeedIssue", back_populates="feed")
     
     def __repr__(self):
@@ -330,10 +337,18 @@ class EggInventory(Base):
     __tablename__ = "egg_inventory"
 
     id = Column(Integer, primary_key=True)
-    grade = Column(Enum(EggGrade), nullable=False, unique=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True, index=True)
+    grade = Column(Enum(EggGrade), nullable=False)
     current_stock = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
+
+    farm = relationship("Farm", back_populates="egg_inventory_rows")
+
+    __table_args__ = (
+        UniqueConstraint('farm_id', 'grade', name='uq_egg_inventory_farm_grade'),
+        Index('idx_egg_inventory_farm_id', 'farm_id'),
+    )
 
     def __repr__(self):
         return f"<EggInventory {self.grade.value} - {self.current_stock}>"
@@ -351,7 +366,7 @@ class FeedIssue(Base):
     cost_afg = Column(Float, nullable=False)
     cost_usd = Column(Float, nullable=False)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     shed = relationship("Shed", back_populates="feed_issues")
@@ -376,8 +391,8 @@ class Party(Base):
     phone = Column(String(20))
     address = Column(Text)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
     ledger_entries = relationship("Ledger", back_populates="party", cascade="all, delete-orphan")
@@ -408,6 +423,7 @@ class Ledger(Base):
     
     id = Column(Integer, primary_key=True)
     party_id = Column(Integer, ForeignKey("parties.id"), nullable=False, index=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True, index=True)
     date = Column(DateTime, nullable=False, index=True)
     description = Column(String(255), nullable=False)
     debit_afg = Column(Float, default=0)
@@ -417,10 +433,11 @@ class Ledger(Base):
     exchange_rate_used = Column(Float, nullable=False)
     reference_type = Column(String(50))  # Sale, Purchase, Payment, Expense
     reference_id = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     party = relationship("Party", back_populates="ledger_entries")
+    farm = relationship("Farm", back_populates="ledger_entries")
     
     __table_args__ = (
         Index('idx_ledger_party_id', 'party_id'),
@@ -447,7 +464,7 @@ class Sale(Base):
     total_usd = Column(Float, nullable=False)
     exchange_rate_used = Column(Float, nullable=False)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Advanced fields for carton-based sales
     cartons = Column(Float, nullable=True)  # Number of cartons
@@ -488,7 +505,7 @@ class RawMaterialSale(Base):
     exchange_rate_used = Column(Float, nullable=False)
     payment_method = Column(String(20), default="Cash")  # Cash or Credit
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     party = relationship("Party", back_populates="raw_material_sales")
@@ -521,7 +538,7 @@ class Purchase(Base):
     exchange_rate_used = Column(Float, nullable=False)
     payment_method = Column(String(20), default="Cash")  # Cash or Credit
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     party = relationship("Party", back_populates="purchases")
@@ -553,7 +570,7 @@ class Payment(Base):
     reference = Column(String(100))
     exchange_rate_used = Column(Float, nullable=False)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     party = relationship("Party", back_populates="payments")
@@ -572,7 +589,8 @@ class RawMaterial(Base):
     __tablename__ = "raw_materials"
     
     id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False, unique=True)
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True, index=True)
+    name = Column(String(100), nullable=False)
     unit = Column(String(50), default="kg")
     current_stock = Column(Float, default=0.0)
     # Store cumulative data for average cost calculation
@@ -582,14 +600,20 @@ class RawMaterial(Base):
     
     supplier_id = Column(Integer, ForeignKey("parties.id"), index=True)
     low_stock_alert = Column(Float, default=50)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
+    farm = relationship("Farm", back_populates="raw_materials")
     supplier = relationship("Party", back_populates="raw_materials")
     purchases = relationship("Purchase", back_populates="material")
     raw_material_sales = relationship("RawMaterialSale", back_populates="material")
     formulations = relationship("FeedFormulation", back_populates="material")
+
+    __table_args__ = (
+        UniqueConstraint('farm_id', 'name', name='uq_raw_material_farm_name'),
+        Index('idx_raw_material_farm_id', 'farm_id'),
+    )
 
     @property
     def cost_afg(self):
@@ -620,7 +644,7 @@ class Expense(Base):
     amount_usd = Column(Float, nullable=False)
     exchange_rate_used = Column(Float, nullable=False)
     payment_method = Column(String(20), default="Cash")  # Cash or Credit
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     
     # Relationships
     farm = relationship("Farm", back_populates="expenses")
@@ -646,7 +670,7 @@ class User(Base):
     full_name = Column(String(255))
     role = Column(String(50), default='user')
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -658,12 +682,12 @@ class Employee(Base):
     id = Column(Integer, primary_key=True)
     full_name = Column(String(255), nullable=False)
     job_title = Column(String(100))
-    hire_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    hire_date = Column(DateTime, nullable=False, default=utcnow_naive)
     salary_amount = Column(Float, nullable=False, default=0)
     salary_period = Column(Enum(SalaryPeriod), nullable=False, default=SalaryPeriod.MONTHLY)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
     
     # Relationships
     salary_payments = relationship("SalaryPayment", back_populates="employee", cascade="all, delete-orphan")
@@ -678,12 +702,12 @@ class SalaryPayment(Base):
 
     id = Column(Integer, primary_key=True)
     employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
-    payment_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    payment_date = Column(DateTime, nullable=False, default=utcnow_naive)
     amount_paid = Column(Float, nullable=False)
     period_start = Column(DateTime, nullable=False)
     period_end = Column(DateTime, nullable=False)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     # Relationships
     employee = relationship("Employee", back_populates="salary_payments")
@@ -709,8 +733,8 @@ class Equipment(Base):
     purchase_date = Column(DateTime)
     purchase_price = Column(Float)
     status = Column(Enum(EquipmentStatus), nullable=False, default=EquipmentStatus.OPERATIONAL)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     # Relationships
     farm = relationship("Farm", back_populates="equipments")
@@ -727,8 +751,9 @@ class Setting(Base):
     key = Column(String(100), nullable=False, unique=True)
     value = Column(Text)
     description = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     def __repr__(self):
         return f"<Setting {self.key}>"
+

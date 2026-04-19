@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.farms import FarmManager
 import uuid
 from egg_farm_system.modules.sheds import ShedManager
 from egg_farm_system.modules.flocks import FlockManager
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 
 def setup_module(module):
@@ -21,14 +22,14 @@ def test_add_medication_and_mortality():
             shed = sm.create_shed(farm.id, name="Test Shed", capacity=10000)
             flock_m = FlockManager()
             try:
-                flock = flock_m.create_flock(shed.id, "Test Flock", datetime.utcnow(), 100)
+                flock = flock_m.create_flock(shed.id, "Test Flock", utcnow_naive(), 100)
                 # Add medication
-                med = flock_m.add_medication(flock.id, datetime.utcnow(), "Vaccine-A", 5.0, dose_unit='ml', administered_by='Tech1', notes='First dose')
+                med = flock_m.add_medication(flock.id, utcnow_naive(), "Vaccine-A", 5.0, dose_unit='ml', administered_by='Tech1', notes='First dose')
                 assert med is not None
                 meds = flock_m.get_medications(flock.id)
                 assert any(m.medication_name == 'Vaccine-A' for m in meds)
                 # Add mortality
-                mort = flock_m.add_mortality(flock.id, datetime.utcnow(), 2, notes='Predation')
+                mort = flock_m.add_mortality(flock.id, utcnow_naive(), 2, notes='Predation')
                 assert mort is not None
                 morts = flock_m.get_mortalities(flock.id)
                 assert any(m.count == 2 for m in morts)
@@ -38,3 +39,4 @@ def test_add_medication_and_mortality():
             pass
     finally:
         pass
+

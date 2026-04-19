@@ -5,7 +5,8 @@ from egg_farm_system.utils.i18n import tr
 
 import logging
 from typing import List, Dict, Any, Callable, Optional
-from datetime import datetime
+from datetime import UTC, datetime
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +160,7 @@ class TableDataCache:
             del self.cache_timestamps[oldest_page]
         
         self.cache[page_num] = data
-        self.cache_timestamps[page_num] = datetime.utcnow()
+        self.cache_timestamps[page_num] = utcnow_naive()
     
     def get(self, page_num: int) -> Optional[List[Any]]:
         """Get cached page data"""
@@ -332,3 +333,4 @@ class FilteredTableHelper:
         """Get filtered and sorted data"""
         all_items = self.data_source()
         return self.apply_filters(all_items)
+

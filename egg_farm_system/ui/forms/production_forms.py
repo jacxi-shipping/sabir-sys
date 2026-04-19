@@ -3,7 +3,7 @@ Form widgets for egg production
 """
 from egg_farm_system.utils.i18n import tr
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QMessageBox, QDialog, QFormLayout, QSpinBox, QDateTimeEdit, QComboBox, QSizePolicy,
@@ -31,6 +31,7 @@ from egg_farm_system.utils.jalali import format_value_for_ui
 from egg_farm_system.ui.themes import ThemeManager
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import RawMaterial
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 class ProductionFormWidget(QWidget):
     """Egg production tracking widget"""
@@ -130,8 +131,8 @@ class ProductionFormWidget(QWidget):
         try:
             # Default to showing last 30 days, but handle errors gracefully
             try:
-                start_date = datetime.utcnow() - timedelta(days=30)
-                end_date = datetime.utcnow()
+                start_date = utcnow_naive() - timedelta(days=30)
+                end_date = utcnow_naive()
                 
                 # Use a wider range for testing if needed, or make it user-configurable later
                 # For now, let's just make sure we get data
@@ -500,8 +501,17 @@ class ProductionDialog(QDialog):
         try:
             session = DatabaseManager.get_session()
             try:
-                carton = session.query(RawMaterial).filter(RawMaterial.name == 'Carton').first()
-                tray = session.query(RawMaterial).filter(RawMaterial.name == 'Tray').first()
+                shed = session.query(Shed).filter(Shed.id == self.shed_id).first()
+                farm_id = shed.farm_id if shed else None
+
+                carton_query = session.query(RawMaterial).filter(RawMaterial.name == 'Carton')
+                tray_query = session.query(RawMaterial).filter(RawMaterial.name == 'Tray')
+                if farm_id is not None:
+                    carton_query = carton_query.filter(RawMaterial.farm_id == farm_id)
+                    tray_query = tray_query.filter(RawMaterial.farm_id == farm_id)
+
+                carton = carton_query.first()
+                tray = tray_query.first()
                 self.carton_stock = carton.current_stock if carton else 0
                 self.tray_stock = tray.current_stock if tray else 0
             finally:

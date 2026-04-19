@@ -13,7 +13,7 @@ class LedgerManager:
     
     def post_entry(self, party_id, date, description, debit_afg=0, credit_afg=0, 
                    debit_usd=0, credit_usd=0, exchange_rate_used=78.0, 
-                   reference_type=None, reference_id=None, session=None): # Added session parameter
+                   reference_type=None, reference_id=None, session=None, farm_id=None): # Added session parameter
         """Post a ledger entry"""
         # This method expects a session to be passed for transactional integrity.
         # It does not commit/rollback/close the session. The caller is responsible.
@@ -26,6 +26,7 @@ class LedgerManager:
         
         entry = Ledger(
             party_id=party_id,
+            farm_id=farm_id,
             date=date,
             description=description,
             debit_afg=debit_afg,
@@ -40,24 +41,25 @@ class LedgerManager:
         logger.info(f"Ledger entry posted for party {party_id}")
         return entry
     
-    def get_party_ledger(self, party_id):
+    def get_party_ledger(self, party_id, farm_id=None):
         """Get all ledger entries for a party"""
         session = DatabaseManager.get_session()
         try:
-            return session.query(Ledger).filter(
-                Ledger.party_id == party_id
-            ).order_by(Ledger.date).all()
+            query = session.query(Ledger).filter(Ledger.party_id == party_id)
+            if farm_id is not None:
+                query = query.filter(Ledger.farm_id == farm_id)
+            return query.order_by(Ledger.date).all()
         except Exception as e:
             logger.error(f"Error getting party ledger: {e}")
             return []
         finally:
             session.close()
     
-    def get_party_balance(self, party_id, currency="AFG"):
+    def get_party_balance(self, party_id, currency="AFG", farm_id=None):
         """Calculate party balance"""
         # This method uses get_party_ledger, which manages its own session.
         try:
-            entries = self.get_party_ledger(party_id)
+            entries = self.get_party_ledger(party_id, farm_id=farm_id)
             balance = 0
             
             for entry in entries:
@@ -71,11 +73,11 @@ class LedgerManager:
             logger.error(f"Error calculating balance: {e}")
             return 0
     
-    def get_balance_with_running(self, party_id, currency="AFG"):
+    def get_balance_with_running(self, party_id, currency="AFG", farm_id=None):
         """Get ledger with running balance"""
         # This method uses get_party_ledger, which manages its own session.
         try:
-            entries = self.get_party_ledger(party_id)
+            entries = self.get_party_ledger(party_id, farm_id=farm_id)
             running_balance = 0
             result = []
             
@@ -105,11 +107,11 @@ class LedgerManager:
             logger.error(f"Error getting balance with running total: {e}")
             return []
     
-    def get_ledger_summary(self, party_id):
+    def get_ledger_summary(self, party_id, farm_id=None):
         """Get summary of party ledger"""
         # This method uses get_party_ledger, which manages its own session.
         try:
-            entries = self.get_party_ledger(party_id)
+            entries = self.get_party_ledger(party_id, farm_id=farm_id)
             
             total_debit_afg = sum(e.debit_afg for e in entries)
             total_credit_afg = sum(e.credit_afg for e in entries)
@@ -134,7 +136,7 @@ class LedgerManager:
             logger.error(f"Error getting ledger summary: {e}")
             return None
     
-    def get_all_parties_outstanding(self):
+    def get_all_parties_outstanding(self, farm_id=None):
         """Get outstanding balances for all parties"""
         session = DatabaseManager.get_session()
         try:
@@ -142,8 +144,8 @@ class LedgerManager:
             outstanding = []
             
             for party in parties:
-                balance_afg = self.get_party_balance(party.id, "AFG")
-                balance_usd = self.get_party_balance(party.id, "USD")
+                balance_afg = self.get_party_balance(party.id, "AFG", farm_id=farm_id)
+                balance_usd = self.get_party_balance(party.id, "USD", farm_id=farm_id)
                 
                 if balance_afg != 0 or balance_usd != 0:
                     outstanding.append({

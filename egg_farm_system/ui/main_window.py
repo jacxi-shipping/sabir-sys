@@ -34,7 +34,7 @@ from PySide6.QtGui import QAction, QFont, QIcon, QKeySequence, QShortcut
 
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.farms import FarmManager
-from egg_farm_system.config import WINDOW_WIDTH, WINDOW_HEIGHT, SIDEBAR_WIDTH
+from egg_farm_system.config import WINDOW_WIDTH, WINDOW_HEIGHT, SIDEBAR_WIDTH, DEFAULT_THEME
 from egg_farm_system.ui.dashboard import DashboardWidget
 from egg_farm_system.ui.forms.farm_forms import FarmFormWidget
 from egg_farm_system.ui.forms.production_forms import ProductionFormWidget
@@ -76,8 +76,9 @@ class MainWindow(QMainWindow):
         
         # Initialize Theme - Load from settings or use default
         from egg_farm_system.modules.settings import SettingsManager
-        saved_theme = SettingsManager.get_setting('app_theme', ThemeManager.LIGHT)
-        self.current_theme = saved_theme if saved_theme in [ThemeManager.LIGHT, ThemeManager.DARK] else ThemeManager.LIGHT
+        saved_theme = SettingsManager.get_setting('app_theme', DEFAULT_THEME)
+        allowed_themes = [ThemeManager.LIGHT, ThemeManager.DARK, ThemeManager.FARM]
+        self.current_theme = saved_theme if saved_theme in allowed_themes else ThemeManager.FARM
         ThemeManager.set_current_theme(self.current_theme)
         ThemeManager.apply_theme(sys.modules['__main__'].app if hasattr(sys.modules['__main__'], 'app') else self, self.current_theme)
 
@@ -561,7 +562,7 @@ class MainWindow(QMainWindow):
     
     def load_parties(self):
         """Load parties widget"""
-        party_widget = PartyFormWidget()
+        party_widget = PartyFormWidget(self.get_current_farm_id())
         self.replace_content(party_widget)
         self._update_breadcrumbs("Parties", "parties")
         self._add_to_history("Parties", "parties", self.load_parties)
@@ -590,7 +591,7 @@ class MainWindow(QMainWindow):
     def load_raw_material_sale(self):
         """Load raw material sale dialog"""
         from egg_farm_system.ui.forms.raw_material_sale_dialog import RawMaterialSaleDialog
-        dialog = RawMaterialSaleDialog(self)
+        dialog = RawMaterialSaleDialog(self, farm_id=self.get_current_farm_id())
         dialog.sale_saved.connect(self._refresh_current_page)
         dialog.exec()
         self._update_breadcrumbs("Sell Raw Material", "raw_material_sale")
@@ -599,7 +600,7 @@ class MainWindow(QMainWindow):
     def open_packaging_purchase_dialog(self):
         """Open Packaging Purchase dialog."""
         from egg_farm_system.ui.forms.packaging_purchase_dialog import PackagingPurchaseDialog
-        dialog = PackagingPurchaseDialog(self)
+        dialog = PackagingPurchaseDialog(self, farm_id=self.get_current_farm_id())
         try:
             dialog.purchase_saved.connect(self._refresh_current_page)
         except Exception:
@@ -683,6 +684,24 @@ class MainWindow(QMainWindow):
         # Financial Dashboard Tab
         financial_widget = FinancialDashboardWidget(self.get_current_farm_id())
         tab_widget.addTab(financial_widget, "Financial Planning")
+
+        # Propagate farm changes when analytics container is the active page.
+        def _set_analytics_farm_id(farm_id):
+            for widget in (production_widget, inventory_widget, financial_widget):
+                if hasattr(widget, 'set_farm_id') and callable(widget.set_farm_id):
+                    widget.set_farm_id(farm_id)
+                elif hasattr(widget, 'farm_id'):
+                    widget.farm_id = farm_id
+
+        def _refresh_analytics_data():
+            for widget in (production_widget, inventory_widget, financial_widget):
+                if hasattr(widget, 'refresh_data') and callable(widget.refresh_data):
+                    widget.refresh_data()
+                elif hasattr(widget, 'load_data') and callable(widget.load_data):
+                    widget.load_data()
+
+        analytics_container.set_farm_id = _set_analytics_farm_id
+        analytics_container.refresh_data = _refresh_analytics_data
         
         layout.addWidget(tab_widget)
         
@@ -982,17 +1001,20 @@ class MainWindow(QMainWindow):
             logger.exception(f"Failed to toggle sidebar: {e}")
 
     def toggle_theme(self):
-        """Toggle between Light and Dark themes."""
+        """Cycle between Farm, Light, and Dark themes."""
         from egg_farm_system.modules.settings import SettingsManager
 
-        if self.current_theme == ThemeManager.LIGHT:
-            self.current_theme = ThemeManager.DARK
-            theme_name = "Dark Theme"
-        else:
+        if self.current_theme == ThemeManager.FARM:
             self.current_theme = ThemeManager.LIGHT
-            theme_name = "Light Theme"
+            theme_name = tr("Light Theme")
+        elif self.current_theme == ThemeManager.LIGHT:
+            self.current_theme = ThemeManager.DARK
+            theme_name = tr("Dark Theme")
+        else:
+            self.current_theme = ThemeManager.FARM
+            theme_name = tr("Farm Theme")
 
-        SettingsManager.set_setting('app_theme', self.current_theme, 'Application theme: light/dark')
+        SettingsManager.set_setting('app_theme', self.current_theme, 'Application theme: farm/light/dark')
         ThemeManager.set_current_theme(self.current_theme)
 
         app = QApplication.instance()
@@ -1004,7 +1026,12 @@ class MainWindow(QMainWindow):
     def _on_logout(self):
         """Log out current user and show login dialog; if cancelled, exit app."""
         from egg_farm_system.ui.forms.login_dialog import LoginDialog
-        reply = QMessageBox.question(self, 'Confirm Logout', 'Are you sure you want to logout?', QMessageBox.Yes | QMessageBox.No)
+        reply = QMessageBox.question(
+            self,
+            tr('Confirm Logout'),
+            tr('Are you sure you want to logout?'),
+            QMessageBox.Yes | QMessageBox.No
+        )
         if reply != QMessageBox.Yes:
             return
 
@@ -1020,13 +1047,6 @@ class MainWindow(QMainWindow):
                     else:
                         btn.setEnabled(True)
                         btn.setToolTip('')
-            try:
-                if self.current_user:
-                    pass 
-                else:
-                    pass
-            except Exception:
-                pass
         else:
             self.close_application()
 
@@ -1061,7 +1081,7 @@ class MainWindow(QMainWindow):
             'goto_parties': self.load_parties,
             'goto_reports': self.load_reports,
             'goto_expenses': self.load_expenses,
-            'goto_employees': self.load_employees,
+            'goto_employees': self.load_employees_management,
             
             # Quick Actions
             'record_production': lambda: self._safe_load(self.load_production),
@@ -1086,7 +1106,7 @@ class MainWindow(QMainWindow):
                 handler()
             except Exception as e:
                 logger.error(f"Error executing command {command_id}: {e}")
-                QMessageBox.warning(self, "Error", f"Failed to execute command: {str(e)}")
+                QMessageBox.warning(self, tr("Error"), f"{tr('Failed to execute command')}: {str(e)}")
     
     def show_import_wizard(self):
         """Show import wizard dialog"""
@@ -1099,8 +1119,8 @@ class MainWindow(QMainWindow):
         if result['status'] == 'success':
             QMessageBox.information(
                 self,
-                "Import Successful",
-                f"Successfully imported {result['imported']} records!"
+                tr("Import Successful"),
+                f"{tr('Successfully imported')} {result['imported']} {tr('records')}!"
             )
             # Refresh current view
             self._refresh_current_page()

@@ -1,7 +1,7 @@
 """
 Purchase module with auto ledger posting and performance optimizations
 """
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from egg_farm_system.database.models import Purchase, RawMaterial
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.ledger import LedgerManager
@@ -9,6 +9,7 @@ from egg_farm_system.utils.currency import CurrencyConverter
 from egg_farm_system.utils.advanced_caching import CacheInvalidationManager
 from egg_farm_system.utils.performance_monitoring import measure_time
 import logging
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -62,13 +63,16 @@ class PurchaseManager:
                     raise ValueError("Payment method must be 'Cash' or 'Credit'")
                 
                 if date is None:
-                    date = datetime.utcnow()
+                    date = utcnow_naive()
                 
                 # Validate date not too far in the future
-                if date > datetime.utcnow() + timedelta(days=1):
+                if date > utcnow_naive() + timedelta(days=1):
                     raise ValueError("Purchase date cannot be more than 1 day in the future")
                 
-                material = self.session.query(RawMaterial).filter(RawMaterial.id == material_id).first()
+                material_query = self.session.query(RawMaterial).filter(RawMaterial.id == material_id)
+                if farm_id is not None:
+                    material_query = material_query.filter(RawMaterial.farm_id == farm_id)
+                material = material_query.first()
                 if not material:
                     raise ValueError(f"Material {material_id} not found")
                 
@@ -102,6 +106,7 @@ class PurchaseManager:
                 # Post to ledger: Credit party, Debit inventory
                 self.ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     description=f"Purchase: {quantity}kg {material.name}",
                     credit_afg=total_afg,
@@ -131,6 +136,7 @@ class PurchaseManager:
                 # Create offsetting ledger entry to reduce party balance to zero
                 self.ledger_manager.post_entry(
                     party_id=party_id,
+                    farm_id=farm_id,
                     date=date,
                     description=f"Payment paid: Purchase #{purchase.id}",
                     debit_afg=total_afg,
@@ -161,9 +167,12 @@ class PurchaseManager:
                 raise ValueError("Quantity must be greater than 0")
 
             # Ensure material exists (Carton / Tray)
-            material = self.session.query(RawMaterial).filter(RawMaterial.name == material_name).first()
+            material_query = self.session.query(RawMaterial).filter(RawMaterial.name == material_name)
+            if farm_id is not None:
+                material_query = material_query.filter(RawMaterial.farm_id == farm_id)
+            material = material_query.first()
             if not material:
-                material = RawMaterial(name=material_name, unit='pcs', current_stock=0)
+                material = RawMaterial(farm_id=farm_id, name=material_name, unit='pcs', current_stock=0)
                 self.session.add(material)
                 self.session.flush()
 
@@ -201,7 +210,7 @@ class PurchaseManager:
             if end_date:
                 query = query.filter(Purchase.date <= end_date)
             
-            if farm_id:
+            if farm_id is not None:
                 query = query.filter(Purchase.farm_id == farm_id)
             
             return query.order_by(Purchase.date.desc()).all()

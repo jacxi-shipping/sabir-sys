@@ -116,7 +116,10 @@ class PackagingPurchaseDialog(QDialog):
             try:
                 session = pm.session
                 from egg_farm_system.database.models import RawMaterial
-                rm = session.query(RawMaterial).filter(RawMaterial.name == mat).first()
+                query = session.query(RawMaterial).filter(RawMaterial.name == mat)
+                if self.farm_id is not None:
+                    query = query.filter(RawMaterial.farm_id == self.farm_id)
+                rm = query.first()
                 if rm:
                     self.current_stock_label.setText(f"{rm.current_stock} pcs")
                 else:

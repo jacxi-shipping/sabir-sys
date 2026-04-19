@@ -1,10 +1,11 @@
 """
 Flock management module
 """
-from datetime import datetime
+from datetime import UTC, datetime
 from egg_farm_system.database.models import Flock, Mortality, Medication
 from egg_farm_system.database.db import DatabaseManager
 import logging
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ class FlockManager:
                 return None
             
             if as_of_date is None:
-                as_of_date = datetime.utcnow()
+                as_of_date = utcnow_naive()
             
             live_count = flock.get_live_count(as_of_date)
             age_days = flock.get_age_days(as_of_date)
@@ -195,3 +196,4 @@ class FlockManager:
         finally:
             session.close()
     
+

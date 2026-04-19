@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from pathlib import Path
+import logging
 
 from egg_farm_system.modules.reports import ReportGenerator
 from egg_farm_system.modules.parties import PartyManager
@@ -23,6 +24,8 @@ from egg_farm_system.utils.jalali import format_value_for_ui
 from egg_farm_system.ui.widgets.charts import TimeSeriesChart
 from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit
 from datetime import datetime, date
+
+logger = logging.getLogger(__name__)
 
 class ReportViewerWidget(QWidget):
     """Report viewing and export widget"""
@@ -72,7 +75,12 @@ class ReportViewerWidget(QWidget):
             for farm in farms:
                 self.farm_combo.addItem(farm.name, farm.id)
         except Exception as e:
-            print(f"Error loading farms: {e}")
+            logger.exception("Error loading farms: %s", e)
+            QMessageBox.warning(
+                self,
+                tr("Warning"),
+                tr("Unable to load farms. Showing 'All Farms' only.")
+            )
         selector_layout.addWidget(self.farm_combo)
         
         selector_layout.addStretch()
@@ -101,8 +109,13 @@ class ReportViewerWidget(QWidget):
             pm = PartyManager()
             for party in pm.get_all_parties():
                 self.party_combo.addItem(party.name, party.id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Error loading parties for reports: %s", e)
+            QMessageBox.warning(
+                self,
+                tr("Warning"),
+                tr("Unable to load parties. Party Statement may be unavailable.")
+            )
         self.party_combo.setVisible(False)
         date_layout.addWidget(self.party_combo)
 
@@ -216,8 +229,13 @@ class ReportViewerWidget(QWidget):
             self.report_table.clear()
             self.chart.setVisible(False)
             self.info_label.setText(tr("No report generated yet. Select a report type and click 'Generate Report'."))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Failed to refresh report view for farm change: %s", e)
+            QMessageBox.warning(
+                self,
+                tr("Warning"),
+                tr("Failed to refresh report view. Please regenerate the report.")
+            )
     
     def generate_report(self):
         """Generate selected report"""
@@ -373,6 +391,7 @@ class ReportViewerWidget(QWidget):
                         rows = []
                         chart_dates = []
                         chart_balances = []
+                        chart_data_issue = False
                         
                         for e in data['entries']:
                             rows.append([
@@ -391,10 +410,11 @@ class ReportViewerWidget(QWidget):
                                     if isinstance(e['date'], (datetime, date)):
                                         chart_dates.append(e['date'])
                                     else:
-                                        # parsing handled by format_value_for_ui usually, but here we need object
-                                        pass 
+                                        chart_data_issue = True
                                     chart_balances.append(e.get('balance_afg', 0))
-                                except: pass
+                                except Exception as parse_err:
+                                    chart_data_issue = True
+                                    logger.warning("Skipping invalid chart data row in party statement: %s", parse_err)
                         
                         self.report_table.set_headers(headers)
                         self.report_table.set_rows(rows)
@@ -404,6 +424,12 @@ class ReportViewerWidget(QWidget):
                             self.chart.setVisible(True)
                             self.chart.set_labels(left_label="Balance (AFG)", bottom_label="Date")
                             self.chart.plot(chart_dates, chart_balances, name="Balance (AFG)", pen='g')
+                        elif chart_data_issue:
+                            QMessageBox.information(
+                                self,
+                                tr("Info"),
+                                tr("Statement table is shown, but trend chart could not be rendered for some rows.")
+                            )
 
                         self.current_report_data = data
                         self.current_report_type = report_type

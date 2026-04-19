@@ -12,6 +12,7 @@ import json
 
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.database.models import Base
+from egg_farm_system.utils.time_utils import utcnow_naive
 from sqlalchemy import Column, Integer, String, DateTime, Text, Enum as SQLEnum
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
     
     id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=utcnow_naive, nullable=False)
     user_id = Column(Integer, nullable=True)  # User who performed action
     username = Column(String(100), nullable=True)
     action_type = Column(SQLEnum(ActionType), nullable=False)
@@ -88,7 +89,7 @@ class AuditTrail:
         session = self._get_session()
         try:
             audit_log = AuditLog(
-                timestamp=datetime.utcnow(),
+                timestamp=utcnow_naive(),
                 user_id=entry.user_id,
                 username=entry.username,
                 action_type=entry.action_type,
@@ -179,7 +180,7 @@ class AuditTrail:
         """Get activity for a user"""
         session = self._get_session()
         try:
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = utcnow_naive() - timedelta(days=days)
             return session.query(AuditLog).filter(
                 AuditLog.user_id == user_id,
                 AuditLog.timestamp >= start_date
@@ -236,4 +237,6 @@ def audit_decorator(action_type: ActionType, entity_type: str):
             return result
         return wrapper
     return decorator
+
+
 

@@ -3,12 +3,13 @@ Workflow Automation Module for Egg Farm Management System
 """
 import logging
 from typing import Dict, List, Callable, Optional, Any
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 import json
 
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.modules.settings import SettingsManager
+from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class ScheduledTask:
         if not self.enabled:
             return
         
-        now = datetime.utcnow()
+        now = utcnow_naive()
         
         if self.frequency == TaskFrequency.DAILY:
             self.next_run = now.replace(hour=0, minute=0, second=0) + timedelta(days=1)
@@ -69,14 +70,14 @@ class ScheduledTask:
         if self.next_run is None:
             return False
         
-        return datetime.utcnow() >= self.next_run
+        return utcnow_naive() >= self.next_run
     
     def run(self):
         """Execute the task"""
         try:
             logger.info(f"Running scheduled task: {self.name}")
             result = self.callback(**self.kwargs)
-            self.last_run = datetime.utcnow()
+            self.last_run = utcnow_naive()
             self._calculate_next_run()
             return result
         except Exception as e:
@@ -211,7 +212,7 @@ def generate_daily_report(**kwargs):
         
         farm_id = kwargs.get('farm_id', 1)
         report_generator = ReportGenerator()
-        today = datetime.utcnow().date()
+        today = utcnow_naive().date()
         
         # Generate report
         data = report_generator.daily_egg_production_report(farm_id, datetime.combine(today, datetime.min.time()))
@@ -268,4 +269,5 @@ def get_workflow_automation() -> WorkflowAutomation:
     if _workflow_automation is None:
         _workflow_automation = WorkflowAutomation()
     return _workflow_automation
+
 

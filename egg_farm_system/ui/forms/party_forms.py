@@ -31,8 +31,9 @@ logger = logging.getLogger(__name__)
 class PartyFormWidget(QWidget):
     """Party management widget"""
     
-    def __init__(self):
+    def __init__(self, farm_id=None):
         super().__init__()
+        self.farm_id = farm_id
         # self.party_manager removed - using context manager
         self.ledger_manager = LedgerManager()
         self.converter = CurrencyConverter()
@@ -91,8 +92,8 @@ class PartyFormWidget(QWidget):
                 rows = []
                 action_widgets = []
                 for row, party in enumerate(parties):
-                    balance_afg = self.ledger_manager.get_party_balance(party.id, "AFG")
-                    balance_usd = self.ledger_manager.get_party_balance(party.id, "USD")
+                    balance_afg = self.ledger_manager.get_party_balance(party.id, "AFG", farm_id=self.farm_id)
+                    balance_usd = self.ledger_manager.get_party_balance(party.id, "USD", farm_id=self.farm_id)
                     rows.append([party.name, party.phone or "", f"{balance_afg:,.2f}", f"{balance_usd:,.2f}", ""])
                     action_widgets.append((row, party.id, party.name, balance_afg, balance_usd)) # Store minimal data
                 
@@ -181,7 +182,15 @@ class PartyFormWidget(QWidget):
         # We pass PartyManager class or create new one inside. 
         # AddTransactionDialog seems to take party_manager instance.
         with PartyManager() as pm:
-            dialog = AddTransactionDialog(self, party=None, transaction_type="Debit", ledger_manager=self.ledger_manager, converter=self.converter, party_manager=pm)
+            dialog = AddTransactionDialog(
+                self,
+                party=None,
+                transaction_type="Debit",
+                ledger_manager=self.ledger_manager,
+                converter=self.converter,
+                party_manager=pm,
+                farm_id=self.farm_id,
+            )
             if dialog.exec():
                 self.refresh_parties()
                 success_msg = SuccessMessage(self, "Transaction recorded successfully")
@@ -201,7 +210,7 @@ class PartyFormWidget(QWidget):
         with PartyManager() as pm:
             party = pm.get_party_by_id(party_id)
             if party:
-                dialog = PartyViewDialog(self, party)
+                dialog = PartyViewDialog(self, party, farm_id=self.farm_id)
                 dialog.exec()
     
     def edit_party(self, party_id):
@@ -217,8 +226,8 @@ class PartyFormWidget(QWidget):
     def delete_party(self, party_id, party_name):
         """Delete party with detailed confirmation"""
         # Get party balance info
-        balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG")
-        balance_usd = self.ledger_manager.get_party_balance(party_id, "USD")
+        balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG", farm_id=self.farm_id)
+        balance_usd = self.ledger_manager.get_party_balance(party_id, "USD", farm_id=self.farm_id)
         
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Warning)
@@ -271,6 +280,11 @@ class PartyFormWidget(QWidget):
                         tr("Delete Failed"), 
                         f"Failed to delete party.\n\nError: {str(e)}\n\nPlease try again."
                     )
+
+    def set_farm_id(self, farm_id):
+        """Update selected farm context and reload party balances."""
+        self.farm_id = farm_id
+        self.refresh_parties()
 
 
 class PartyDialog(QDialog):
@@ -404,6 +418,7 @@ class PartyTransactionDialog(QDialog):
         super().__init__(parent)
         self.party_manager = party_manager
         self.ledger_manager = ledger_manager
+        self.farm_id = getattr(parent, 'farm_id', None)
         self.converter = CurrencyConverter()
         self.exchange_rate = self.converter.get_exchange_rate()
         
@@ -595,8 +610,8 @@ class PartyTransactionDialog(QDialog):
         """Update current balance display"""
         party_id = self.party_combo.currentData()
         if party_id:
-            balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG")
-            balance_usd = self.ledger_manager.get_party_balance(party_id, "USD")
+            balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG", farm_id=self.farm_id)
+            balance_usd = self.ledger_manager.get_party_balance(party_id, "USD", farm_id=self.farm_id)
             
             balance_text = f"AFG: {balance_afg:,.2f} | USD: {balance_usd:,.2f}"
             if balance_afg > 0:
@@ -639,8 +654,8 @@ class PartyTransactionDialog(QDialog):
             self.new_balance_usd_label.setText(tr("0.00 USD"))
             return
         
-        current_balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG")
-        current_balance_usd = self.ledger_manager.get_party_balance(party_id, "USD")
+        current_balance_afg = self.ledger_manager.get_party_balance(party_id, "AFG", farm_id=self.farm_id)
+        current_balance_usd = self.ledger_manager.get_party_balance(party_id, "USD", farm_id=self.farm_id)
         
         amount_afg = self.amount_afg_spin.value()
         amount_usd = self.amount_usd_spin.value()
@@ -698,6 +713,7 @@ class PartyTransactionDialog(QDialog):
                     # Debit: Party owes us (money coming in)
                     self.ledger_manager.post_entry(
                         party_id=party_id,
+                        farm_id=self.farm_id,
                         date=date,
                         description=description,
                         debit_afg=amount_afg,
@@ -713,6 +729,7 @@ class PartyTransactionDialog(QDialog):
                     # Credit: We owe party (money going out)
                     self.ledger_manager.post_entry(
                         party_id=party_id,
+                        farm_id=self.farm_id,
                         date=date,
                         description=description,
                         debit_afg=0,
@@ -739,3 +756,8 @@ class PartyTransactionDialog(QDialog):
         except Exception as e:
             logger.error(f"Error saving transaction: {e}")
             QMessageBox.critical(self, tr("Error"), f"Failed to save transaction: {str(e)}")
+
+    def set_farm_id(self, farm_id):
+        """Update selected farm context and refresh balances."""
+        self.farm_id = farm_id
+        self.refresh_parties()
