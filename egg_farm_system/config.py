@@ -46,7 +46,7 @@ WINDOW_HEIGHT = 900
 SIDEBAR_WIDTH = 250
 
 # Theme
-DEFAULT_THEME = "farm"
+DEFAULT_THEME = "light"
 
 # Expense categories
 EXPENSE_CATEGORIES = [

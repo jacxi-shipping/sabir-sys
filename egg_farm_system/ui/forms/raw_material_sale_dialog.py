@@ -1,8 +1,8 @@
 from egg_farm_system.utils.i18n import tr
 import logging
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton,
-    QDoubleSpinBox, QComboBox, QMessageBox, QTextEdit, QSizePolicy
+    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
+    QDoubleSpinBox, QComboBox, QMessageBox, QTextEdit, QWidget
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -84,17 +84,23 @@ class RawMaterialSaleDialog(QDialog):
         self.rate_afg_spin.setMaximum(1_000_000)
         self.rate_afg_spin.setDecimals(2)
         self.rate_afg_spin.setSuffix(" AFG")
+        self.rate_afg_spin.setMinimumHeight(34)
+        self.rate_afg_spin.setStyleSheet("QDoubleSpinBox { padding: 4px 8px; }")
 
         self.rate_usd_spin = QDoubleSpinBox()
         self.rate_usd_spin.setMinimum(0.0)
         self.rate_usd_spin.setMaximum(1_000_000)
         self.rate_usd_spin.setDecimals(2)
         self.rate_usd_spin.setSuffix(" USD")
+        self.rate_usd_spin.setMinimumHeight(34)
+        self.rate_usd_spin.setStyleSheet("QDoubleSpinBox { padding: 4px 8px; }")
 
         rate_row = QHBoxLayout()
+        rate_row.setContentsMargins(0, 0, 0, 0)
+        rate_row.setSpacing(8)
         rate_row.addWidget(self.rate_afg_spin)
         rate_row.addWidget(self.rate_usd_spin)
-        rate_container = QLabel()
+        rate_container = QWidget()
         rate_container.setLayout(rate_row)
         form.addRow(tr("Rate:"), rate_container)
 
