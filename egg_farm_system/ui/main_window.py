@@ -543,7 +543,7 @@ class MainWindow(QMainWindow):
     def load_feed_management(self):
         """Load feed management widget"""
         from egg_farm_system.ui.forms.feed_forms import FeedFormWidget
-        feed_widget = FeedFormWidget()
+        feed_widget = FeedFormWidget(farm_id=self.get_current_farm_id())
         self.replace_content(feed_widget)
         self._update_breadcrumbs("Feed Management", "feed")
         self._add_to_history("Feed Management", "feed", self.load_feed_management)

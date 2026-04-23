@@ -6,7 +6,7 @@ from egg_farm_system.utils.i18n import tr
 from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QMessageBox, QDialog, QFormLayout, QDoubleSpinBox, QComboBox, QSpinBox, QSizePolicy
+    QMessageBox, QDialog, QFormLayout, QDoubleSpinBox, QComboBox, QSpinBox, QSizePolicy, QTabWidget
 )
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QIcon
@@ -28,10 +28,11 @@ from egg_farm_system.modules.parties import PartyManager
 from egg_farm_system.modules.inventory import InventoryManager
 from egg_farm_system.modules.feed_mill import RawMaterialManager
 from egg_farm_system.modules.farms import FarmManager
-from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense, Ledger
+from egg_farm_system.database.models import RawMaterial, Sale, Purchase, Expense, Ledger, RawMaterialSale
 from egg_farm_system.database.db import DatabaseManager
 from egg_farm_system.config import EXPENSE_CATEGORIES
 from egg_farm_system.ui.widgets.advanced_sales_dialog_new import AdvancedSalesDialogNew as AdvancedSalesDialog
+from egg_farm_system.ui.forms.raw_material_sale_dialog import RawMaterialSaleDialog
 from egg_farm_system.utils.jalali import format_value_for_ui
 from egg_farm_system.ui.widgets.jalali_date_edit import JalaliDateEdit, JalaliDateTimeEdit
 
@@ -75,10 +76,10 @@ class TransactionFormWidget(QWidget):
         title.setFont(title_font)
         header_hbox.addWidget(title)
         header_hbox.addStretch()
-        new_btn = QPushButton(f"New {title_text.split()[0]}")
-        new_btn.clicked.connect(self.add_transaction)
-        new_btn.setToolTip(f"Add new {self.transaction_type} (Ctrl+N)")
-        header_hbox.addWidget(new_btn)
+        self.new_btn = QPushButton(f"New {title_text.split()[0]}")
+        self.new_btn.clicked.connect(self.add_transaction)
+        self.new_btn.setToolTip(f"Add new {self.transaction_type} (Ctrl+N)")
+        header_hbox.addWidget(self.new_btn)
         
         # Add keyboard shortcuts
         KeyboardShortcuts.add_standard_shortcuts(self, {
@@ -119,24 +120,57 @@ class TransactionFormWidget(QWidget):
         
         layout.addLayout(filter_layout)
         
-        # Transactions table
+        # Transactions table(s)
         if self.transaction_type == 'sales':
-            headers = ["Date", "Party", "Quantity", "Rate AFG", "Total AFG", "Actions"]
+            self.sales_tabs = QTabWidget()
+            self.sales_tabs.addTab(QWidget(), "Egg Sales")
+            self.sales_tabs.addTab(QWidget(), "Raw Material Sales")
+
+            egg_tab_layout = QVBoxLayout(self.sales_tabs.widget(0))
+            egg_tab_layout.setContentsMargins(0, 6, 0, 0)
+            self.egg_sales_table = DataTableWidget()
+            self.egg_sales_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.egg_sales_table.set_headers(["Date", "Party", "Quantity", "Rate AFG", "Total AFG", "Actions"])
+            egg_tab_layout.addWidget(self.egg_sales_table)
+
+            raw_tab_layout = QVBoxLayout(self.sales_tabs.widget(1))
+            raw_tab_layout.setContentsMargins(0, 6, 0, 0)
+            self.raw_sales_table = DataTableWidget()
+            self.raw_sales_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.raw_sales_table.set_headers(["Date", "Party", "Material", "Quantity", "Rate AFG", "Total AFG"])
+            raw_tab_layout.addWidget(self.raw_sales_table)
+
+            self.sales_tabs.currentChanged.connect(self.on_sales_tab_changed)
+            layout.addWidget(self.sales_tabs)
+            self.table = self.egg_sales_table
         elif self.transaction_type == 'purchases':
             headers = ["Date", "Party", "Material", "Quantity", "Total AFG", "Actions"]
+            self.table = DataTableWidget()
+            self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.table.set_headers(headers)
+            layout.addWidget(self.table)
         else:  # expenses
             headers = ["Date", "Category", "Amount AFG", "Party", "Actions"]
-        
-        self.table = DataTableWidget()
-        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.table.set_headers(headers)
-        layout.addWidget(self.table)
+            self.table = DataTableWidget()
+            self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.table.set_headers(headers)
+            layout.addWidget(self.table)
         
         self.setLayout(layout)
     
     def on_farm_filter_changed(self, index):
         """Handle farm filter change"""
         self.selected_farm_filter = self.farm_filter.currentData()
+        self.refresh_data()
+
+    def on_sales_tab_changed(self, index):
+        """Handle sales tab changes"""
+        if self.transaction_type != 'sales':
+            return
+        if index == 0:
+            self.new_btn.setText("New Sale")
+        else:
+            self.new_btn.setText("New Raw Material Sale")
         self.refresh_data()
     
     def refresh_data(self):
@@ -150,25 +184,52 @@ class TransactionFormWidget(QWidget):
         try:
             rows = []
             action_items = []
+            table_widget = self.table
 
             if self.transaction_type == 'sales':
-                with SalesManager(current_user=self.current_user) as sm:
-                    filter_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
-                    transactions = sm.get_sales(farm_id=filter_farm_id)
-                    
-                    for row, trans in enumerate(transactions):
-                        party = self.party_manager.get_party_by_id(trans.party_id)
-                        # Show cartons if available, otherwise show quantity
-                        qty_display = f"{trans.cartons:.2f} cartons" if trans.cartons else f"{trans.quantity} eggs"
-                        rows.append([
-                            format_value_for_ui(trans.date),
-                            party.name if party else "",
-                            qty_display,
-                            f"{trans.rate_afg:.2f}",
-                            f"{trans.total_afg:.2f}",
-                            ""
-                        ])
-                        action_items.append((row, trans, 'sale'))
+                filter_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
+                if self.sales_tabs.currentIndex() == 0:
+                    table_widget = self.egg_sales_table
+                    with SalesManager(current_user=self.current_user) as sm:
+                        transactions = sm.get_sales(farm_id=filter_farm_id)
+
+                        for row, trans in enumerate(transactions):
+                            party = self.party_manager.get_party_by_id(trans.party_id)
+                            # Show cartons if available, otherwise show quantity
+                            qty_display = f"{trans.cartons:.2f} cartons" if trans.cartons else f"{trans.quantity} eggs"
+                            rows.append([
+                                format_value_for_ui(trans.date),
+                                party.name if party else "",
+                                qty_display,
+                                f"{trans.rate_afg:.2f}",
+                                f"{trans.total_afg:.2f}",
+                                ""
+                            ])
+                            action_items.append((row, trans, 'sale'))
+                else:
+                    table_widget = self.raw_sales_table
+                    session = DatabaseManager.get_session()
+                    try:
+                        query = session.query(RawMaterialSale).order_by(RawMaterialSale.date.desc())
+                        if filter_farm_id is not None:
+                            query = query.join(RawMaterial, RawMaterialSale.material_id == RawMaterial.id).filter(
+                                RawMaterial.farm_id == filter_farm_id
+                            )
+                        transactions = query.all()
+
+                        for trans in transactions:
+                            party = self.party_manager.get_party_by_id(trans.party_id)
+                            material = session.query(RawMaterial).filter(RawMaterial.id == trans.material_id).first()
+                            rows.append([
+                                format_value_for_ui(trans.date),
+                                party.name if party else "",
+                                material.name if material else "",
+                                f"{trans.quantity:.2f}",
+                                f"{trans.rate_afg:.2f}",
+                                f"{trans.total_afg:.2f}",
+                            ])
+                    finally:
+                        session.close()
 
             elif self.transaction_type == 'purchases':
                 with PurchaseManager() as pm:
@@ -227,7 +288,9 @@ class TransactionFormWidget(QWidget):
 
             # populate rows and attach action widgets
             if rows:
-                self.table.set_rows(rows)
+                table_widget.set_rows(rows)
+            else:
+                table_widget.set_rows([])
 
             # attach action widgets into last column
             from egg_farm_system.config import get_asset_path
@@ -266,7 +329,7 @@ class TransactionFormWidget(QWidget):
                 l.addWidget(edit_btn)
                 l.addWidget(delete_btn)
                 l.addStretch()
-                self.table.set_cell_widget(row_idx, self.table.model.columnCount()-1, container)
+                table_widget.set_cell_widget(row_idx, table_widget.model.columnCount()-1, container)
             
             self.loading_overlay.hide()
         except Exception as e:
@@ -312,12 +375,19 @@ class TransactionFormWidget(QWidget):
         """Add new transaction"""
         active_farm_id = self.selected_farm_filter if self.selected_farm_filter is not None else self.farm_id
         if self.transaction_type == 'sales':
-            # Use advanced sales dialog
-            dialog = AdvancedSalesDialog(self.window(), None, farm_id=active_farm_id)
-            dialog.sale_saved.connect(self.refresh_data)
-            if dialog.exec():
-                success_msg = SuccessMessage(self, "Sale added successfully")
-                success_msg.show()
+            if hasattr(self, 'sales_tabs') and self.sales_tabs.currentIndex() == 1:
+                dialog = RawMaterialSaleDialog(self.window(), farm_id=active_farm_id)
+                dialog.sale_saved.connect(self.refresh_data)
+                if dialog.exec():
+                    success_msg = SuccessMessage(self, "Raw material sale added successfully")
+                    success_msg.show()
+            else:
+                # Use advanced sales dialog
+                dialog = AdvancedSalesDialog(self.window(), None, farm_id=active_farm_id)
+                dialog.sale_saved.connect(self.refresh_data)
+                if dialog.exec():
+                    success_msg = SuccessMessage(self, "Sale added successfully")
+                    success_msg.show()
         elif self.transaction_type == 'purchases':
             dialog = PurchaseDialog(self, None, self.party_manager, self.inventory_manager, farm_id=active_farm_id)
             if dialog.exec():

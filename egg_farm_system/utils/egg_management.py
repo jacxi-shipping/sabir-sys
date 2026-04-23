@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy import func
 
 from egg_farm_system.database.db import DatabaseManager
-from egg_farm_system.database.models import EggProduction, Sale, Shed
+from egg_farm_system.database.models import EggGrade, EggInventory
 from egg_farm_system.modules.settings import SettingsManager
 
 logger = logging.getLogger(__name__)
@@ -132,56 +132,22 @@ class EggManagementSystem:
             try:
                 summary = {'small': 0, 'medium': 0, 'large': 0, 'broken': 0}
 
+                inventory_query = session.query(EggInventory)
                 if farm_id is None:
-                    # Backward compatibility fallback when no farm is selected.
-                    from egg_farm_system.database.models import EggInventory, EggGrade
-                    inventories = session.query(EggInventory).all()
-                    for inv in inventories:
-                        if inv.grade == EggGrade.SMALL:
-                            summary['small'] = inv.current_stock
-                        elif inv.grade == EggGrade.MEDIUM:
-                            summary['medium'] = inv.current_stock
-                        elif inv.grade == EggGrade.LARGE:
-                            summary['large'] = inv.current_stock
-                        elif inv.grade == EggGrade.BROKEN:
-                            summary['broken'] = inv.current_stock
+                    inventories = inventory_query.all()
                 else:
-                    produced = (
-                        session.query(
-                            func.coalesce(func.sum(EggProduction.small_count), 0),
-                            func.coalesce(func.sum(EggProduction.medium_count), 0),
-                            func.coalesce(func.sum(EggProduction.large_count), 0),
-                            func.coalesce(func.sum(EggProduction.broken_count), 0),
-                        )
-                        .join(Shed, EggProduction.shed_id == Shed.id)
-                        .filter(Shed.farm_id == farm_id)
-                        .one()
-                    )
-                    summary['small'] = int(produced[0] or 0)
-                    summary['medium'] = int(produced[1] or 0)
-                    summary['large'] = int(produced[2] or 0)
-                    summary['broken'] = int(produced[3] or 0)
+                    inventories = inventory_query.filter(EggInventory.farm_id == farm_id).all()
 
-                    sold_usable = int(
-                        session.query(func.coalesce(func.sum(Sale.quantity), 0))
-                        .filter(Sale.farm_id == farm_id)
-                        .scalar()
-                        or 0
-                    )
-
-                    # Mirror inventory consumption order used during sales.
-                    remaining = sold_usable
-                    for key in ('large', 'medium', 'small'):
-                        if remaining <= 0:
-                            break
-                        take = min(summary[key], remaining)
-                        summary[key] -= take
-                        remaining -= take
-
-                    summary['small'] = max(summary['small'], 0)
-                    summary['medium'] = max(summary['medium'], 0)
-                    summary['large'] = max(summary['large'], 0)
-                    summary['broken'] = max(summary['broken'], 0)
+                grade_map = {
+                    EggGrade.SMALL: 'small',
+                    EggGrade.MEDIUM: 'medium',
+                    EggGrade.LARGE: 'large',
+                    EggGrade.BROKEN: 'broken',
+                }
+                for inv in inventories:
+                    key = grade_map.get(inv.grade)
+                    if key:
+                        summary[key] += int(inv.current_stock or 0)
 
             finally:
                 session.close()

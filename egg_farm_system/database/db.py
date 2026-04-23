@@ -98,6 +98,12 @@ class DatabaseManager:
         from egg_farm_system.database.migrate_farm_scope_inventory_accounting import migrate_farm_scope_inventory_accounting
         migrations.append(("migrate_farm_scope_inventory_accounting", migrate_farm_scope_inventory_accounting))
 
+        from egg_farm_system.database.migrate_raw_material_farm_scope_consistency import migrate_raw_material_farm_scope_consistency
+        migrations.append(("migrate_raw_material_farm_scope_consistency", migrate_raw_material_farm_scope_consistency))
+
+        from egg_farm_system.database.migrate_feed_material_template_backfill import migrate_feed_material_template_backfill
+        migrations.append(("migrate_feed_material_template_backfill", migrate_feed_material_template_backfill))
+
         from egg_farm_system.database.migrate_egg_inventory import migrate_egg_inventory
         migrations.append(("migrate_egg_inventory", migrate_egg_inventory))
 

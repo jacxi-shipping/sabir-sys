@@ -69,11 +69,14 @@ def seed_data() -> dict:
         session.add_all([supplier_a, supplier_b, customer_a, customer_b])
         session.flush()
 
-        # Raw materials (upsert by unique name so script is resilient to migration-created defaults)
-        def upsert_material(name, unit, stock, cost_afg_per_unit, supplier_id, low_alert):
-            material = session.query(RawMaterial).filter(RawMaterial.name == name).first()
+        # Raw materials (upsert by farm + unique name)
+        def upsert_material(farm_id, name, unit, stock, cost_afg_per_unit, supplier_id, low_alert):
+            material = session.query(RawMaterial).filter(
+                RawMaterial.farm_id == farm_id,
+                RawMaterial.name == name,
+            ).first()
             if material is None:
-                material = RawMaterial(name=name)
+                material = RawMaterial(farm_id=farm_id, name=name)
                 session.add(material)
             material.unit = unit
             material.current_stock = stock
@@ -84,25 +87,39 @@ def seed_data() -> dict:
             material.low_stock_alert = low_alert
             return material
 
-        corn = upsert_material("Corn", "kg", 1200, 24, supplier_a.id, 200)
-        soybean = upsert_material("Soybean Meal", "kg", 900, 48, supplier_b.id, 150)
-        carton = upsert_material("Carton", "pcs", 1500, 8, supplier_a.id, 200)
-        tray = upsert_material("Tray", "pcs", 2200, 4, supplier_b.id, 300)
+        default_farm = session.query(Farm).order_by(Farm.id).first()
+        default_farm_id = default_farm.id if default_farm else 1
+
+        corn = upsert_material(farm_a.id, "Corn", "kg", 1200, 24, supplier_a.id, 200)
+        soybean = upsert_material(farm_b.id, "Soybean Meal", "kg", 900, 48, supplier_b.id, 150)
+        carton = upsert_material(default_farm_id, "Carton", "pcs", 1500, 8, supplier_a.id, 200)
+        tray = upsert_material(default_farm_id, "Tray", "pcs", 2200, 4, supplier_b.id, 300)
         session.flush()
 
-        # Egg inventory baseline (upsert by unique grade)
-        def upsert_inventory(grade, qty):
-            row = session.query(EggInventory).filter(EggInventory.grade == grade).first()
+        # Egg inventory baseline (upsert by farm + grade)
+        def upsert_inventory(farm_id, grade, qty):
+            row = session.query(EggInventory).filter(
+                EggInventory.farm_id == farm_id,
+                EggInventory.grade == grade,
+            ).first()
             if row is None:
-                row = EggInventory(grade=grade, current_stock=qty)
+                row = EggInventory(farm_id=farm_id, grade=grade, current_stock=qty)
                 session.add(row)
             else:
                 row.current_stock = qty
 
-        upsert_inventory(EggGrade.SMALL, 600)
-        upsert_inventory(EggGrade.MEDIUM, 900)
-        upsert_inventory(EggGrade.LARGE, 1200)
-        upsert_inventory(EggGrade.BROKEN, 80)
+        upsert_inventory(1, EggGrade.SMALL, 600)
+        upsert_inventory(1, EggGrade.MEDIUM, 900)
+        upsert_inventory(1, EggGrade.LARGE, 1200)
+        upsert_inventory(1, EggGrade.BROKEN, 80)
+        upsert_inventory(farm_a.id, EggGrade.SMALL, 1330)
+        upsert_inventory(farm_a.id, EggGrade.MEDIUM, 1770)
+        upsert_inventory(farm_a.id, EggGrade.LARGE, 1350)
+        upsert_inventory(farm_a.id, EggGrade.BROKEN, 430)
+        upsert_inventory(farm_b.id, EggGrade.SMALL, 1480)
+        upsert_inventory(farm_b.id, EggGrade.MEDIUM, 1970)
+        upsert_inventory(farm_b.id, EggGrade.LARGE, 1580)
+        upsert_inventory(farm_b.id, EggGrade.BROKEN, 490)
 
         # Production history for last 10 days across sheds
         productions = []

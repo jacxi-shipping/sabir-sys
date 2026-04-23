@@ -385,10 +385,11 @@ class IssuingTab(QWidget):
 
 # --- Main Feed Widget ---
 class FeedFormWidget(QWidget):
-    def __init__(self):
+    def __init__(self, farm_id=None):
         super().__init__()
+        self.farm_id = farm_id
         # Centralized manager instances
-        self.raw_material_manager = RawMaterialManager()
+        self.raw_material_manager = RawMaterialManager(farm_id=self.farm_id)
         self.formula_manager = FeedFormulaManager()
         self.production_manager = FeedProductionManager()
         self.issue_manager = FeedIssueManager()

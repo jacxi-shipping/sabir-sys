@@ -14,6 +14,8 @@ from egg_farm_system.utils.time_utils import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
+PACKAGING_MATERIAL_NAMES = {"Carton", "Tray"}
+
 class RawMaterialManager:
     """Manage raw materials"""
     
@@ -61,6 +63,20 @@ class RawMaterialManager:
             return query.all()
         except Exception as e:
             logger.error(f"Error getting materials: {e}")
+            return []
+
+    def get_feed_materials(self, farm_id=None):
+        """Get farm-scoped feed-production materials, excluding packaging rows."""
+        try:
+            effective_farm_id = self.farm_id if farm_id is None else farm_id
+            query = self.session.query(RawMaterial).filter(
+                RawMaterial.name.notin_(PACKAGING_MATERIAL_NAMES)
+            )
+            if effective_farm_id is not None:
+                query = query.filter(RawMaterial.farm_id == effective_farm_id)
+            return query.order_by(RawMaterial.name.asc()).all()
+        except Exception as e:
+            logger.error(f"Error getting feed materials: {e}")
             return []
     
     def get_material_by_id(self, material_id, farm_id=None):

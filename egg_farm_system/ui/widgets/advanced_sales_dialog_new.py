@@ -477,6 +477,7 @@ class AdvancedSalesDialogNew(QDialog):
                         sale.tray_expense_afg = tray_expense
                         sale.carton_expense_afg = carton_expense
                         sale.total_expense_afg = total_expense
+                        sale.farm_id = self.farm_id
                         sale.payment_method = self.payment_method_combo.currentText()
                         sale.notes = self.notes_edit.toPlainText()
                         session.commit()
@@ -497,7 +498,8 @@ class AdvancedSalesDialogNew(QDialog):
                         date=self.date_edit.dateTime(),
                         notes=self.notes_edit.toPlainText(),
                         exchange_rate_used=exchange_rate,
-                        payment_method=self.payment_method_combo.currentText()
+                        payment_method=self.payment_method_combo.currentText(),
+                        farm_id=self.farm_id
                     )
             
             QMessageBox.information(self, tr("Success"), "Sale recorded successfully!")

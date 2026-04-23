@@ -80,19 +80,21 @@ class RawMaterialSaleDialog(QDialog):
 
         # Rate AFG / USD
         self.rate_afg_spin = QDoubleSpinBox()
-        self.rate_afg_spin.setMinimum(0.0)
-        self.rate_afg_spin.setMaximum(1_000_000)
+        self.rate_afg_spin.setRange(0.0, 999_999_999.99)
         self.rate_afg_spin.setDecimals(2)
+        self.rate_afg_spin.setSingleStep(1.0)
         self.rate_afg_spin.setSuffix(" AFG")
         self.rate_afg_spin.setMinimumHeight(34)
+        self.rate_afg_spin.setMinimumWidth(170)
         self.rate_afg_spin.setStyleSheet("QDoubleSpinBox { padding: 4px 8px; }")
 
         self.rate_usd_spin = QDoubleSpinBox()
-        self.rate_usd_spin.setMinimum(0.0)
-        self.rate_usd_spin.setMaximum(1_000_000)
+        self.rate_usd_spin.setRange(0.0, 999_999_999.99)
         self.rate_usd_spin.setDecimals(2)
+        self.rate_usd_spin.setSingleStep(1.0)
         self.rate_usd_spin.setSuffix(" USD")
         self.rate_usd_spin.setMinimumHeight(34)
+        self.rate_usd_spin.setMinimumWidth(170)
         self.rate_usd_spin.setStyleSheet("QDoubleSpinBox { padding: 4px 8px; }")
 
         rate_row = QHBoxLayout()
@@ -149,7 +151,7 @@ class RawMaterialSaleDialog(QDialog):
         # Raw materials
         self.raw_material_combo.clear()
         with RawMaterialManager(farm_id=self.farm_id) as rmm:
-            for m in rmm.get_all_materials(farm_id=self.farm_id):
+            for m in rmm.get_feed_materials(farm_id=self.farm_id):
                 self.raw_material_combo.addItem(f"{m.name} ({m.unit})", m.id)
 
         # Initialize fields

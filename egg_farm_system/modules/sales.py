@@ -359,7 +359,7 @@ class SalesManager:
 
             # Consume eggs only (packaging was already consumed during production)
             inv_mgr = InventoryManager()
-            inv_mgr.consume_eggs(self.session, eggs, farm_id=farm_id)
+            inv_mgr.consume_eggs(self.session, eggs, farm_id=farm_id, grade=grade)
             # NOTE: Cartons/trays are NOT consumed here - they're consumed during egg production
             
             # Post to ledger: Debit party, Credit sales

@@ -244,20 +244,59 @@ class InventoryManager:
         rows = session.query(EggInventory).filter(EggInventory.farm_id == farm_id).all()
         return sum(r.current_stock for r in rows)
 
-    def consume_eggs(self, session, quantity, farm_id):
-        """Consume eggs from inventory. Deducts from Large -> Medium -> Small.
+    def consume_eggs(self, session, quantity, farm_id, grade=None):
+        """Consume eggs from inventory.
+
+        - If `grade` is one of small/medium/large/broken, deduct only that grade.
+        - Otherwise (None/mixed), deduct from Large -> Medium -> Small.
+
         Raises ValueError if insufficient stock.
         Returns breakdown consumed per grade.
         """
         if quantity <= 0:
             return {'small':0,'medium':0,'large':0}
-        total = self.total_usable_eggs(session, farm_id)
-        if total < quantity:
-            raise ValueError(f"Insufficient egg stock. Available: {total}, requested: {quantity}")
 
         remaining = int(quantity)
-        consumed = {'large':0,'medium':0,'small':0}
+        consumed = {'large':0,'medium':0,'small':0,'broken':0}
+
+        normalized_grade = (grade or '').strip().lower() if isinstance(grade, str) else None
+        single_grade_map = {
+            'small': EggGrade.SMALL,
+            'medium': EggGrade.MEDIUM,
+            'large': EggGrade.LARGE,
+            'broken': EggGrade.BROKEN,
+        }
+        if normalized_grade in single_grade_map:
+            grade_enum = single_grade_map[normalized_grade]
+            inv = session.query(EggInventory).filter(
+                EggInventory.farm_id == farm_id,
+                EggInventory.grade == grade_enum
+            ).first()
+            available = int(inv.current_stock or 0) if inv else 0
+            if available < remaining:
+                raise ValueError(
+                    f"Insufficient {normalized_grade} egg stock. Available: {available}, requested: {remaining}"
+                )
+            inv.current_stock = available - remaining
+            session.add(inv)
+            consumed[normalized_grade] = remaining
+            return consumed
+
+        if normalized_grade not in (None, '', 'mixed'):
+            raise ValueError(f"Unsupported egg grade: {grade}")
+
         order = [('LARGE','large'), ('MEDIUM','medium'), ('SMALL','small')]
+        total_usable = 0
+        for enum_name, _key in order:
+            grade_enum = EggGrade[enum_name]
+            inv = session.query(EggInventory).filter(
+                EggInventory.farm_id == farm_id,
+                EggInventory.grade == grade_enum
+            ).first()
+            total_usable += int(inv.current_stock or 0) if inv else 0
+        if total_usable < remaining:
+            raise ValueError(f"Insufficient egg stock. Available: {total_usable}, requested: {remaining}")
+
         for enum_name, key in order:
             if remaining <= 0:
                 break
