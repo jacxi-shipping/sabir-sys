@@ -170,6 +170,7 @@ class InventoryManager:
                 alerts.append({
                     'type': 'Raw Material',
                     'name': material.name,
+                    'farm_id': material.farm_id,
                     'stock': material.current_stock,
                     'alert_level': material.low_stock_alert,
                     'unit': material.unit
@@ -187,6 +188,7 @@ class InventoryManager:
                 alerts.append({
                     'type': 'Finished Feed',
                     'name': feed.feed_type.value,
+                    'farm_id': feed.farm_id,
                     'stock': feed.current_stock,
                     'alert_level': feed.low_stock_alert,
                     'unit': 'kg'

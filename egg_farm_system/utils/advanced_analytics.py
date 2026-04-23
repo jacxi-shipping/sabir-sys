@@ -10,8 +10,8 @@ from collections import defaultdict
 import statistics
 
 from egg_farm_system.database.db import DatabaseManager
-from egg_farm_system.database.models import (
 from egg_farm_system.utils.time_utils import utcnow_naive
+from egg_farm_system.database.models import (
     EggProduction, Shed, Flock, Sale, Purchase, Expense, FeedIssue,
     RawMaterial, FinishedFeed
 )

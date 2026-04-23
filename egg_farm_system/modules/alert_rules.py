@@ -211,6 +211,7 @@ class LowStockAlert(AlertRule):
                     'material_id': material.id,
                     'data': {
                         'material_name': material.name,
+                        'farm_id': material.farm_id,
                         'current_stock': material.current_stock,
                         'alert_level': material.low_stock_alert,
                         'unit': material.unit
@@ -232,6 +233,7 @@ class LowStockAlert(AlertRule):
                     'feed_id': feed.id,
                     'data': {
                         'feed_type': feed.feed_type.value,
+                        'farm_id': feed.farm_id,
                         'current_stock': feed.current_stock,
                         'alert_level': feed.low_stock_alert
                     }
@@ -407,14 +409,37 @@ class AlertEngine:
     def _send_alert(self, alert: dict):
         """Send alert via notification system"""
         try:
-            from egg_farm_system.utils.notification_manager import get_notification_manager
+            from egg_farm_system.utils.notification_manager import (
+                build_low_stock_dedup_key,
+                get_notification_manager,
+            )
             
             notification_manager = get_notification_manager()
+            alert_type = alert.get('type', 'generic')
+            alert_title = alert.get('title', 'untitled')
+            dedup_key = f"alert:{alert_type}:{alert_title}"
+
+            if alert_type == 'low_stock':
+                alert_data = alert.get('data', {})
+                if 'material_name' in alert_data:
+                    dedup_key = build_low_stock_dedup_key(
+                        'Raw Material',
+                        alert_data['material_name'],
+                        alert_data.get('farm_id'),
+                    )
+                elif 'feed_type' in alert_data:
+                    dedup_key = build_low_stock_dedup_key(
+                        'Finished Feed',
+                        alert_data['feed_type'],
+                        alert_data.get('farm_id'),
+                    )
+
             notification_manager.add_notification(
                 title=alert['title'],
                 message=alert['message'],
                 severity=alert['severity'],
-                data=alert.get('data', {})
+                data=alert.get('data', {}),
+                dedup_key=dedup_key,
             )
         except Exception as e:
             logger.error(f"Error sending alert: {e}")
