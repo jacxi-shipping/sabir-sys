@@ -204,13 +204,20 @@ class MainWindow(QMainWindow):
             if key:
                 if isinstance(widget, QPushButton):
                     new_text = tr(key)
-                    widget.setText(new_text)
                     if widget.property("full_text"):
-                        widget.setProperty("full_text", new_text)
+                        prefix = ""
+                        existing_full_text = widget.property("full_text") or ""
+                        if isinstance(existing_full_text, str) and existing_full_text.endswith(key):
+                            prefix = existing_full_text[:-len(key)]
+                        updated_full_text = f"{prefix}{new_text}"
+                        widget.setProperty("full_text", updated_full_text)
                         if not self.sidebar.property('collapsed'):
-                            widget.setText(new_text)
+                            widget.setText(updated_full_text)
                         else:
-                            widget.setToolTip(new_text)
+                            widget.setText(widget.property("collapsed_text") or "")
+                            widget.setToolTip(updated_full_text)
+                    else:
+                        widget.setText(new_text)
                 elif isinstance(widget, QLabel):
                     widget.setText(tr(key))
                 
@@ -223,13 +230,25 @@ class MainWindow(QMainWindow):
 
         # Update specific buttons
         if hasattr(self, 'notification_btn'):
-            self.notification_btn.setText(f"🔔 {tr('Notifications')}")
+            notification_text = f"🔔 {tr('Notifications')}"
+            self.notification_btn.setProperty("full_text", notification_text)
+            if not self.sidebar.property('collapsed'):
+                self.notification_btn.setText(notification_text)
+            else:
+                self.notification_btn.setText(self.notification_btn.property("collapsed_text") or "")
+                self.notification_btn.setToolTip(notification_text)
         
         if hasattr(self, 'theme_btn'):
             self.theme_btn.setText(f"🎨 {tr('Farm Theme')}")
             
         if hasattr(self, 'logout_button'):
-            self.logout_button.setText(f"🚪 {tr('Logout')}")
+            logout_text = f"🚪 {tr('Logout')}"
+            self.logout_button.setProperty("full_text", logout_text)
+            if not self.sidebar.property('collapsed'):
+                self.logout_button.setText(logout_text)
+            else:
+                self.logout_button.setText(self.logout_button.property("collapsed_text") or "")
+                self.logout_button.setToolTip(logout_text)
             
         if hasattr(self, 'lang_btn'):
             label = "English" if lang_code == 'ps' else "پښتو"
@@ -305,6 +324,7 @@ class MainWindow(QMainWindow):
         dashboard_btn = QPushButton(tr("Dashboard"))
         dashboard_btn.setProperty("i18n_key", "Dashboard")
         dashboard_btn.setProperty("full_text", "Dashboard")
+        dashboard_btn.setProperty("collapsed_text", "🏠")
         dashboard_btn.setProperty('class', 'sidebar-dashboard')
         dashboard_btn.setMinimumHeight(40)
         # No hardcoded styles - global theme handles it
@@ -386,6 +406,8 @@ class MainWindow(QMainWindow):
         notif_layout = QHBoxLayout()
         self.notification_btn = QPushButton(f"🔔 {tr('Notifications')}")
         self.notification_btn.setProperty("i18n_key", "Notifications")
+        self.notification_btn.setProperty("full_text", f"🔔 {tr('Notifications')}")
+        self.notification_btn.setProperty("collapsed_text", "🔔")
         self.notification_btn.setProperty('class', 'sidebar-action')
         self.notification_btn.setMinimumHeight(42)
         self.notification_btn.clicked.connect(self.show_notifications)
@@ -402,6 +424,8 @@ class MainWindow(QMainWindow):
         
         # Language Switcher
         self.lang_btn = QPushButton(tr("🌐 پښتو"))
+        self.lang_btn.setProperty("full_text", tr("🌐 پښتو"))
+        self.lang_btn.setProperty("collapsed_text", "🌐")
         self.lang_btn.setProperty('class', 'sidebar-action')
         self.lang_btn.setMinimumHeight(42)
         self.lang_btn.clicked.connect(self.toggle_language)
@@ -410,6 +434,8 @@ class MainWindow(QMainWindow):
         # Logout button
         logout_btn = QPushButton(f"🚪 {tr('Logout')}")
         logout_btn.setProperty("i18n_key", "Logout")
+        logout_btn.setProperty("full_text", f"🚪 {tr('Logout')}")
+        logout_btn.setProperty("collapsed_text", "🚪")
         logout_btn.setProperty('class', 'sidebar-logout')
         logout_btn.setMinimumHeight(42)
         logout_btn.clicked.connect(self.logout)
@@ -933,14 +959,15 @@ class MainWindow(QMainWindow):
                     continue
 
                 full_text = btn.property('full_text')
-                if not full_text:
-                    continue
+                collapsed_text = btn.property('collapsed_text') or ""
 
                 if new_state:  # Collapsing
-                    btn.setText("")  # Remove text
-                    btn.setToolTip(full_text)  # Add tooltip
+                    btn.setText(collapsed_text)
+                    if full_text:
+                        btn.setToolTip(full_text)
                 else:  # Expanding
-                    btn.setText(full_text)  # Restore text
+                    if full_text:
+                        btn.setText(full_text)
                     btn.setToolTip("")  # Remove tooltip
 
             # Hide/Show Farm Combo and Labels
@@ -956,7 +983,8 @@ class MainWindow(QMainWindow):
                 # But the group HEADER button needs handling.
                 if hasattr(group, 'header_btn'):
                     if new_state:
-                        group.header_btn.setText("") # Hide header text
+                        arrow = "▼" if group.is_expanded else "▶"
+                        group.header_btn.setText(arrow)
                         group.header_btn.setToolTip(group.title)
                         # Maybe force collapse content if sidebar is collapsed?
                         # group.is_expanded = False

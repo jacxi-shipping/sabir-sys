@@ -589,8 +589,12 @@ class SalesDialog(QDialog):
         self.quantity_spin.setSuffix(" eggs")
         
         self.rate_afg_spin = QDoubleSpinBox()
+        self.rate_afg_spin.setRange(0.0, 999_999_999.99)
+        self.rate_afg_spin.setDecimals(2)
         self.rate_afg_spin.setSuffix(" AFG")
         self.rate_usd_spin = QDoubleSpinBox()
+        self.rate_usd_spin.setRange(0.0, 999_999_999.99)
+        self.rate_usd_spin.setDecimals(2)
         self.rate_usd_spin.setSuffix(" USD")
         
         self.payment_method_combo = QComboBox()
@@ -684,8 +688,12 @@ class PurchaseDialog(QDialog):
         self.quantity_spin.setSuffix(" units")
         
         self.rate_afg_spin = QDoubleSpinBox()
+        self.rate_afg_spin.setRange(0.0, 999_999_999.99)
+        self.rate_afg_spin.setDecimals(2)
         self.rate_afg_spin.setSuffix(" AFG")
         self.rate_usd_spin = QDoubleSpinBox()
+        self.rate_usd_spin.setRange(0.0, 999_999_999.99)
+        self.rate_usd_spin.setDecimals(2)
         self.rate_usd_spin.setSuffix(" USD")
         
         self.payment_method_combo = QComboBox()
@@ -893,8 +901,14 @@ class ExpenseDialog(QDialog):
             self.category_combo.addItem(category)
         
         self.amount_afg_spin = QDoubleSpinBox()
+        self.amount_afg_spin.setRange(0.00, 100000000.00)
+        self.amount_afg_spin.setDecimals(2)
+        self.amount_afg_spin.setSingleStep(100.0)
         self.amount_afg_spin.setSuffix(" AFG")
         self.amount_usd_spin = QDoubleSpinBox()
+        self.amount_usd_spin.setRange(0.00, 1000000.00)
+        self.amount_usd_spin.setDecimals(2)
+        self.amount_usd_spin.setSingleStep(1.0)
         self.amount_usd_spin.setSuffix(" USD")
         
         self.party_combo = QComboBox()
