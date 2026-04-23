@@ -170,6 +170,13 @@ class ProductionForecastWidget(QWidget):
     def update_forecast_display(self, forecast_data):
         """Update the display with forecast data"""
         try:
+            if isinstance(forecast_data, list):
+                forecast_data = {"forecasts": forecast_data}
+
+            if not isinstance(forecast_data, dict):
+                self.handle_forecast_error("Unexpected forecast data format")
+                return
+
             if 'error' in forecast_data:
                 self.plot_widget.clear()
                 self.plot_widget.setTitle(f"Forecast Error: {forecast_data['error']}")
@@ -237,6 +244,12 @@ class ProductionForecastWidget(QWidget):
     def update_kpis(self, forecast_data):
         """Update KPI widgets with forecast statistics"""
         try:
+            if isinstance(forecast_data, list):
+                forecast_data = {"forecasts": forecast_data}
+
+            if not isinstance(forecast_data, dict):
+                return
+
             forecasts = forecast_data.get('forecasts', [])
             if forecasts:
                 # Average daily production
@@ -780,12 +793,6 @@ class FinancialDashboardWidget(QWidget):
             self.budget_thread.error_occurred.connect(self.handle_budget_error)
             self.budget_thread.start()
             
-            # Load forecast data
-            self.forecast_thread = ForecastThread(self.farm_id, 12)  # 12 months
-            self.forecast_thread.result_ready.connect(self.update_forecast_display)
-            self.forecast_thread.error_occurred.connect(self.handle_budget_error)
-            self.forecast_thread.start()
-            
         except Exception as e:
             logger.error(f"Error loading financial data: {e}")
             self.handle_budget_error(str(e))
@@ -816,6 +823,7 @@ class FinancialDashboardWidget(QWidget):
             
             # Update charts
             self.update_revenue_chart(budget_data)
+            self.update_cash_flow_chart(budget_data)
             
             # Update scenarios
             self.update_scenarios(budget_data)
@@ -826,11 +834,21 @@ class FinancialDashboardWidget(QWidget):
     def update_forecast_display(self, forecast_data):
         """Update forecast display"""
         try:
+            if isinstance(forecast_data, list):
+                forecast_data = {"forecasts": forecast_data}
+
+            if not isinstance(forecast_data, dict):
+                return
+
             if 'error' in forecast_data:
                 return
             
             # Update cash flow chart
-            cash_flow = forecast_data.get('forecasts', {}).get('cash_flow', {})
+            forecasts_payload = forecast_data.get('forecasts', {})
+            if isinstance(forecasts_payload, dict):
+                cash_flow = forecasts_payload.get('cash_flow', {})
+            else:
+                cash_flow = {}
             monthly_data = cash_flow.get('monthly_forecasts', [])
             
             if monthly_data:
@@ -845,6 +863,28 @@ class FinancialDashboardWidget(QWidget):
                 
         except Exception as e:
             logger.error(f"Error updating forecast display: {e}")
+
+    def update_cash_flow_chart(self, budget_data):
+        """Update cash flow chart from budget cash flow projections."""
+        try:
+            monthly_data = budget_data.get('cash_flow_budget', {}).get('monthly_projections', {})
+            if not monthly_data:
+                return
+
+            sorted_items = sorted(monthly_data.items())
+            months = [int(key.split('_')[1]) for key, _ in sorted_items]
+            cumulative_flows = [item.get('cumulative_cash_flow', 0) for _, item in sorted_items]
+
+            self.cash_flow_chart.clear()
+            self.cash_flow_chart.plot(
+                months,
+                cumulative_flows,
+                pen=pg.mkPen('green', width=2),
+                name='Cumulative Cash Flow'
+            )
+            self.cash_flow_chart.addLegend()
+        except Exception as e:
+            logger.error(f"Error updating cash flow chart: {e}")
     
     def update_revenue_chart(self, budget_data):
         """Update revenue vs expenses chart"""

@@ -508,7 +508,14 @@ class FinancialPlanner:
                 "cash_flow_analysis": {
                     "peak_financing_need": round(abs(min_cash_flow)) if min_cash_flow < 0 else 0,
                     "average_monthly_operating_flow": round(total_operating_flow / 12),
-                    "cash_flow_seasonality": "high" if (min_val := abs(min(m["operating_cash_flow"] for m in monthly_cash_flow.values()))) > 0 and max(m["operating_cash_flow"] for m in monthly_cash_flow.values()) / min_val > 2 else "moderate"
+                    "cash_flow_seasonality": (
+                        "high"
+                        if (
+                            (min_val := abs(min(m["operating_cash_flow"] for m in monthly_cash_flow.values()))) > 0
+                            and (max_val := max(m["operating_cash_flow"] for m in monthly_cash_flow.values())) / min_val > 2
+                        )
+                        else "moderate"
+                    )
                 },
                 "recommendations": self._generate_cash_flow_recommendations(monthly_cash_flow)
             }
@@ -1502,7 +1509,8 @@ class FinancialPlanner:
         
         # Check for seasonal patterns
         monthly_flows = [m["operating_cash_flow"] for m in monthly_cash_flow.values()]
-        if max(monthly_flows) / abs(min(monthly_flows)) > 2:
+        min_flow_abs = abs(min(monthly_flows)) if monthly_flows else 0
+        if min_flow_abs > 0 and max(monthly_flows) / min_flow_abs > 2:
             recommendations.append("High seasonal variation in cash flow - plan for working capital management")
         
         # General recommendations
