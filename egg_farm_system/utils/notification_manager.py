@@ -207,10 +207,11 @@ class NotificationManager:
         try:
             alerts = inventory_manager.get_low_stock_alerts()
             for alert in alerts:
+                farm_name = alert.get('farm_name') or 'Unknown Farm'
                 self.add_notification(
-                    title="Low Stock Alert",
+                    title=f"Low Stock: {alert['name']} ({farm_name})",
                     message=(
-                        f"{alert['name']} ({alert['type']}) is below threshold. "
+                        f"Farm: {farm_name}. {alert['name']} ({alert['type']}) is below threshold. "
                         f"Current: {alert['stock']} {alert['unit']}"
                     ),
                     severity=NotificationSeverity.WARNING,

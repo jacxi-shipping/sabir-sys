@@ -171,6 +171,7 @@ class InventoryManager:
                     'type': 'Raw Material',
                     'name': material.name,
                     'farm_id': material.farm_id,
+                    'farm_name': material.farm.name if material.farm else 'Unknown Farm',
                     'stock': material.current_stock,
                     'alert_level': material.low_stock_alert,
                     'unit': material.unit
@@ -189,6 +190,7 @@ class InventoryManager:
                     'type': 'Finished Feed',
                     'name': feed.feed_type.value,
                     'farm_id': feed.farm_id,
+                    'farm_name': feed.farm.name if feed.farm else 'Unknown Farm',
                     'stock': feed.current_stock,
                     'alert_level': feed.low_stock_alert,
                     'unit': 'kg'

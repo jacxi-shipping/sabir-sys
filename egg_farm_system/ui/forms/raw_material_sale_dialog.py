@@ -164,8 +164,8 @@ class RawMaterialSaleDialog(QDialog):
     def _connect(self):
         self.raw_material_combo.currentIndexChanged.connect(self._on_material_changed)
         self.quantity_spin.valueChanged.connect(self.update_totals)
-        self.rate_afg_spin.valueChanged.connect(self._on_rate_afg_changed)
-        self.rate_usd_spin.valueChanged.connect(self._on_rate_usd_changed)
+        self.rate_afg_spin.valueChanged.connect(self.update_totals)
+        self.rate_usd_spin.valueChanged.connect(self.update_totals)
 
     def _on_material_changed(self):
         material_id = self.raw_material_combo.currentData()
@@ -196,20 +196,6 @@ class RawMaterialSaleDialog(QDialog):
                     self.rate_usd_spin.setValue(round(m.cost_afg / self.exchange_rate, 2))
 
         self.update_totals()
-
-    def _on_rate_afg_changed(self):
-        if self.exchange_rate and self.rate_afg_spin.value() > 0:
-            self.rate_usd_spin.blockSignals(True)
-            self.rate_usd_spin.setValue(round(self.rate_afg_spin.value() / self.exchange_rate, 2))
-            self.rate_usd_spin.blockSignals(False)
-            self.update_totals()
-
-    def _on_rate_usd_changed(self):
-        if self.exchange_rate and self.rate_usd_spin.value() > 0:
-            self.rate_afg_spin.blockSignals(True)
-            self.rate_afg_spin.setValue(round(self.rate_usd_spin.value() * self.exchange_rate, 2))
-            self.rate_afg_spin.blockSignals(False)
-            self.update_totals()
 
     def update_totals(self):
         q = self.quantity_spin.value()

@@ -206,12 +206,17 @@ class LowStockAlert(AlertRule):
                 alerts.append({
                     'type': 'low_stock',
                     'severity': severity,
-                    'title': f'Low Stock: {material.name}',
-                    'message': f'Current stock: {material.current_stock:.1f} {material.unit} (alert level: {material.low_stock_alert:.1f})',
+                    'title': f'Low Stock: {material.name} ({material.farm.name if material.farm else "Unknown Farm"})',
+                    'message': (
+                        f'Farm: {material.farm.name if material.farm else "Unknown Farm"}. '
+                        f'Current stock: {material.current_stock:.1f} {material.unit} '
+                        f'(alert level: {material.low_stock_alert:.1f})'
+                    ),
                     'material_id': material.id,
                     'data': {
                         'material_name': material.name,
                         'farm_id': material.farm_id,
+                        'farm_name': material.farm.name if material.farm else 'Unknown Farm',
                         'current_stock': material.current_stock,
                         'alert_level': material.low_stock_alert,
                         'unit': material.unit
@@ -228,12 +233,17 @@ class LowStockAlert(AlertRule):
                 alerts.append({
                     'type': 'low_stock',
                     'severity': severity,
-                    'title': f'Low Stock: {feed.feed_type.value} Feed',
-                    'message': f'Current stock: {feed.current_stock:.1f} kg (alert level: {feed.low_stock_alert:.1f})',
+                    'title': f'Low Stock: {feed.feed_type.value} Feed ({feed.farm.name if feed.farm else "Unknown Farm"})',
+                    'message': (
+                        f'Farm: {feed.farm.name if feed.farm else "Unknown Farm"}. '
+                        f'Current stock: {feed.current_stock:.1f} kg '
+                        f'(alert level: {feed.low_stock_alert:.1f})'
+                    ),
                     'feed_id': feed.id,
                     'data': {
                         'feed_type': feed.feed_type.value,
                         'farm_id': feed.farm_id,
+                        'farm_name': feed.farm.name if feed.farm else 'Unknown Farm',
                         'current_stock': feed.current_stock,
                         'alert_level': feed.low_stock_alert
                     }
