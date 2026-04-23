@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate, QDateTime, Signal
 
+from egg_farm_system.ui.ui_helpers import create_button
+
 
 class QuickDatePicker(QWidget):
     """Date picker with quick selection buttons.
@@ -47,35 +49,23 @@ class QuickDatePicker(QWidget):
             quick_layout.setSpacing(5)
             
             # Create buttons
-            self.today_btn = QPushButton("Today", self)
+            self.today_btn = create_button("Today", style='ghost')
             self.today_btn.setToolTip("Set date to today")
             self.today_btn.clicked.connect(self._set_today)
             
-            self.yesterday_btn = QPushButton("Yesterday", self)
+            self.yesterday_btn = create_button("Yesterday", style='ghost')
             self.yesterday_btn.setToolTip("Set date to yesterday")
             self.yesterday_btn.clicked.connect(self._set_yesterday)
             
-            self.week_btn = QPushButton("This Week", self)
+            self.week_btn = create_button("This Week", style='ghost')
             self.week_btn.setToolTip("Set date to the start of this week (Monday)")
             self.week_btn.clicked.connect(self._set_this_week)
             
-            self.month_btn = QPushButton("This Month", self)
+            self.month_btn = create_button("This Month", style='ghost')
             self.month_btn.setToolTip("Set date to the 1st of this month")
             self.month_btn.clicked.connect(self._set_this_month)
-            
-            # Style buttons
-            button_style = """
-                QPushButton {
-                    padding: 4px 8px;
-                    font-size: 11px;
-                    min-width: 60px;
-                }
-                QPushButton:hover {
-                    background-color: #e0e0e0;
-                }
-            """
             for btn in [self.today_btn, self.yesterday_btn, self.week_btn, self.month_btn]:
-                btn.setStyleSheet(button_style)
+                btn.setParent(self)
                 quick_layout.addWidget(btn)
             
             quick_layout.addStretch()
@@ -163,31 +153,19 @@ class QuickDateTimePicker(QWidget):
             quick_layout.setSpacing(5)
             
             # Create buttons
-            self.now_btn = QPushButton("Now", self)
+            self.now_btn = create_button("Now", style='ghost')
             self.now_btn.setToolTip("Set to current date and time")
             self.now_btn.clicked.connect(self._set_now)
             
-            self.today_btn = QPushButton("Today", self)
+            self.today_btn = create_button("Today", style='ghost')
             self.today_btn.setToolTip("Set to today at 00:00")
             self.today_btn.clicked.connect(self._set_today)
             
-            self.yesterday_btn = QPushButton("Yesterday", self)
+            self.yesterday_btn = create_button("Yesterday", style='ghost')
             self.yesterday_btn.setToolTip("Set to yesterday at 00:00")
             self.yesterday_btn.clicked.connect(self._set_yesterday)
-            
-            # Style buttons
-            button_style = """
-                QPushButton {
-                    padding: 4px 8px;
-                    font-size: 11px;
-                    min-width: 60px;
-                }
-                QPushButton:hover {
-                    background-color: #e0e0e0;
-                }
-            """
             for btn in [self.now_btn, self.today_btn, self.yesterday_btn]:
-                btn.setStyleSheet(button_style)
+                btn.setParent(self)
                 quick_layout.addWidget(btn)
             
             quick_layout.addStretch()

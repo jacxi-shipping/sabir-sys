@@ -6,6 +6,7 @@ import logging
 
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QLabel
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from sqlalchemy import func
 
 from egg_farm_system.ui.widgets.dashboard_widget_base import DashboardWidgetBase
@@ -78,26 +79,8 @@ class TopCustomersWidget(DashboardWidgetBase):
             table.setEditTriggers(QTableWidget.NoEditTriggers)
             table.setSelectionMode(QTableWidget.NoSelection)
             table.verticalHeader().setVisible(False)
-            
-            # Style
-            table.setStyleSheet("""
-                QTableWidget {
-                    border: none;
-                    gridline-color: #f0f0f0;
-                }
-                QHeaderView::section {
-                    background-color: #f8f9fa;
-                    padding: 8px;
-                    border: none;
-                    border-bottom: 2px solid #dee2e6;
-                    font-weight: bold;
-                    font-size: 10pt;
-                }
-                QTableWidget::item {
-                    padding: 8px;
-                    font-size: 10pt;
-                }
-            """)
+            table.setAlternatingRowColors(True)
+            table.setShowGrid(True)
             
             # Populate table
             for row, (name, revenue_afg, revenue_usd, count) in enumerate(customers):
@@ -105,7 +88,9 @@ class TopCustomersWidget(DashboardWidgetBase):
                 rank_item = QTableWidgetItem(f"#{row + 1}")
                 rank_item.setTextAlignment(Qt.AlignCenter)
                 if row == 0:
-                    rank_item.setBackground(Qt.GlobalColor.yellow)
+                    rank_item.setBackground(QColor("#fff4cc"))
+                    rank_item.setForeground(QColor("#8a5300"))
+                    rank_item.setToolTip("Top customer")
                 table.setItem(row, 0, rank_item)
                 
                 # Customer name

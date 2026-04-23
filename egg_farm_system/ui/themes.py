@@ -114,121 +114,227 @@ class ThemeManager(QObject):
         return f"""
         /* Light Theme */
         QWidget {{
-          font-family: "Segoe UI", Roboto, Arial, sans-serif;
-          font-size: 11pt;
-          color: #222222;
-          background-color: #fafafa;
+                    font-family: "Segoe UI", "Noto Sans", Arial, sans-serif;
+                    font-size: 11pt;
+                    color: #1f2937;
+                    background-color: #f7f9fc;
         }}
 
         QFrame#sidebar, QFrame[role="sidebar"] {{
-          background-color: #f5f7fb;
-          border-right: 1px solid #e6e9ee;
+                    background-color: #eef2f8;
+                    border-right: 1px solid #dbe3ee;
         }}
         
         QFrame#content_area {{
-            background-color: #ffffff;
+                        background-color: #f7f9fc;
         }}
 
         QGroupBox {{
-          border: 1px solid #e0e0e0;
-          border-radius: 6px;
-          margin-top: 6px;
-          padding: 8px;
+                    border: 1px solid #dfe5ee;
+                    border-radius: 10px;
+                    margin-top: 10px;
+                    padding: 12px;
           background-color: #ffffff;
         }}
 
         QGroupBox::title {{
           subcontrol-origin: margin;
-          left: 8px;
-          padding: 0 3px;
-          font-weight: 600;
-          color: #333333;
+                    left: 10px;
+                    padding: 0 4px;
+                    font-weight: 700;
+                    color: #334155;
         }}
 
         QPushButton {{
           background-color: {ThemeManager.PRIMARY};
           color: white;
-          border-radius: 4px;
-          padding: 6px 10px;
+                    border-radius: 8px;
+                    padding: 7px 14px;
           border: none;
+                    font-weight: 600;
         }}
 
         QPushButton:hover {{
           background-color: {ThemeManager.PRIMARY_HOVER};
         }}
+
+                QPushButton:pressed {{
+                    background-color: #0f5aa6;
+                }}
         
         QPushButton:disabled {{
-          background-color: #bdbdbd;
-          color: #f5f5f5;
+                    background-color: #c8d2df;
+                    color: #f7f9fc;
         }}
 
         /* Sidebar Buttons */
         QFrame#sidebar QPushButton {{
           background-color: transparent;
-          color: #2b2b2b;
+                    color: #2b3645;
           text-align: left;
-          padding: 8px 12px;
+                    padding: 9px 12px;
           border: none;
-          border-radius: 4px;
+                    border-radius: 7px;
+                    font-weight: 600;
         }}
 
         QFrame#sidebar QPushButton:hover {{
-          background-color: rgba(25,118,210,0.1);
+                    background-color: rgba(25,118,210,0.12);
           color: {ThemeManager.PRIMARY};
         }}
         
         QFrame#sidebar QPushButton:checked {{
-             background-color: rgba(25,118,210,0.15);
+                         background-color: rgba(25,118,210,0.17);
              color: {ThemeManager.PRIMARY};
              font-weight: bold;
              border-left: 3px solid {ThemeManager.PRIMARY};
         }}
 
         QFrame#sidebar QLabel {{
-          color: #555555;
+                    color: #4b5a70;
         }}
 
         /* Tables */
         QTableWidget, QTableView {{
-          gridline-color: #e0e0e0;
+                    gridline-color: #e6ecf4;
           background-color: white;
-          alternate-background-color: #f9f9f9;
+                    alternate-background-color: #f8fbff;
           selection-background-color: {ThemeManager.PRIMARY};
           selection-color: white;
+                    border: 1px solid #dfe5ee;
+                    border-radius: 8px;
         }}
+
+                QTableWidget::item, QTableView::item {{
+                    padding: 6px;
+                    border-bottom: 1px solid #edf2f8;
+                }}
+
+                QTableWidget::item:hover, QTableView::item:hover {{
+                    background-color: #eef5ff;
+                }}
         
         QHeaderView::section {{
-          background-color: #f0f4f8;
-          padding: 6px;
-          border: 1px solid #d0d7de;
-          color: #333333;
-          font-weight: bold;
+                    background-color: #eaf1fb;
+                    padding: 8px;
+                    border: 1px solid #d7e1ee;
+                    color: #334155;
+                    font-weight: 700;
         }}
 
         /* Inputs */
         QLineEdit, QComboBox, QSpinBox, QDateTimeEdit, QDateEdit, QDoubleSpinBox, QTextEdit {{
-          padding: 6px;
-          border: 1px solid #d0d7de;
-          border-radius: 4px;
+                    padding: 7px;
+                    border: 1px solid #d0dae8;
+                    border-radius: 7px;
           background-color: white;
-          color: #222;
+                    color: #1f2937;
         }}
         
-        QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
-            border: 1px solid {ThemeManager.PRIMARY};
+                QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateTimeEdit:focus, QDateEdit:focus, QTextEdit:focus {{
+                        border: 1px solid {ThemeManager.PRIMARY};
+                        background-color: #ffffff;
         }}
 
+                QComboBox::drop-down {{
+                        border: none;
+                        width: 22px;
+                }}
+
+                QComboBox QAbstractItemView {{
+                        border: 1px solid #d0dae8;
+                        background-color: #ffffff;
+                        selection-background-color: #e8f1ff;
+                        selection-color: #133b70;
+                }}
+
         QLabel#titleLabel {{
-          font-size: 18pt;
+                    font-size: 19pt;
           font-weight: 700;
-          color: #1a1a1a;
+                    color: #0f172a;
         }}
         
         /* Cards/Widgets */
         QFrame[class="card"] {{
             background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
+                        border: 1px solid #dfe5ee;
+                        border-radius: 10px;
+                }}
+
+                QTabWidget::pane {{
+                        border: 1px solid #dfe5ee;
+                        border-radius: 8px;
+                        background: #ffffff;
+                        top: -1px;
+                }}
+
+                QTabBar::tab {{
+                        background: #ecf2fb;
+                        color: #334155;
+                        border: 1px solid #d9e3f0;
+                        padding: 8px 14px;
+                        margin-right: 4px;
+                        border-top-left-radius: 8px;
+                        border-top-right-radius: 8px;
+                        font-weight: 600;
+                }}
+
+                QTabBar::tab:selected {{
+                        background: #ffffff;
+                        color: #0f5aa6;
+                        border-bottom-color: #ffffff;
+                }}
+
+                QTabBar::tab:hover:!selected {{
+                        background: #e5eefb;
+                }}
+
+                QToolTip {{
+                        color: #f8fafc;
+                        background-color: #1f2937;
+                        border: 1px solid #334155;
+                        padding: 6px 8px;
+                        border-radius: 6px;
+                }}
+
+                QScrollBar:vertical {{
+                        background: #f2f6fb;
+                        width: 11px;
+                        margin: 0;
+                        border-radius: 5px;
+                }}
+
+                QScrollBar::handle:vertical {{
+                        background: #c8d5e8;
+                        border-radius: 5px;
+                        min-height: 24px;
+                }}
+
+                QScrollBar::handle:vertical:hover {{
+                        background: #b2c4dc;
+                }}
+
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                        height: 0;
+                        background: none;
+                }}
+
+                QLabel[class="success-message"] {{
+                        color: #14532d;
+                        background-color: #dcfce7;
+                        border: 1px solid #86efac;
+                        border-radius: 8px;
+                        padding: 8px 12px;
+                        font-weight: 600;
+                }}
+
+                QLabel[class="badge-unread"] {{
+                        background-color: #dc2626;
+                        color: white;
+                        border-radius: 10px;
+                        padding: 2px 8px;
+                        font-weight: 700;
         }}
         """
 

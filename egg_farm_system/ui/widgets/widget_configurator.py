@@ -9,6 +9,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 import logging
 
+from egg_farm_system.ui.ui_helpers import create_button
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,16 +54,21 @@ class WidgetConfigurator(QDialog):
         self.widget_list = QListWidget()
         self.widget_list.setStyleSheet("""
             QListWidget {
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                padding: 5px;
+                border: 1px solid #dfe5ee;
+                border-radius: 8px;
+                padding: 6px;
+                background-color: #ffffff;
             }
             QListWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #f0f0f0;
+                padding: 9px;
+                border-bottom: 1px solid #edf2f8;
             }
             QListWidget::item:hover {
-                background-color: #f8f9fa;
+                background-color: #eef5ff;
+            }
+            QListWidget::item:selected {
+                background-color: #dceafd;
+                color: #133b70;
             }
         """)
         
@@ -78,49 +85,26 @@ class WidgetConfigurator(QDialog):
         
         # Info
         info = QLabel("💡 Tip: You can rearrange widgets by dragging them on the dashboard")
-        info.setStyleSheet("color: #666; font-style: italic; padding: 5px;")
+        info.setStyleSheet("color: #4b5a70; font-style: italic; padding: 6px;")
         info.setWordWrap(True)
         layout.addWidget(info)
         
         # Buttons
         btn_layout = QHBoxLayout()
         
-        self.btn_select_all = QPushButton("Select All")
+        self.btn_select_all = create_button("Select All", style='ghost')
         self.btn_select_all.clicked.connect(self.select_all)
         
-        self.btn_deselect_all = QPushButton("Deselect All")
+        self.btn_deselect_all = create_button("Deselect All", style='ghost')
         self.btn_deselect_all.clicked.connect(self.deselect_all)
         
         btn_layout.addWidget(self.btn_select_all)
         btn_layout.addWidget(self.btn_deselect_all)
         btn_layout.addStretch()
         
-        self.btn_save = QPushButton("Save")
-        self.btn_save.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                padding: 8px 20px;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
+        self.btn_save = create_button("Save", style='primary')
         
-        self.btn_cancel = QPushButton("Cancel")
-        self.btn_cancel.setStyleSheet("""
-            QPushButton {
-                padding: 8px 20px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #f0f0f0;
-            }
-        """)
+        self.btn_cancel = create_button("Cancel", style='ghost')
         
         self.btn_save.clicked.connect(self.accept)
         self.btn_cancel.clicked.connect(self.reject)
