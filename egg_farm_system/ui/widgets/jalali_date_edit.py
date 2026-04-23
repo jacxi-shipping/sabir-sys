@@ -46,9 +46,16 @@ class JalaliDateEdit(QWidget):
         h.setContentsMargins(0, 0, 0, 0)
         self.display = QLineEdit(self)
         self.display.setReadOnly(True)
+        self.display.setStyleSheet(
+            "QLineEdit { background-color: palette(base); color: palette(text); border: 1px solid palette(midlight); border-radius: 6px; padding: 6px; }"
+        )
         h.addWidget(self.display)
         self.btn = QToolButton(self)
         self.btn.setText("⋯")
+        self.btn.setStyleSheet(
+            "QToolButton { background-color: palette(button); color: palette(button-text); border: 1px solid palette(midlight); border-radius: 6px; padding: 4px 8px; } "
+            "QToolButton:hover { background-color: palette(light); }"
+        )
         self.btn.clicked.connect(self._open_picker)
         h.addWidget(self.btn)
 
@@ -76,6 +83,13 @@ class JalaliDateEdit(QWidget):
     def _open_picker(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("Select Date (Jalali)")
+        dlg.setStyleSheet(
+            "QDialog { background-color: palette(window); color: palette(window-text); } "
+            "QLabel { color: palette(window-text); } "
+            "QComboBox, QSpinBox { background-color: palette(base); color: palette(text); border: 1px solid palette(midlight); border-radius: 6px; padding: 4px; } "
+            "QPushButton { background-color: palette(button); color: palette(button-text); border: 1px solid palette(midlight); border-radius: 6px; padding: 6px 10px; } "
+            "QPushButton:hover { background-color: palette(light); }"
+        )
         layout = QVBoxLayout(dlg)
 
         today_j = _gregorian_to_jalali(self._date or date.today())
@@ -167,6 +181,13 @@ class JalaliDateTimeEdit(JalaliDateEdit):
     def _open_picker(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("Select Date & Time (Jalali)")
+        dlg.setStyleSheet(
+            "QDialog { background-color: palette(window); color: palette(window-text); } "
+            "QLabel { color: palette(window-text); } "
+            "QComboBox, QSpinBox { background-color: palette(base); color: palette(text); border: 1px solid palette(midlight); border-radius: 6px; padding: 4px; } "
+            "QPushButton { background-color: palette(button); color: palette(button-text); border: 1px solid palette(midlight); border-radius: 6px; padding: 6px 10px; } "
+            "QPushButton:hover { background-color: palette(light); }"
+        )
         layout = QVBoxLayout(dlg)
 
         today_j = _gregorian_to_jalali(self._date or date.today())
